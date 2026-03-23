@@ -6,7 +6,7 @@ using System.Text.Json;
 namespace WindowsConductor.DriverFlaUI;
 
 /// <summary>
-/// HTTP/WebSocket server that accepts connections from WinApp Clients.
+/// HTTP/WebSocket server that accepts connections from WindowsConductor Clients.
 /// Each connected client gets its own <see cref="AppManager"/> so sessions
 /// are isolated from one another.
 /// </summary>
@@ -88,18 +88,18 @@ public sealed class WsServer
                 while (!wsResult.EndOfMessage);
 
                 string rawJson = Encoding.UTF8.GetString(ms.ToArray());
-                WinAppResponse response;
+                WcResponse response;
 
                 try
                 {
-                    var request = JsonSerializer.Deserialize<WinAppRequest>(rawJson, _jsonOpts)
+                    var request = JsonSerializer.Deserialize<WcRequest>(rawJson, _jsonOpts)
                         ?? throw new InvalidOperationException("Received null request.");
                     response = ProcessRequest(appManager, request);
                 }
                 catch (Exception ex)
                 {
                     Console.Error.WriteLine($"[!] Request error: {ex.Message}");
-                    response = WinAppResponse.Fail("", ex.Message);
+                    response = WcResponse.Fail("", ex.Message);
                 }
 
                 string responseJson = JsonSerializer.Serialize(response, _jsonOpts);
@@ -118,7 +118,7 @@ public sealed class WsServer
         }
     }
 
-    private static WinAppResponse ProcessRequest(AppManager mgr, WinAppRequest req)
+    private static WcResponse ProcessRequest(AppManager mgr, WcRequest req)
     {
         try
         {
@@ -133,83 +133,83 @@ public sealed class WsServer
                         req.GetString("detachedTitleRegex"),
                         mwt > 0 ? mwt : null
                     );
-                    return WinAppResponse.Ok(req.Id, appId);
+                    return WcResponse.Ok(req.Id, appId);
                 }
 
                 case "close":
                     mgr.CloseApp(req.GetString("appId"));
-                    return WinAppResponse.Ok(req.Id);
+                    return WcResponse.Ok(req.Id);
 
                 case "findElement":
                 {
                     var elementId = mgr.FindElement(req.GetString("appId"), req.GetString("selector"));
-                    return WinAppResponse.Ok(req.Id, elementId);
+                    return WcResponse.Ok(req.Id, elementId);
                 }
 
                 case "findElements":
                 {
                     var ids = mgr.FindElements(req.GetString("appId"), req.GetString("selector"));
-                    return WinAppResponse.Ok(req.Id, ids);
+                    return WcResponse.Ok(req.Id, ids);
                 }
 
                 case "click":
                     mgr.Click(req.GetString("elementId"));
-                    return WinAppResponse.Ok(req.Id);
+                    return WcResponse.Ok(req.Id);
 
                 case "doubleClick":
                     mgr.DoubleClick(req.GetString("elementId"));
-                    return WinAppResponse.Ok(req.Id);
+                    return WcResponse.Ok(req.Id);
 
                 case "typeText":
                     mgr.TypeText(req.GetString("elementId"), req.GetString("text"));
-                    return WinAppResponse.Ok(req.Id);
+                    return WcResponse.Ok(req.Id);
 
                 case "getText":
-                    return WinAppResponse.Ok(req.Id, mgr.GetText(req.GetString("elementId")));
+                    return WcResponse.Ok(req.Id, mgr.GetText(req.GetString("elementId")));
 
                 case "getAttribute":
-                    return WinAppResponse.Ok(req.Id,
+                    return WcResponse.Ok(req.Id,
                         mgr.GetAttribute(req.GetString("elementId"), req.GetString("attribute")));
 
                 case "isEnabled":
-                    return WinAppResponse.Ok(req.Id, mgr.IsEnabled(req.GetString("elementId")));
+                    return WcResponse.Ok(req.Id, mgr.IsEnabled(req.GetString("elementId")));
 
                 case "isVisible":
-                    return WinAppResponse.Ok(req.Id, mgr.IsVisible(req.GetString("elementId")));
+                    return WcResponse.Ok(req.Id, mgr.IsVisible(req.GetString("elementId")));
 
                 case "focus":
                     mgr.Focus(req.GetString("elementId"));
-                    return WinAppResponse.Ok(req.Id);
+                    return WcResponse.Ok(req.Id);
 
                 case "getWindowTitle":
-                    return WinAppResponse.Ok(req.Id, mgr.GetWindowTitle(req.GetString("appId")));
+                    return WcResponse.Ok(req.Id, mgr.GetWindowTitle(req.GetString("appId")));
 
                 case "getBoundingRect":
-                    return WinAppResponse.Ok(req.Id, mgr.GetBoundingRect(req.GetString("elementId")));
+                    return WcResponse.Ok(req.Id, mgr.GetBoundingRect(req.GetString("elementId")));
 
                 case "screenshot":
-                    return WinAppResponse.Ok(req.Id,
+                    return WcResponse.Ok(req.Id,
                         mgr.ScreenshotElement(req.GetString("elementId"), req.GetString("path")));
 
                 case "screenshotApp":
-                    return WinAppResponse.Ok(req.Id,
+                    return WcResponse.Ok(req.Id,
                         mgr.ScreenshotApp(req.GetString("appId"), req.GetString("path")));
 
                 case "startRecording":
-                    return WinAppResponse.Ok(req.Id,
+                    return WcResponse.Ok(req.Id,
                         mgr.StartRecording(req.GetString("appId"), req.GetString("path"), req.GetString("ffmpegPath")));
 
                 case "stopRecording":
-                    return WinAppResponse.Ok(req.Id,
+                    return WcResponse.Ok(req.Id,
                         mgr.StopRecording(req.GetString("appId")));
 
                 default:
-                    return WinAppResponse.Fail(req.Id, $"Unknown command: '{req.Command}'");
+                    return WcResponse.Fail(req.Id, $"Unknown command: '{req.Command}'");
             }
         }
         catch (Exception ex)
         {
-            return WinAppResponse.Fail(req.Id, ex.Message);
+            return WcResponse.Fail(req.Id, ex.Message);
         }
     }
 }

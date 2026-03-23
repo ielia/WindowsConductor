@@ -30,8 +30,8 @@ public sealed class NotepadTests
     // ── State ─────────────────────────────────────────────────────────────────
 
     private readonly string _driverUri;
-    private WinAppConnection _connection = null!;
-    private WinAppApp _notepad = null!;
+    private WcSession _connection = null!;
+    private WcApp _notepad = null!;
 
     public NotepadTests(string driverUri) => _driverUri = driverUri;
 
@@ -42,7 +42,7 @@ public sealed class NotepadTests
     {
         try
         {
-            _connection = await WinAppConnection.ConnectAsync(_driverUri);
+            _connection = await WcSession.ConnectAsync(_driverUri);
         }
         catch (Exception ex)
         {
@@ -74,7 +74,7 @@ public sealed class NotepadTests
     [Test]
     public async Task TypeText_AndReadBack_ByName()
     {
-        const string text = "Hello, WinApp Driver!";
+        const string text = "Hello, WcApp Driver!";
         var editor = _notepad.GetByName("Text editor");
         await editor.TypeAsync(text);
 

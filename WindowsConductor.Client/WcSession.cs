@@ -10,18 +10,18 @@ namespace WindowsConductor.Client;
 /// Usage
 /// ─────
 /// <code>
-/// await using var conn  = await WinAppConnection.ConnectAsync("ws://localhost:8765/");
+/// await using var conn  = await WcSession.ConnectAsync("ws://localhost:8765/");
 /// await using var calc  = await conn.LaunchAsync("calc.exe");
 /// await calc.GetByAutomationId("num7Button").ClickAsync();
 /// </code>
 /// </summary>
-public sealed class WinAppConnection : IAsyncDisposable
+public sealed class WcSession : IAsyncDisposable
 {
     private readonly ClientWebSocket _ws;
     private readonly SemaphoreSlim _writeLock = new(1, 1);
 
     // Pending requests indexed by their correlation ID
-    private readonly Dictionary<string, TaskCompletionSource<WinAppResponse>> _pending = new();
+    private readonly Dictionary<string, TaskCompletionSource<WcResponse>> _pending = new();
     private readonly object _pendingLock = new();
 
     private readonly JsonSerializerOptions _opts = new()
@@ -31,17 +31,17 @@ public sealed class WinAppConnection : IAsyncDisposable
         WriteIndented               = false
     };
 
-    private WinAppConnection(ClientWebSocket ws) => _ws = ws;
+    private WcSession(ClientWebSocket ws) => _ws = ws;
 
-    /// <summary>Connects to a WinApp Driver and starts the receive loop.</summary>
-    public static async Task<WinAppConnection> ConnectAsync(
+    /// <summary>Connects to a WcApp Driver and starts the receive loop.</summary>
+    public static async Task<WcSession> ConnectAsync(
         string wsUri = "ws://localhost:8765/",
         CancellationToken ct = default)
     {
         var ws = new ClientWebSocket();
         await ws.ConnectAsync(new Uri(wsUri), ct);
 
-        var conn = new WinAppConnection(ws);
+        var conn = new WcSession(ws);
         _ = Task.Run(() => conn.ReceiveLoopAsync(ct), ct);
         return conn;
     }
@@ -55,7 +55,7 @@ public sealed class WinAppConnection : IAsyncDisposable
     /// <param name="args">Optional command-line arguments.</param>
     /// <param name="detachedTitleRegex">Optional detached application title regex.</param>
     /// <param name="mainWindowTimeout">Optional main window display timeout in milliseconds.</param>
-    public async Task<WinAppApp> LaunchAsync(
+    public async Task<WcApp> LaunchAsync(
         string path,
         string[]? args = null,
         string? detachedTitleRegex = null,
@@ -67,9 +67,9 @@ public sealed class WinAppConnection : IAsyncDisposable
             ct);
 
         string appId = result.GetString()
-            ?? throw new WinAppException("Driver returned no appId for 'launch'.");
+            ?? throw new WcException("Driver returned no appId for 'launch'.");
 
-        return new WinAppApp(appId, this);
+        return new WcApp(appId, this);
     }
 
     // ── Internal transport ───────────────────────────────────────────────────
@@ -77,7 +77,7 @@ public sealed class WinAppConnection : IAsyncDisposable
     /// <summary>
     /// Sends a command to the Driver and awaits the matching response.
     /// Returns the <c>result</c> field of the response.
-    /// Throws <see cref="WinAppException"/> when the Driver reports an error.
+    /// Throws <see cref="WcException"/> when the Driver reports an error.
     /// </summary>
     internal async Task<JsonElement> SendAsync(
         string command,
@@ -85,13 +85,13 @@ public sealed class WinAppConnection : IAsyncDisposable
         CancellationToken ct = default)
     {
         var id = Guid.NewGuid().ToString("N");
-        var tcs = new TaskCompletionSource<WinAppResponse>(
+        var tcs = new TaskCompletionSource<WcResponse>(
             TaskCreationOptions.RunContinuationsAsynchronously);
 
         lock (_pendingLock)
             _pending[id] = tcs;
 
-        var req = new WinAppRequest { Id = id, Command = command, Params = @params };
+        var req = new WcRequest { Id = id, Command = command, Params = @params };
         byte[] bytes = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(req, _opts));
 
         await _writeLock.WaitAsync(ct);
@@ -113,7 +113,7 @@ public sealed class WinAppConnection : IAsyncDisposable
         var response = await tcs.Task;
 
         if (!response.Success)
-            throw new WinAppException(response.Error ?? "Driver returned an unknown error.");
+            throw new WcException(response.Error ?? "Driver returned an unknown error.");
 
         return response.Result ?? default;
     }
@@ -142,17 +142,17 @@ public sealed class WinAppConnection : IAsyncDisposable
             catch (OperationCanceledException) { return; }
             catch { return; }
 
-            WinAppResponse? response;
+            WcResponse? response;
             try
             {
-                response = JsonSerializer.Deserialize<WinAppResponse>(
+                response = JsonSerializer.Deserialize<WcResponse>(
                     Encoding.UTF8.GetString(ms.ToArray()), _opts);
             }
             catch { continue; }
 
             if (response is null) continue;
 
-            TaskCompletionSource<WinAppResponse>? tcs;
+            TaskCompletionSource<WcResponse>? tcs;
             lock (_pendingLock)
             {
                 _pending.TryGetValue(response.Id, out tcs);
@@ -182,5 +182,5 @@ public sealed class WinAppConnection : IAsyncDisposable
     }
 }
 
-/// <summary>Thrown when the WinApp Driver returns an error response.</summary>
-public sealed class WinAppException(string message) : Exception(message);
+/// <summary>Thrown when the WcApp Driver returns an error response.</summary>
+public sealed class WcException(string message) : Exception(message);

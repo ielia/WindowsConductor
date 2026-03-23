@@ -6,7 +6,7 @@ namespace WindowsConductor.Client;
 /// <summary>
 /// Command sent by the Client to the Driver over WebSocket.
 /// </summary>
-internal sealed class WinAppRequest
+internal sealed class WcRequest
 {
     [JsonPropertyName("id")]
     public required string Id { get; init; }
@@ -25,7 +25,7 @@ internal sealed class WinAppRequest
 /// <summary>
 /// Response received from the Driver.
 /// </summary>
-internal sealed class WinAppResponse
+internal sealed class WcResponse
 {
     [JsonPropertyName("id")]
     public string Id { get; set; } = "";

@@ -3,14 +3,14 @@ namespace WindowsConductor.Client;
 /// <summary>
 /// Represents a running Windows application managed by the Driver.
 /// Analogous to <c>IBrowser</c> in Playwright; windows/pages are accessed
-/// through <see cref="WinAppLocator"/>s.
+/// through <see cref="WcLocator"/>s.
 /// </summary>
-public sealed class WinAppApp : IAsyncDisposable
+public sealed class WcApp : IAsyncDisposable
 {
     internal string AppId { get; }
-    internal WinAppConnection Connection { get; }
+    internal WcSession Connection { get; }
 
-    internal WinAppApp(string appId, WinAppConnection connection)
+    internal WcApp(string appId, WcSession connection)
     {
         AppId = appId;
         Connection = connection;
@@ -23,19 +23,19 @@ public sealed class WinAppApp : IAsyncDisposable
     ///
     /// Selector syntax is described in <see cref="SelectorSyntax"/>.
     /// </summary>
-    public WinAppLocator Locator(string selector) =>
+    public WcLocator Locator(string selector) =>
         new(AppId, selector, Connection);
 
     /// <summary>Finds elements by their <c>AutomationId</c> property.</summary>
-    public WinAppLocator GetByAutomationId(string automationId) =>
+    public WcLocator GetByAutomationId(string automationId) =>
         Locator($"[automationid={automationId.Replace("]", "\\]")}]");
 
     /// <summary>Finds elements by their <c>Name</c> property.</summary>
-    public WinAppLocator GetByName(string name) =>
+    public WcLocator GetByName(string name) =>
         Locator($"[name={name.Replace("]", "\\]")}]");
 
     /// <summary>Finds elements whose <c>Name</c> property equals <paramref name="text"/>.</summary>
-    public WinAppLocator GetByText(string text) =>
+    public WcLocator GetByText(string text) =>
         Locator($"text={text.Replace("]", "\\]")}");
 
     /// <summary>
@@ -44,7 +44,7 @@ public sealed class WinAppApp : IAsyncDisposable
     /// Attribute names in predicates: <c>AutomationId</c>, <c>Name</c>,
     /// <c>ClassName</c>, <c>ControlType</c>.
     /// </summary>
-    public WinAppLocator GetByXPath(string xpath)
+    public WcLocator GetByXPath(string xpath)
     {
         // Ensure the expression starts with a slash so the driver recognises it.
         string normalised = xpath.StartsWith('/') ? xpath : $"//{xpath}";
@@ -52,7 +52,7 @@ public sealed class WinAppApp : IAsyncDisposable
     }
 
     /// <summary>Finds elements by UIAutomation <c>ControlType</c> name (e.g. "Button").</summary>
-    public WinAppLocator GetByControlType(string controlType) =>
+    public WcLocator GetByControlType(string controlType) =>
         Locator($"type={controlType}");
 
     // ── Window-level queries ─────────────────────────────────────────────────
@@ -104,7 +104,7 @@ public sealed class WinAppApp : IAsyncDisposable
     }
 }
 
-/// <summary>Documents the selector syntax supported by <see cref="WinAppLocator"/>.</summary>
+/// <summary>Documents the selector syntax supported by <see cref="WcLocator"/>.</summary>
 internal static class SelectorSyntax
 {
     /*

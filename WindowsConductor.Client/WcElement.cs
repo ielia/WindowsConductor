@@ -7,15 +7,15 @@ namespace WindowsConductor.Client;
 /// on the Driver side.  Analogous to <c>IElementHandle</c> in Playwright.
 ///
 /// Element handles can become stale if the UI changes; prefer using
-/// <see cref="WinAppLocator"/> for most operations because it re-queries
+/// <see cref="WcLocator"/> for most operations because it re-queries
 /// the Driver on every call.
 /// </summary>
-public sealed class WinAppElement
+public sealed class WcElement
 {
     private readonly string _elementId;
-    private readonly WinAppConnection _conn;
+    private readonly WcSession _conn;
 
-    internal WinAppElement(string elementId, WinAppConnection conn)
+    internal WcElement(string elementId, WcSession conn)
     {
         _elementId = elementId;
         _conn      = conn;
@@ -83,7 +83,7 @@ public sealed class WinAppElement
         return r.GetString() ?? "";
     }
 
-    public override string ToString() => $"WinAppElement({_elementId})";
+    public override string ToString() => $"WcElement({_elementId})";
 }
 
 /// <summary>Screen coordinates and dimensions of a UIAutomation element.</summary>

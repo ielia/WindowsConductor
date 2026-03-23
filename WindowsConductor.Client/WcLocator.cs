@@ -11,13 +11,13 @@ namespace WindowsConductor.Client;
 /// Each call re-queries the Driver, so the locator always reflects the
 /// current state of the UI.
 /// </summary>
-public sealed class WinAppLocator
+public sealed class WcLocator
 {
     private readonly string _appId;
     private readonly string _selector;
-    private readonly WinAppConnection _conn;
+    private readonly WcSession _conn;
 
-    internal WinAppLocator(string appId, string selector, WinAppConnection conn)
+    internal WcLocator(string appId, string selector, WcSession conn)
     {
         SelectorValidator.Validate(selector);
         _appId    = appId;
@@ -31,32 +31,32 @@ public sealed class WinAppLocator
     /// Returns a new locator scoped to elements matching <paramref name="selector"/>
     /// that are descendants of the current locator's match.
     /// </summary>
-    public WinAppLocator Locator(string selector) =>
+    public WcLocator Locator(string selector) =>
         new(_appId, _selector + " >> " + selector, _conn);
 
     // ── Element resolution ───────────────────────────────────────────────────
 
     /// <summary>Resolves and returns the first matching element.</summary>
-    public async Task<WinAppElement> GetElementAsync(CancellationToken ct = default)
+    public async Task<WcElement> GetElementAsync(CancellationToken ct = default)
     {
         var result = await _conn.SendAsync(
             "findElement", new { appId = _appId, selector = _selector }, ct);
 
         string? elementId = result.GetString();
         if (elementId is null)
-            throw new WinAppException($"No element found for selector: '{_selector}'");
+            throw new WcException($"No element found for selector: '{_selector}'");
 
-        return new WinAppElement(elementId, _conn);
+        return new WcElement(elementId, _conn);
     }
 
     /// <summary>Resolves and returns all matching elements.</summary>
-    public async Task<IReadOnlyList<WinAppElement>> GetAllElementsAsync(CancellationToken ct = default)
+    public async Task<IReadOnlyList<WcElement>> GetAllElementsAsync(CancellationToken ct = default)
     {
         var result = await _conn.SendAsync(
             "findElements", new { appId = _appId, selector = _selector }, ct);
 
         return result.EnumerateArray()
-            .Select(e => new WinAppElement(e.GetString()!, _conn))
+            .Select(e => new WcElement(e.GetString()!, _conn))
             .ToList();
     }
 
@@ -142,5 +142,5 @@ public sealed class WinAppLocator
         return await el.ScreenshotAsync(path, ct);
     }
 
-    public override string ToString() => $"WinAppLocator({_selector})";
+    public override string ToString() => $"WcLocator({_selector})";
 }

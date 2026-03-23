@@ -33,8 +33,8 @@ public sealed class CalculatorTests
     // ── State ─────────────────────────────────────────────────────────────────
 
     private readonly string _driverUri;
-    private WinAppConnection _connection = null!;
-    private WinAppApp _calc = null!;
+    private WcSession _connection = null!;
+    private WcApp _calc = null!;
 
     public CalculatorTests(string driverUri) => _driverUri = driverUri;
 
@@ -45,7 +45,7 @@ public sealed class CalculatorTests
     {
         try
         {
-            _connection = await WinAppConnection.ConnectAsync(_driverUri);
+            _connection = await WcSession.ConnectAsync(_driverUri);
         }
         catch (Exception ex)
         {

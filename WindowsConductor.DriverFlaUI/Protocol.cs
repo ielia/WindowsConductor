@@ -6,7 +6,7 @@ namespace WindowsConductor.DriverFlaUI;
 /// <summary>
 /// Incoming command from the Client.
 /// </summary>
-public sealed class WinAppRequest
+public sealed class WcRequest
 {
     [JsonPropertyName("id")]
     public string Id { get; set; } = "";
@@ -39,7 +39,7 @@ public sealed class WinAppRequest
 /// <summary>
 /// Response sent back to the Client.
 /// </summary>
-public sealed class WinAppResponse
+public sealed class WcResponse
 {
     [JsonPropertyName("id")]
     public string Id { get; set; } = "";
@@ -53,9 +53,9 @@ public sealed class WinAppResponse
     [JsonPropertyName("error")]
     public string? Error { get; set; }
 
-    public static WinAppResponse Ok(string id, object? result = null) =>
+    public static WcResponse Ok(string id, object? result = null) =>
         new() { Id = id, Success = true, Result = result };
 
-    public static WinAppResponse Fail(string id, string error) =>
+    public static WcResponse Fail(string id, string error) =>
         new() { Id = id, Success = false, Error = error };
 }
