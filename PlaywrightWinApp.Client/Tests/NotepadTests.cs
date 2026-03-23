@@ -18,7 +18,7 @@ namespace PlaywrightWinApp.Client.Tests;
 /// </summary>
 [TestFixtureSource(nameof(DriverUris))]
 [Category("Integration")]
-public sealed class NotepadTests
+public sealed class NotepadTests : WinAppTest
 {
     // ── Driver endpoints ──────────────────────────────────────────────────────
 
@@ -27,46 +27,22 @@ public sealed class NotepadTests
         yield return new TestFixtureData("ws://localhost:8765/").SetArgDisplayNames("DriverFlaUI");
     }
 
-    // ── State ─────────────────────────────────────────────────────────────────
+    // ── Configuration ─────────────────────────────────────────────────────────
 
     private readonly string _driverUri;
-    private WinAppConnection _connection = null!;
-    private WinAppApp _notepad = null!;
 
     public NotepadTests(string driverUri) => _driverUri = driverUri;
 
-    // ── Fixture setup ─────────────────────────────────────────────────────────
-
-    [OneTimeSetUp]
-    public async Task OneTimeSetUp()
-    {
-        try
-        {
-            _connection = await WinAppConnection.ConnectAsync(_driverUri);
-        }
-        catch (Exception ex)
-        {
-            Assert.Ignore($"Driver at {_driverUri} is not available — skipping fixture. ({ex.Message})");
-            return;
-        }
-
-        _notepad = await _connection.LaunchAsync("explorer.exe",
-            ["shell:appsfolder\\Microsoft.WindowsNotepad_8wekyb3d8bbwe!App"],
-            "^Untitled - Notepad$", 1000);
-        // await Task.Delay(TimeSpan.FromSeconds(2));
-    }
-
-    [OneTimeTearDown]
-    public async Task OneTimeTearDown()
-    {
-        if (_notepad    is not null) await _notepad.DisposeAsync();
-        if (_connection is not null) await _connection.DisposeAsync();
-    }
+    protected override string DriverUri => _driverUri;
+    protected override string AppPath => "explorer.exe";
+    protected override string[]? AppArgs => ["shell:appsfolder\\Microsoft.WindowsNotepad_8wekyb3d8bbwe!App"];
+    protected override string? DetachedTitleRegex => "^Untitled - Notepad$";
+    protected override uint? MainWindowTimeout => 1000;
 
     [SetUp]
     public async Task FocusEditor()
     {
-        await _notepad.GetByName("Text editor").ClickAsync();
+        await App.GetByName("Text editor").ClickAsync();
         await Task.Delay(100);
     }
 
@@ -76,7 +52,7 @@ public sealed class NotepadTests
     public async Task TypeText_AndReadBack_ByName()
     {
         const string text = "Hello, WinApp Driver!";
-        var editor = _notepad.GetByName("Text editor");
+        var editor = App.GetByName("Text editor");
         await editor.TypeAsync(text);
 
         string content = await editor.GetTextAsync();
@@ -87,21 +63,21 @@ public sealed class NotepadTests
     [Test]
     public async Task Editor_IsEnabled_ByName()
     {
-        bool enabled = await _notepad.GetByName("Text editor").IsEnabledAsync();
+        bool enabled = await App.GetByName("Text editor").IsEnabledAsync();
         Assert.That(enabled, Is.True, "Text editor should be enabled.");
     }
 
     [Test]
     public async Task Editor_IsVisible_ByName()
     {
-        bool visible = await _notepad.GetByName("Text editor").IsVisibleAsync();
+        bool visible = await App.GetByName("Text editor").IsVisibleAsync();
         Assert.That(visible, Is.True, "Text editor should be visible.");
     }
 
     [Test]
     public async Task WindowTitle_ContainsNotepad()
     {
-        string title = await _notepad.GetTitleAsync();
+        string title = await App.GetTitleAsync();
         Assert.That(title, Does.Contain("Notepad"),
             $"Window title should contain 'Notepad'.  Got: '{title}'");
     }
@@ -109,7 +85,7 @@ public sealed class NotepadTests
     [Test]
     public async Task EditorBoundingRect_IsReasonable()
     {
-        var rect = await _notepad.GetByName("Text editor").GetBoundingRectAsync();
+        var rect = await App.GetByName("Text editor").GetBoundingRectAsync();
         Assert.Multiple(() =>
         {
             Assert.That(rect.Width,  Is.GreaterThan(200), "Editor width > 200 px.");
@@ -120,7 +96,7 @@ public sealed class NotepadTests
     [Test]
     public async Task GetAttribute_Name_RoundTrips()
     {
-        string id = await _notepad.GetByName("Text editor")
+        string id = await App.GetByName("Text editor")
             .GetAttributeAsync("Name");
         Assert.That(id, Is.EqualTo("Text editor").IgnoreCase);
     }
@@ -130,14 +106,14 @@ public sealed class NotepadTests
     [Test]
     public async Task FindFileMenu_ByText()
     {
-        bool enabled = await _notepad.GetByText("File").IsEnabledAsync();
+        bool enabled = await App.GetByText("File").IsEnabledAsync();
         Assert.That(enabled, Is.True, "File menu item should be enabled.");
     }
 
     [Test]
     public async Task FindEditMenu_IsVisible_ByText()
     {
-        bool visible = await _notepad.GetByText("Edit").IsVisibleAsync();
+        bool visible = await App.GetByText("Edit").IsVisibleAsync();
         Assert.That(visible, Is.True, "Edit menu item should be visible.");
     }
 
@@ -147,10 +123,10 @@ public sealed class NotepadTests
     public async Task TypeText_AndReadBack_ByXPath()
     {
         const string text = "XPath test — line one.";
-        var editor = _notepad.GetByXPath("//*[@Name='Text editor']");
+        var editor = App.GetByXPath("//*[@Name='Text editor']");
         await editor.TypeAsync(text);
 
-        string content = await _notepad.GetByName("Text editor").GetTextAsync();
+        string content = await App.GetByName("Text editor").GetTextAsync();
         Assert.That(content, Does.Contain(text),
             $"Editor should contain typed text.  Got: '{content}'");
     }
@@ -158,7 +134,7 @@ public sealed class NotepadTests
     [Test]
     public async Task FindEditorAsDocument_ByXPath()
     {
-        bool visible = await _notepad.GetByXPath("//Document").IsVisibleAsync();
+        bool visible = await App.GetByXPath("//Document").IsVisibleAsync();
         Assert.That(visible, Is.True,
             "A Document control (the editor) should be visible in Notepad.");
     }
@@ -166,7 +142,7 @@ public sealed class NotepadTests
     [Test]
     public async Task FindWindowByName_ByXPath()
     {
-        bool visible = await _notepad
+        bool visible = await App
             .GetByXPath("//Window[@Name='Notepad']")
             .IsVisibleAsync();
         Assert.That(visible, Is.True);
@@ -175,14 +151,14 @@ public sealed class NotepadTests
     [Test]
     public async Task FindMenuItemsByXPath_DoesNotThrow()
     {
-        var items = await _notepad.GetByXPath("//MenuItem").GetAllElementsAsync();
+        var items = await App.GetByXPath("//MenuItem").GetAllElementsAsync();
         Assert.That(items, Is.Not.Null);
     }
 
     [Test]
     public async Task FindAllButtons_AtLeastWindowControls_ByXPath()
     {
-        var buttons = await _notepad.GetByXPath("//Button").GetAllElementsAsync();
+        var buttons = await App.GetByXPath("//Button").GetAllElementsAsync();
         Assert.That(buttons.Count, Is.GreaterThanOrEqualTo(3),
             "Notepad should expose at least 3 buttons (Minimize, Maximize, Close).");
     }
@@ -192,7 +168,7 @@ public sealed class NotepadTests
     [Test]
     public async Task CompoundSelector_AutomationIdAndControlType()
     {
-        bool visible = await _notepad
+        bool visible = await App
             .Locator("[name='Text editor']&&type=Document")
             .IsVisibleAsync();
         Assert.That(visible, Is.True,

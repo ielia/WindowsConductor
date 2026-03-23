@@ -131,5 +131,14 @@ public sealed class WinAppLocator
         return await el.GetBoundingRectAsync(ct);
     }
 
+    // ── Screenshots ────────────────────────────────────────────────────────
+
+    /// <summary>Captures a screenshot of the first matching element. Returns the saved file path.</summary>
+    public async Task<string> ScreenshotAsync(string? path = null, CancellationToken ct = default)
+    {
+        var el = await GetElementAsync(ct);
+        return await el.ScreenshotAsync(path, ct);
+    }
+
     public override string ToString() => $"WinAppLocator({_selector})";
 }

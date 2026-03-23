@@ -73,6 +73,16 @@ public sealed class WinAppElement
             r.GetProperty("height").GetDouble());
     }
 
+    // ── Screenshots ────────────────────────────────────────────────────────
+
+    /// <summary>Captures a screenshot of this element. Returns the saved file path.</summary>
+    public async Task<string> ScreenshotAsync(string? path = null, CancellationToken ct = default)
+    {
+        var r = await _conn.SendAsync("screenshot",
+            new { elementId = _elementId, path = path ?? "" }, ct);
+        return r.GetString() ?? "";
+    }
+
     public override string ToString() => $"WinAppElement({_elementId})";
 }
 

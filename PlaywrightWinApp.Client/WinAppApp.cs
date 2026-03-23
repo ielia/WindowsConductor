@@ -64,6 +64,33 @@ public sealed class WinAppApp : IAsyncDisposable
         return result.GetString() ?? "";
     }
 
+    // ── Screenshots ────────────────────────────────────────────────────────
+
+    /// <summary>Captures a screenshot of the app's main window. Returns the saved file path.</summary>
+    public async Task<string> ScreenshotAsync(string? path = null, CancellationToken ct = default)
+    {
+        var r = await Connection.SendAsync("screenshotApp",
+            new { appId = AppId, path = path ?? "" }, ct);
+        return r.GetString() ?? "";
+    }
+
+    // ── Video recording ──────────────────────────────────────────────────────
+
+    /// <summary>Starts video recording of the app window. Returns the video file path.</summary>
+    public async Task<string> StartRecordingAsync(string? path = null, string? ffmpegPath = null, CancellationToken ct = default)
+    {
+        var r = await Connection.SendAsync("startRecording",
+            new { appId = AppId, path = path ?? "", ffmpegPath = ffmpegPath ?? "" }, ct);
+        return r.GetString() ?? "";
+    }
+
+    /// <summary>Stops video recording. Returns the video file path.</summary>
+    public async Task<string> StopRecordingAsync(CancellationToken ct = default)
+    {
+        var r = await Connection.SendAsync("stopRecording", new { appId = AppId }, ct);
+        return r.GetString() ?? "";
+    }
+
     // ── Lifecycle ────────────────────────────────────────────────────────────
 
     /// <summary>Closes the application.</summary>

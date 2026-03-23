@@ -3,6 +3,7 @@ using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 using FlaUI.Core;
 using FlaUI.Core.AutomationElements;
+using FlaUI.Core.Capturing;
 using FlaUI.Core.Definitions;
 using FlaUI.Core.Input;
 using FlaUI.UIA3;
@@ -166,7 +167,73 @@ public sealed class AppManager : IDisposable
         return new { x = r.X, y = r.Y, width = r.Width, height = r.Height };
     }
 
+    // ── Screenshots ──────────────────────────────────────────────────────────
+
+    /// <summary>Captures an element and saves it as a PNG file. Returns the file path.</summary>
+    public string ScreenshotElement(string elementId, string? path)
+    {
+        var el = GetElement(elementId);
+        path = ResolvePath(path, ".png");
+        el.CaptureToFile(path);
+        return path;
+    }
+
+    /// <summary>Captures the app's main window and saves it as a PNG file. Returns the file path.</summary>
+    public string ScreenshotApp(string appId, string? path)
+    {
+        var root = GetAppRoot(appId);
+        path = ResolvePath(path, ".png");
+        root.CaptureToFile(path);
+        return path;
+    }
+
+    // ── Video recording ──────────────────────────────────────────────────────
+
+    private readonly Dictionary<string, VideoRecorder> _recorders = new();
+
+    /// <summary>Starts video recording of the app's main window. Returns the video file path.</summary>
+    public string StartRecording(string appId, string? path, string? ffmpegPath)
+    {
+        if (_recorders.ContainsKey(appId))
+            throw new InvalidOperationException($"Recording is already in progress for app '{appId}'.");
+
+        var root = GetAppRoot(appId);
+        path = ResolvePath(path, ".mp4");
+
+        var settings = new VideoRecorderSettings
+        {
+            TargetVideoPath = path,
+            FrameRate = 15,
+            VideoFormat = VideoFormat.x264,
+            VideoQuality = 23
+        };
+        if (!string.IsNullOrWhiteSpace(ffmpegPath))
+            settings.ffmpegPath = ffmpegPath;
+
+        var recorder = new VideoRecorder(settings, _ => FlaUI.Core.Capturing.Capture.Element(root));
+        _recorders[appId] = recorder;
+        return path;
+    }
+
+    /// <summary>Stops video recording for the app. Returns the video file path.</summary>
+    public string StopRecording(string appId)
+    {
+        if (!_recorders.TryGetValue(appId, out var recorder))
+            throw new InvalidOperationException($"No recording in progress for app '{appId}'.");
+
+        recorder.Stop();
+        var path = recorder.TargetVideoPath;
+        _recorders.Remove(appId);
+        return path;
+    }
+
     // ── Internal helpers ────────────────────────────────────────────────────
+
+    private static string ResolvePath(string? path, string defaultExtension)
+    {
+        if (!string.IsNullOrWhiteSpace(path)) return path;
+        return Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}{defaultExtension}");
+    }
 
     private Window FindWindow(UIA3Automation automation, string titleRegex, int retries = 20)
     {
@@ -259,6 +326,12 @@ public sealed class AppManager : IDisposable
     {
         if (_disposed) return;
         _disposed = true;
+
+        foreach (var recorder in _recorders.Values)
+        {
+            try { recorder.Stop(); } catch { }
+        }
+        _recorders.Clear();
 
         foreach (var app in _apps.Values)
         {

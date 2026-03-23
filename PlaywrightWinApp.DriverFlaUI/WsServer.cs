@@ -187,6 +187,22 @@ public sealed class WsServer
                 case "getBoundingRect":
                     return WinAppResponse.Ok(req.Id, mgr.GetBoundingRect(req.GetString("elementId")));
 
+                case "screenshot":
+                    return WinAppResponse.Ok(req.Id,
+                        mgr.ScreenshotElement(req.GetString("elementId"), req.GetString("path")));
+
+                case "screenshotApp":
+                    return WinAppResponse.Ok(req.Id,
+                        mgr.ScreenshotApp(req.GetString("appId"), req.GetString("path")));
+
+                case "startRecording":
+                    return WinAppResponse.Ok(req.Id,
+                        mgr.StartRecording(req.GetString("appId"), req.GetString("path"), req.GetString("ffmpegPath")));
+
+                case "stopRecording":
+                    return WinAppResponse.Ok(req.Id,
+                        mgr.StopRecording(req.GetString("appId")));
+
                 default:
                     return WinAppResponse.Fail(req.Id, $"Unknown command: '{req.Command}'");
             }
