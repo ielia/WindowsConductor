@@ -8,7 +8,7 @@ using FlaUI.Core.Definitions;
 using FlaUI.Core.Input;
 using FlaUI.UIA3;
 
-namespace PlaywrightWinApp.DriverFlaUI;
+namespace WindowsConductor.DriverFlaUI;
 
 /// <summary>
 /// Manages launched applications and caches element references for a single client session.

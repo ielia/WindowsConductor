@@ -1,6 +1,6 @@
 using System.Text.Json;
 
-namespace PlaywrightWinApp.Client;
+namespace WindowsConductor.Client;
 
 /// <summary>
 /// Lazy reference to one or more UIAutomation elements, inspired by

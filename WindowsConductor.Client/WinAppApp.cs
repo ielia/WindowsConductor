@@ -1,4 +1,4 @@
-namespace PlaywrightWinApp.Client;
+namespace WindowsConductor.Client;
 
 /// <summary>
 /// Represents a running Windows application managed by the Driver.

@@ -3,7 +3,7 @@ using FlaUI.Core.AutomationElements;
 using FlaUI.Core.Definitions;
 using FlaUI.Core.Exceptions;
 
-namespace PlaywrightWinApp.DriverFlaUI;
+namespace WindowsConductor.DriverFlaUI;
 
 // ── Data model ───────────────────────────────────────────────────────────────
 

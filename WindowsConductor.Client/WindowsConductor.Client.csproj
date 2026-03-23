@@ -6,8 +6,8 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <IsPackable>false</IsPackable>
-    <RootNamespace>PlaywrightWinApp.Client</RootNamespace>
-    <AssemblyName>PlaywrightWinApp.Client</AssemblyName>
+    <RootNamespace>WindowsConductor.Client</RootNamespace>
+    <AssemblyName>WindowsConductor.Client</AssemblyName>
   </PropertyGroup>
 
   <ItemGroup>

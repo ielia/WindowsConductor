@@ -1,6 +1,6 @@
 using NUnit.Framework;
 
-namespace PlaywrightWinApp.Client.Tests;
+namespace WindowsConductor.Client.Tests;
 
 /// <summary>
 /// Integration tests for the Windows 11 Notepad application.
@@ -8,7 +8,7 @@ namespace PlaywrightWinApp.Client.Tests;
 /// If the driver is not running its fixture is automatically skipped.
 ///
 /// ── Starting the driver ──────────────────────────────────────────────────────
-///   dotnet run --project PlaywrightWinApp.DriverFlaUI   # ws://localhost:8765/
+///   dotnet run --project WindowsConductor.DriverFlaUI   # ws://localhost:8765/
 ///
 /// ── AutomationId quick-reference (Win 11 Notepad) ────────────────────────────
 ///   Menu bar items exposed by Name: "File", "Edit", "View", "Help"

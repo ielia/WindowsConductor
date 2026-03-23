@@ -3,7 +3,7 @@ using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
 
-namespace PlaywrightWinApp.DriverFlaUI;
+namespace WindowsConductor.DriverFlaUI;
 
 /// <summary>
 /// HTTP/WebSocket server that accepts connections from WinApp Clients.

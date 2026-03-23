@@ -1,7 +1,7 @@
 using FlaUI.Core.AutomationElements;
 using FlaUI.Core.Exceptions;
 
-namespace PlaywrightWinApp.DriverFlaUI;
+namespace WindowsConductor.DriverFlaUI;
 
 /// <summary>
 /// Resolves a selector string to one or more UIAutomation elements.

@@ -2,10 +2,10 @@ using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
 
-namespace PlaywrightWinApp.Client;
+namespace WindowsConductor.Client;
 
 /// <summary>
-/// Manages the WebSocket connection to a running PlaywrightWinApp Driver.
+/// Manages the WebSocket connection to a running WindowsConductor Driver.
 ///
 /// Usage
 /// ─────

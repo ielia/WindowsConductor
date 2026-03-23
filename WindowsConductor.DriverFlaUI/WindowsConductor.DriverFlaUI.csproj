@@ -5,8 +5,8 @@
     <TargetFramework>net8.0-windows</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <RootNamespace>PlaywrightWinApp.DriverFlaUI</RootNamespace>
-    <AssemblyName>PlaywrightWinApp.DriverFlaUI</AssemblyName>
+    <RootNamespace>WindowsConductor.DriverFlaUI</RootNamespace>
+    <AssemblyName>WindowsConductor.DriverFlaUI</AssemblyName>
     <Platforms>AnyCPU;x64</Platforms>
   </PropertyGroup>
 

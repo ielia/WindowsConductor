@@ -1,8 +1,8 @@
-using PlaywrightWinApp.DriverFlaUI;
+using WindowsConductor.DriverFlaUI;
 
 // Default binding: http://localhost:8765/
 // Pass a custom prefix as the first argument, e.g.:
-//   PlaywrightWinApp.DriverFlaUI.exe "http://localhost:9000/"
+//   WindowsConductor.DriverFlaUI.exe "http://localhost:9000/"
 string prefix = args.Length > 0 ? args[0] : "http://localhost:8765/";
 
 using var cts = new CancellationTokenSource();
@@ -17,7 +17,7 @@ Console.CancelKeyPress += (_, e) =>
 AppDomain.CurrentDomain.UnhandledException += (_, e) =>
     Console.Error.WriteLine($"Unhandled: {e.ExceptionObject}");
 
-Console.WriteLine($"PlaywrightWinApp Driver  |  .NET {Environment.Version}");
+Console.WriteLine($"WindowsConductor Driver  |  .NET {Environment.Version}");
 
 var server = new WsServer(prefix);
 await server.StartAsync(cts.Token);

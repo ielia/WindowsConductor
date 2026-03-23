@@ -1,7 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace PlaywrightWinApp.Client;
+namespace WindowsConductor.Client;
 
 /// <summary>
 /// Command sent by the Client to the Driver over WebSocket.

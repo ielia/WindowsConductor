@@ -1,6 +1,6 @@
 using System.Text.Json;
 
-namespace PlaywrightWinApp.Client;
+namespace WindowsConductor.Client;
 
 /// <summary>
 /// Handle to a specific UIAutomation element that was resolved and cached
