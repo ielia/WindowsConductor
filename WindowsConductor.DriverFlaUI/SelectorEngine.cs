@@ -32,6 +32,8 @@ public sealed class SelectorEngine
 
     public AutomationElement[] FindElements(AutomationElement root, string selector)
     {
+        Validate(selector);
+
         selector = selector.Trim();
 
         // Delegate XPath to the dedicated engine
@@ -54,23 +56,89 @@ public sealed class SelectorEngine
         return current ?? Array.Empty<AutomationElement>();
     }
 
+    // ── Validation ──────────────────────────────────────────────────────────
+
+    private static readonly HashSet<string> ValidKeys = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "automationid", "name", "text", "classname", "class", "type", "controltype"
+    };
+
+    /// <summary>
+    /// Validates a selector string without resolving it.
+    /// Throws <see cref="ArgumentException"/> if the selector is malformed.
+    /// </summary>
+    public static void Validate(string selector)
+    {
+        if (string.IsNullOrWhiteSpace(selector))
+            throw new ArgumentException("Selector must not be empty.", nameof(selector));
+
+        selector = selector.Trim();
+
+        // XPath validation is handled by XPathEngine
+        if (selector.StartsWith('/'))
+        {
+            XPathEngine.Validate(selector);
+            return;
+        }
+
+        var parts = selector.Split("&&", StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+
+        if (parts.Length == 0)
+            throw new ArgumentException($"Selector contains no valid parts: '{selector}'", nameof(selector));
+
+        foreach (var part in parts)
+            ParsePart(part); // throws on invalid syntax
+    }
+
     // ── Helpers ─────────────────────────────────────────────────────────────
 
-    private static (string Key, string Value) ParsePart(string part)
+    internal static (string Key, string Value) ParsePart(string part)
     {
         // [key=value]
-        if (part.StartsWith('[') && part.EndsWith(']'))
+        if (part.StartsWith('['))
         {
+            if (!part.EndsWith(']'))
+                throw new ArgumentException(
+                    $"Unclosed bracket in selector part: '{part}'", nameof(part));
+
             var inner = part[1..^1];
+
+            if (string.IsNullOrWhiteSpace(inner))
+                throw new ArgumentException(
+                    $"Empty bracket selector: '{part}'", nameof(part));
+
             var eq = inner.IndexOf('=');
-            if (eq > 0)
-                return (inner[..eq].Trim().ToLowerInvariant(), inner[(eq + 1)..].Trim());
+            if (eq <= 0)
+                throw new ArgumentException(
+                    $"Bracket selector must have the format [key=value]: '{part}'", nameof(part));
+
+            var key = inner[..eq].Trim().ToLowerInvariant();
+            if (!ValidKeys.Contains(key))
+                throw new ArgumentException(
+                    $"Unknown selector attribute '{inner[..eq].Trim()}' in '{part}'. " +
+                    $"Valid attributes: {string.Join(", ", ValidKeys)}",
+                    nameof(part));
+
+            return (key, inner[(eq + 1)..].Trim());
         }
+
+        // Unclosed/mismatched brackets
+        if (part.EndsWith(']') && !part.StartsWith('['))
+            throw new ArgumentException(
+                $"Unexpected closing bracket in selector part: '{part}'", nameof(part));
 
         // key=value
         var sep = part.IndexOf('=');
         if (sep > 0)
-            return (part[..sep].Trim().ToLowerInvariant(), part[(sep + 1)..].Trim());
+        {
+            var key2 = part[..sep].Trim().ToLowerInvariant();
+            if (!ValidKeys.Contains(key2))
+                throw new ArgumentException(
+                    $"Unknown selector attribute '{part[..sep].Trim()}' in '{part}'. " +
+                    $"Valid attributes: {string.Join(", ", ValidKeys)}",
+                    nameof(part));
+            return (key2, part[(sep + 1)..].Trim());
+        }
 
         // bare value → treat as name
         return ("name", part);

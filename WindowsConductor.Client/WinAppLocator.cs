@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.RegularExpressions;
 
 namespace WindowsConductor.Client;
 
@@ -18,6 +19,7 @@ public sealed class WinAppLocator
 
     internal WinAppLocator(string appId, string selector, WinAppConnection conn)
     {
+        SelectorValidator.Validate(selector);
         _appId    = appId;
         _selector = selector;
         _conn     = conn;

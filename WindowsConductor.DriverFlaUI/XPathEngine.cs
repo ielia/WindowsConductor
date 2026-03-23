@@ -61,6 +61,12 @@ public sealed class XPathEngine
         return current;
     }
 
+    /// <summary>
+    /// Validates an XPath expression without evaluating it.
+    /// Throws <see cref="ArgumentException"/> if the expression is malformed.
+    /// </summary>
+    public static void Validate(string xpath) => ParseXPath(xpath);
+
     // ── Step evaluation ──────────────────────────────────────────────────────
 
     private static IReadOnlyList<AutomationElement> ApplyStep(
@@ -123,8 +129,11 @@ public sealed class XPathEngine
 
     // ── XPath parser ─────────────────────────────────────────────────────────
 
-    private static List<XPathStep> ParseXPath(string xpath)
+    internal static List<XPathStep> ParseXPath(string xpath)
     {
+        if (string.IsNullOrWhiteSpace(xpath))
+            throw new ArgumentException("XPath expression must not be empty.", nameof(xpath));
+
         var steps = new List<XPathStep>();
         int pos = 0;
         int len = xpath.Length;
@@ -133,6 +142,7 @@ public sealed class XPathEngine
         {
             // ── Axis ─────────────────────────────────────────────────────────
             bool isDescendant = false;
+            int axisStart = pos;
 
             if (pos < len && xpath[pos] == '/')
             {
@@ -152,8 +162,16 @@ public sealed class XPathEngine
                 pos++;
 
             string type = xpath[typeStart..pos].Trim();
+
             if (string.IsNullOrEmpty(type))
+            {
+                // Type is required — e.g. "//[attr=x]" is invalid (missing type before predicate)
+                if (pos < len && xpath[pos] == '[')
+                    throw new ArgumentException(
+                        $"XPath is missing an element type before predicate at position {typeStart}: '{xpath}'",
+                        nameof(xpath));
                 continue;
+            }
 
             // ── Predicates ───────────────────────────────────────────────────
             var predicates = new List<XPathPredicate>();
@@ -171,27 +189,41 @@ public sealed class XPathEngine
                     pos++;
                 }
 
+                if (depth != 0)
+                    throw new ArgumentException(
+                        $"Unclosed predicate bracket in XPath expression: '{xpath}'",
+                        nameof(xpath));
+
                 // predStart..pos-1 is the predicate content (excludes surrounding brackets)
                 string predContent = xpath[predStart..(pos - 1)];
+
+                if (string.IsNullOrWhiteSpace(predContent))
+                    throw new ArgumentException(
+                        $"Empty predicate '[]' in XPath expression: '{xpath}'",
+                        nameof(xpath));
+
                 var m = PredicateRx.Match(predContent);
-                if (m.Success)
+                if (!m.Success)
+                    throw new ArgumentException(
+                        $"Invalid predicate syntax '{predContent}' in XPath expression: '{xpath}'. " +
+                        "Expected format: @Attribute='value' or @Attribute=('v1','v2')",
+                        nameof(xpath));
+
+                var attr = m.Groups["attr"].Value;
+                IReadOnlyList<string> values;
+
+                if (m.Groups["list"].Success)
                 {
-                    var attr = m.Groups["attr"].Value;
-                    IReadOnlyList<string> values;
-
-                    if (m.Groups["list"].Success)
-                    {
-                        values = ListItemRx.Matches(m.Groups["list"].Value)
-                            .Select(li => li.Groups["item"].Value)
-                            .ToList();
-                    }
-                    else
-                    {
-                        values = new[] { m.Groups["val"].Value };
-                    }
-
-                    predicates.Add(new XPathPredicate(attr, values));
+                    values = ListItemRx.Matches(m.Groups["list"].Value)
+                        .Select(li => li.Groups["item"].Value)
+                        .ToList();
                 }
+                else
+                {
+                    values = new[] { m.Groups["val"].Value };
+                }
+
+                predicates.Add(new XPathPredicate(attr, values));
             }
 
             steps.Add(new XPathStep(
@@ -199,6 +231,11 @@ public sealed class XPathEngine
                 type,
                 predicates));
         }
+
+        if (steps.Count == 0)
+            throw new ArgumentException(
+                $"XPath expression produced no valid steps: '{xpath}'",
+                nameof(xpath));
 
         return steps;
     }
