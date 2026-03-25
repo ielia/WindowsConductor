@@ -3,9 +3,10 @@ using NUnit.Framework;
 namespace WindowsConductor.Client.Tests;
 
 [TestFixture]
+[Category("Unit")]
 public class SelectorValidatorTests
 {
-    // ── Empty / whitespace ───────────────────────────────────────────────────
+    // -- Empty / whitespace ---------------------------------------------------
 
     [TestCase("")]
     [TestCase("   ")]
@@ -15,7 +16,7 @@ public class SelectorValidatorTests
         Assert.Throws<ArgumentException>(() => SelectorValidator.Validate(selector!));
     }
 
-    // ── XPath: missing type before predicate ─────────────────────────────────
+    // -- XPath: missing type before predicate ---------------------------------
 
     [TestCase("//[@AutomationId='foo']")]
     [TestCase("//[Name='bar']")]
@@ -27,7 +28,7 @@ public class SelectorValidatorTests
         Assert.That(ex!.Message, Does.Contain("missing an element type"));
     }
 
-    // ── XPath: empty predicate ───────────────────────────────────────────────
+    // -- XPath: empty predicate -----------------------------------------------
 
     [Test]
     public void Validate_XPathEmptyPredicate_Throws()
@@ -36,7 +37,7 @@ public class SelectorValidatorTests
         Assert.That(ex!.Message, Does.Contain("Empty predicate"));
     }
 
-    // ── XPath: unclosed bracket ──────────────────────────────────────────────
+    // -- XPath: unclosed bracket ----------------------------------------------
 
     [Test]
     public void Validate_XPathUnclosedBracket_Throws()
@@ -45,7 +46,7 @@ public class SelectorValidatorTests
         Assert.That(ex!.Message, Does.Contain("Unclosed bracket"));
     }
 
-    // ── XPath: predicate missing @ ───────────────────────────────────────────
+    // -- XPath: predicate missing @ -------------------------------------------
 
     [TestCase("//Button[Name='foo']")]
     [TestCase("//Button[invalid]")]
@@ -55,7 +56,7 @@ public class SelectorValidatorTests
         Assert.That(ex!.Message, Does.Contain("Predicates must start with '@'"));
     }
 
-    // ── Simple: unclosed bracket ─────────────────────────────────────────────
+    // -- Simple: unclosed bracket ---------------------------------------------
 
     [TestCase("[automationid=foo")]
     [TestCase("[name=bar")]
@@ -65,7 +66,7 @@ public class SelectorValidatorTests
         Assert.That(ex!.Message, Does.Contain("Unclosed bracket"));
     }
 
-    // ── Simple: empty brackets ───────────────────────────────────────────────
+    // -- Simple: empty brackets -----------------------------------------------
 
     [Test]
     public void Validate_SimpleEmptyBrackets_Throws()
@@ -74,7 +75,7 @@ public class SelectorValidatorTests
         Assert.That(ex!.Message, Does.Contain("Empty bracket selector"));
     }
 
-    // ── Simple: missing key in bracket ───────────────────────────────────────
+    // -- Simple: missing key in bracket ---------------------------------------
 
     [TestCase("[=value]")]
     public void Validate_SimpleMissingKey_Throws(string selector)
@@ -83,7 +84,7 @@ public class SelectorValidatorTests
         Assert.That(ex!.Message, Does.Contain("[key=value]"));
     }
 
-    // ── Simple: unknown attribute ────────────────────────────────────────────
+    // -- Simple: unknown attribute --------------------------------------------
 
     [TestCase("[invalid=foo]")]
     [TestCase("[href=bar]")]
@@ -95,7 +96,7 @@ public class SelectorValidatorTests
         Assert.That(ex!.Message, Does.Contain("Unknown selector attribute"));
     }
 
-    // ── Simple: unexpected closing bracket ───────────────────────────────────
+    // -- Simple: unexpected closing bracket -----------------------------------
 
     [TestCase("name=foo]")]
     public void Validate_SimpleUnexpectedClosingBracket_Throws(string selector)
@@ -104,7 +105,7 @@ public class SelectorValidatorTests
         Assert.That(ex!.Message, Does.Contain("Unexpected closing bracket"));
     }
 
-    // ── Compound: one invalid part ───────────────────────────────────────────
+    // -- Compound: one invalid part -------------------------------------------
 
     [TestCase("[automationid=foo]&&[invalid=bar]")]
     [TestCase("[automationid=foo]&&[=bar]")]
@@ -113,7 +114,7 @@ public class SelectorValidatorTests
         Assert.Throws<ArgumentException>(() => SelectorValidator.Validate(selector));
     }
 
-    // ── Chained selectors (" >> ") ───────────────────────────────────────────
+    // -- Chained selectors (" >> ") -------------------------------------------
 
     [Test]
     public void Validate_ChainedWithInvalidSegment_Throws()
@@ -129,7 +130,7 @@ public class SelectorValidatorTests
             () => SelectorValidator.Validate("[automationid=foo] >>  >> [name=bar]"));
     }
 
-    // ── Valid selectors should NOT throw ─────────────────────────────────────
+    // -- Valid selectors should NOT throw -------------------------------------
 
     [TestCase("[automationid=num7Button]")]
     [TestCase("[name=Cancel]")]
@@ -149,7 +150,7 @@ public class SelectorValidatorTests
         Assert.DoesNotThrow(() => SelectorValidator.Validate(selector));
     }
 
-    // ── Valid chained selectors ──────────────────────────────────────────────
+    // -- Valid chained selectors ----------------------------------------------
 
     [TestCase("[automationid=parent] >> [name=child]")]
     [TestCase("type=Window >> type=Button")]

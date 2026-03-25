@@ -125,32 +125,32 @@ public sealed class WsServer
             switch (req.Command)
             {
                 case "launch":
-                {
-                    var mwt = req.GetInt("mainWindowTimeout");
-                    var appId = mgr.LaunchApp(
-                        req.GetString("path"),
-                        req.GetStringArray("args"),
-                        req.GetString("detachedTitleRegex"),
-                        mwt > 0 ? mwt : null
-                    );
-                    return WcResponse.Ok(req.Id, appId);
-                }
+                    {
+                        var mwt = req.GetInt("mainWindowTimeout");
+                        var appId = mgr.LaunchApp(
+                            req.GetString("path"),
+                            req.GetStringArray("args"),
+                            req.GetString("detachedTitleRegex"),
+                            mwt > 0 ? mwt : null
+                        );
+                        return WcResponse.Ok(req.Id, appId);
+                    }
 
                 case "close":
                     mgr.CloseApp(req.GetString("appId"));
                     return WcResponse.Ok(req.Id);
 
                 case "findElement":
-                {
-                    var elementId = mgr.FindElement(req.GetString("appId"), req.GetString("selector"));
-                    return WcResponse.Ok(req.Id, elementId);
-                }
+                    {
+                        var elementId = mgr.FindElement(req.GetString("appId"), req.GetString("selector"));
+                        return WcResponse.Ok(req.Id, elementId);
+                    }
 
                 case "findElements":
-                {
-                    var ids = mgr.FindElements(req.GetString("appId"), req.GetString("selector"));
-                    return WcResponse.Ok(req.Id, ids);
-                }
+                    {
+                        var ids = mgr.FindElements(req.GetString("appId"), req.GetString("selector"));
+                        return WcResponse.Ok(req.Id, ids);
+                    }
 
                 case "click":
                     mgr.Click(req.GetString("elementId"));

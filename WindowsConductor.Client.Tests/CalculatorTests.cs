@@ -202,7 +202,7 @@ public sealed class CalculatorTests
     public async Task GetBoundingRect_ResultDisplay()
     {
         var rect = await _calc.GetByAutomationId("CalculatorResults").GetBoundingRectAsync();
-        Assert.That(rect.Width,  Is.GreaterThan(50), "Result display width > 50 px.");
+        Assert.That(rect.Width, Is.GreaterThan(50), "Result display width > 50 px.");
         Assert.That(rect.Height, Is.GreaterThan(10), "Result display height > 10 px.");
     }
 

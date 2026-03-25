@@ -58,7 +58,7 @@ public sealed class NotepadTests
     [OneTimeTearDown]
     public async Task OneTimeTearDown()
     {
-        if (_notepad    is not null) await _notepad.DisposeAsync();
+        if (_notepad is not null) await _notepad.DisposeAsync();
         if (_connection is not null) await _connection.DisposeAsync();
     }
 
@@ -111,7 +111,7 @@ public sealed class NotepadTests
         var rect = await _notepad.GetByName("Text editor").GetBoundingRectAsync();
         Assert.Multiple(() =>
         {
-            Assert.That(rect.Width,  Is.GreaterThan(200), "Editor width > 200 px.");
+            Assert.That(rect.Width, Is.GreaterThan(200), "Editor width > 200 px.");
             Assert.That(rect.Height, Is.GreaterThan(100), "Editor height > 100 px.");
         });
     }

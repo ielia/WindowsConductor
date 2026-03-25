@@ -27,8 +27,8 @@ public sealed class WcSession : IAsyncDisposable
     private readonly JsonSerializerOptions _opts = new()
     {
         PropertyNameCaseInsensitive = true,
-        PropertyNamingPolicy        = JsonNamingPolicy.CamelCase,
-        WriteIndented               = false
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        WriteIndented = false
     };
 
     private WcSession(ClientWebSocket ws) => _ws = ws;

@@ -110,10 +110,10 @@ public sealed class XPathEngine
                 actual = pred.Attribute.ToLowerInvariant() switch
                 {
                     "automationid" => element.AutomationId,
-                    "name"         => element.Name,
-                    "classname"    => element.ClassName,
-                    "controltype"  => element.ControlType.ToString(),
-                    _              => null
+                    "name" => element.Name,
+                    "classname" => element.ClassName,
+                    "controltype" => element.ControlType.ToString(),
+                    _ => null
                 };
             }
             catch (PropertyNotSupportedException)

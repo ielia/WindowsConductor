@@ -3,6 +3,7 @@ using WindowsConductor.DriverFlaUI;
 namespace WindowsConductor.DriverFlaUI.Tests;
 
 [TestFixture]
+[Category("Unit")]
 public class XPathEngineValidationTests
 {
     // ── Missing element type before predicate ────────────────────────────────

@@ -20,9 +20,9 @@ public sealed class WcLocator
     internal WcLocator(string appId, string selector, WcSession conn)
     {
         SelectorValidator.Validate(selector);
-        _appId    = appId;
+        _appId = appId;
         _selector = selector;
-        _conn     = conn;
+        _conn = conn;
     }
 
     // ── Chaining ─────────────────────────────────────────────────────────────

@@ -18,7 +18,7 @@ public sealed class WcElement
     internal WcElement(string elementId, WcSession conn)
     {
         _elementId = elementId;
-        _conn      = conn;
+        _conn = conn;
     }
 
     // ── Actions ──────────────────────────────────────────────────────────────

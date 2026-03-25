@@ -140,11 +140,11 @@ public sealed class AppManager : IDisposable
         return attribute.ToLowerInvariant() switch
         {
             "automationid" => el.AutomationId ?? "",
-            "name"         => el.Name ?? "",
-            "classname"    => el.ClassName ?? "",
-            "controltype"  => el.ControlType.ToString(),
-            "isenabled"    => el.IsEnabled.ToString().ToLowerInvariant(),
-            "isoffscreen"  => el.IsOffscreen.ToString().ToLowerInvariant(),
+            "name" => el.Name ?? "",
+            "classname" => el.ClassName ?? "",
+            "controltype" => el.ControlType.ToString(),
+            "isenabled" => el.IsEnabled.ToString().ToLowerInvariant(),
+            "isoffscreen" => el.IsOffscreen.ToString().ToLowerInvariant(),
             _ => throw new NotSupportedException($"Attribute not supported: '{attribute}'")
         };
     }
