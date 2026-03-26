@@ -97,12 +97,14 @@ public class SelectorEngineValidationTests
     [TestCase("Hello")]                              // bare text → name=Hello
     [TestCase("//Button[@AutomationId='num7']")]     // valid XPath
     [TestCase("//*[@Name='Cancel']")]                // valid XPath
-    [TestCase("[isenabled=true]")]                   // new properties
+    [TestCase("[isenabled=true]")]
     [TestCase("[isoffscreen=false]")]
     [TestCase("[frameworkid=Win32]")]
     [TestCase("[processid=1234]")]
     [TestCase("[helptext=Click me]")]
     [TestCase("[isenabled=true]&&type=Button")]
+    [TestCase("[ariarole=button]")]                  // auto-discovered via reflection
+    [TestCase("[headinglevel=1]")]
     public void Validate_ValidSelector_DoesNotThrow(string selector)
     {
         Assert.DoesNotThrow(() => SelectorEngine.Validate(selector));

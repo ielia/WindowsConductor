@@ -364,6 +364,12 @@ public class ElementPropertiesTests
     [TestCase("nativewindowhandle")]
     [TestCase("orientation")]
     [TestCase("boundingrectangle")]
+    [TestCase("ariaproperties")]   // auto-discovered via reflection
+    [TestCase("ariarole")]
+    [TestCase("headinglevel")]
+    [TestCase("culture")]
+    [TestCase("isperipheral")]
+    [TestCase("isdialog")]
     public void IsSupported_KnownKey_ReturnsTrue(string key) =>
         Assert.That(ElementProperties.IsSupported(key), Is.True);
 
