@@ -118,7 +118,7 @@ public sealed class WsServer
         }
     }
 
-    private static WcResponse ProcessRequest(AppManager mgr, WcRequest req)
+    internal static WcResponse ProcessRequest(IAppOperations mgr, WcRequest req)
     {
         try
         {

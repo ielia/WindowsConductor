@@ -15,7 +15,7 @@ namespace WindowsConductor.Client;
 /// await calc.GetByAutomationId("num7Button").ClickAsync();
 /// </code>
 /// </summary>
-public sealed class WcSession : IAsyncDisposable
+public sealed class WcSession : IWcTransport, IAsyncDisposable
 {
     private readonly ClientWebSocket _ws;
     private readonly SemaphoreSlim _writeLock = new(1, 1);
@@ -79,7 +79,7 @@ public sealed class WcSession : IAsyncDisposable
     /// Returns the <c>result</c> field of the response.
     /// Throws <see cref="WcException"/> when the Driver reports an error.
     /// </summary>
-    internal async Task<JsonElement> SendAsync(
+    public async Task<JsonElement> SendAsync(
         string command,
         object? @params,
         CancellationToken ct = default)

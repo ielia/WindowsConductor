@@ -8,9 +8,9 @@ namespace WindowsConductor.Client;
 public sealed class WcApp : IAsyncDisposable
 {
     internal string AppId { get; }
-    internal WcSession Connection { get; }
+    internal IWcTransport Connection { get; }
 
-    internal WcApp(string appId, WcSession connection)
+    internal WcApp(string appId, IWcTransport connection)
     {
         AppId = appId;
         Connection = connection;

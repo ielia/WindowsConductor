@@ -17,10 +17,10 @@ public sealed class WcLocator
 {
     private readonly string _appId;
     private readonly string _selector;
-    private readonly WcSession _conn;
+    private readonly IWcTransport _conn;
     private readonly WcLocator? _parent;
 
-    internal WcLocator(string appId, string selector, WcSession conn, WcLocator? parent = null)
+    internal WcLocator(string appId, string selector, IWcTransport conn, WcLocator? parent = null)
     {
         SelectorValidator.Validate(selector);
         _appId = appId;

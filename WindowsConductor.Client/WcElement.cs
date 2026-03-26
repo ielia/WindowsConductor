@@ -12,11 +12,11 @@ namespace WindowsConductor.Client;
 /// </summary>
 public sealed class WcElement
 {
-    private readonly WcSession _conn;
+    private readonly IWcTransport _conn;
 
     internal string ElementId { get; }
 
-    internal WcElement(string elementId, WcSession conn)
+    internal WcElement(string elementId, IWcTransport conn)
     {
         ElementId = elementId;
         _conn = conn;

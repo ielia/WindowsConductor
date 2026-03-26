@@ -14,7 +14,7 @@ namespace WindowsConductor.DriverFlaUI;
 /// Manages launched applications and caches element references for a single client session.
 /// Not thread-safe; each connected WebSocket client owns one instance.
 /// </summary>
-public sealed class AppManager : IDisposable
+public sealed class AppManager : IAppOperations, IDisposable
 {
     private static readonly int DEFAULT_MAIN_WINDOW_TIMEOUT = 1500;
 
