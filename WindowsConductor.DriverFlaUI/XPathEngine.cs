@@ -1,7 +1,6 @@
 using System.Text.RegularExpressions;
 using FlaUI.Core.AutomationElements;
 using FlaUI.Core.Definitions;
-using FlaUI.Core.Exceptions;
 
 namespace WindowsConductor.DriverFlaUI;
 
@@ -90,36 +89,25 @@ public sealed class XPathEngine
         return results;
     }
 
-    private static bool Matches(AutomationElement element, XPathStep step)
+    private static bool Matches(AutomationElement element, XPathStep step) =>
+        MatchesStep(step, k => ElementProperties.Resolve(element, k));
+
+    internal static bool MatchesStep(XPathStep step, Func<string, string?> getProperty)
     {
         // Type check
         if (step.Type != "*")
         {
             if (!Enum.TryParse<ControlType>(step.Type, ignoreCase: true, out var ct))
                 return false;
-            if (element.ControlType != ct)
+            string? controlType = getProperty("controltype");
+            if (!string.Equals(controlType, ct.ToString(), StringComparison.Ordinal))
                 return false;
         }
 
         // Predicate checks (all must pass)
         foreach (var pred in step.Predicates)
         {
-            string? actual = null;
-            try
-            {
-                actual = pred.Attribute.ToLowerInvariant() switch
-                {
-                    "automationid" => element.AutomationId,
-                    "name" => element.Name,
-                    "classname" => element.ClassName,
-                    "controltype" => element.ControlType.ToString(),
-                    _ => null
-                };
-            }
-            catch (PropertyNotSupportedException)
-            {
-            }
-
+            string? actual = getProperty(pred.Attribute.ToLowerInvariant());
             if (!pred.Values.Any(v => string.Equals(actual, v, StringComparison.OrdinalIgnoreCase)))
                 return false;
         }

@@ -1,5 +1,4 @@
 using FlaUI.Core.AutomationElements;
-using FlaUI.Core.Exceptions;
 
 namespace WindowsConductor.DriverFlaUI;
 
@@ -148,28 +147,13 @@ public sealed class SelectorEngine
         IEnumerable<AutomationElement> source, string key, string value)
     {
         return source.Where(el =>
-        {
-            bool result;
-            try
-            {
-                result = key switch
-                {
-                    "automationid" =>
-                        string.Equals(el.AutomationId, value, StringComparison.OrdinalIgnoreCase),
-                    "name" or "text" =>
-                        string.Equals(el.Name, value, StringComparison.OrdinalIgnoreCase),
-                    "classname" or "class" =>
-                        string.Equals(el.ClassName, value, StringComparison.OrdinalIgnoreCase),
-                    "type" or "controltype" =>
-                        string.Equals(el.ControlType.ToString(), value, StringComparison.OrdinalIgnoreCase),
-                    _ => false
-                };
-            }
-            catch (PropertyNotSupportedException)
-            {
-                result = false;
-            }
-            return result;
-        }).ToArray();
+            MatchesProperty(key, value, k => ElementProperties.Resolve(el, k))
+        ).ToArray();
+    }
+
+    internal static bool MatchesProperty(string key, string value, Func<string, string?> getProperty)
+    {
+        string? actual = getProperty(key);
+        return string.Equals(actual, value, StringComparison.OrdinalIgnoreCase);
     }
 }
