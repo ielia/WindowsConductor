@@ -1,0 +1,287 @@
+using WindowsConductor.InspectorGUI;
+
+namespace WindowsConductor.InspectorGUI.Tests;
+
+[TestFixture]
+[Category("Unit")]
+public class CommandParserTests
+{
+    // ── Empty / invalid input ───────────────────────────────────────────────
+
+    [TestCase("")]
+    [TestCase("   ")]
+    [TestCase(null)]
+    public void Parse_EmptyOrWhitespace_Throws(string? input)
+    {
+        Assert.Throws<ArgumentException>(() => CommandParser.Parse(input!));
+    }
+
+    [Test]
+    public void Parse_UnknownCommand_Throws()
+    {
+        var ex = Assert.Throws<ArgumentException>(() => CommandParser.Parse("bogus"));
+        Assert.That(ex!.Message, Does.Contain("Unknown command"));
+    }
+
+    // ── connect ─────────────────────────────────────────────────────────────
+
+    [Test]
+    public void Parse_Connect_ReturnsConnectCommand()
+    {
+        var cmd = CommandParser.Parse("connect ws://localhost:8765/");
+        Assert.That(cmd, Is.InstanceOf<ConnectCommand>());
+        Assert.That(((ConnectCommand)cmd).Url, Is.EqualTo("ws://localhost:8765/"));
+    }
+
+    [Test]
+    public void Parse_Connect_MissingUrl_Throws()
+    {
+        Assert.Throws<ArgumentException>(() => CommandParser.Parse("connect"));
+    }
+
+    [Test]
+    public void Parse_Connect_CaseInsensitive()
+    {
+        var cmd = CommandParser.Parse("CONNECT ws://localhost/");
+        Assert.That(cmd, Is.InstanceOf<ConnectCommand>());
+    }
+
+    // ── launch ──────────────────────────────────────────────────────────────
+
+    [Test]
+    public void Parse_Launch_PathOnly()
+    {
+        var cmd = (LaunchCommand)CommandParser.Parse("launch calc.exe");
+        Assert.That(cmd.Path, Is.EqualTo("calc.exe"));
+        Assert.That(cmd.Args, Is.Empty);
+        Assert.That(cmd.DetachedTitleRegex, Is.Null);
+        Assert.That(cmd.MainWindowTimeout, Is.Null);
+    }
+
+    [Test]
+    public void Parse_Launch_WithDetachedTitleRegexAndTimeout()
+    {
+        var cmd = (LaunchCommand)CommandParser.Parse("launch calc.exe Calculator.* 3000");
+        Assert.That(cmd.Path, Is.EqualTo("calc.exe"));
+        Assert.That(cmd.Args, Is.Empty);
+        Assert.That(cmd.DetachedTitleRegex, Is.EqualTo("Calculator.*"));
+        Assert.That(cmd.MainWindowTimeout, Is.EqualTo(3000u));
+    }
+
+    [Test]
+    public void Parse_Launch_WithArgsAndDetachedTitleRegex()
+    {
+        // No uint at end → no timeout. Second-to-last = detachedTitleRegex.
+        var cmd = (LaunchCommand)CommandParser.Parse("launch notepad.exe --flag file.txt Title.*");
+        Assert.That(cmd.Path, Is.EqualTo("notepad.exe"));
+        Assert.That(cmd.Args, Is.EqualTo(new[] { "--flag", "file.txt" }));
+        Assert.That(cmd.DetachedTitleRegex, Is.EqualTo("Title.*"));
+        Assert.That(cmd.MainWindowTimeout, Is.Null);
+    }
+
+    [Test]
+    public void Parse_Launch_MissingPath_Throws()
+    {
+        Assert.Throws<ArgumentException>(() => CommandParser.Parse("launch"));
+    }
+
+    // ── attach ──────────────────────────────────────────────────────────────
+
+    [Test]
+    public void Parse_Attach_RegexOnly()
+    {
+        var cmd = (AttachCommand)CommandParser.Parse("attach Calculator.*");
+        Assert.That(cmd.MainWindowTitleRegex, Is.EqualTo("Calculator.*"));
+        Assert.That(cmd.MainWindowTimeout, Is.Null);
+    }
+
+    [Test]
+    public void Parse_Attach_WithTimeout()
+    {
+        var cmd = (AttachCommand)CommandParser.Parse("attach Calculator.* 2000");
+        Assert.That(cmd.MainWindowTitleRegex, Is.EqualTo("Calculator.*"));
+        Assert.That(cmd.MainWindowTimeout, Is.EqualTo(2000u));
+    }
+
+    [Test]
+    public void Parse_Attach_MissingRegex_Throws()
+    {
+        Assert.Throws<ArgumentException>(() => CommandParser.Parse("attach"));
+    }
+
+    // ── close ───────────────────────────────────────────────────────────────
+
+    [Test]
+    public void Parse_Close_ReturnsCloseCommand()
+    {
+        Assert.That(CommandParser.Parse("close"), Is.InstanceOf<CloseCommand>());
+    }
+
+    // ── wscreenshot ─────────────────────────────────────────────────────────
+
+    [Test]
+    public void Parse_Wscreenshot_ReturnsWindowScreenshotCommand()
+    {
+        Assert.That(CommandParser.Parse("wscreenshot"), Is.InstanceOf<WindowScreenshotCommand>());
+    }
+
+    // ── locate ──────────────────────────────────────────────────────────────
+
+    [Test]
+    public void Parse_Locate_SingleSelector()
+    {
+        var cmd = (LocateCommand)CommandParser.Parse("locate [name=OK]");
+        Assert.That(cmd.Selectors, Is.EqualTo(new[] { "[name=OK]" }));
+    }
+
+    [Test]
+    public void Parse_Locate_ChainedSelectors()
+    {
+        var cmd = (LocateCommand)CommandParser.Parse("locate [name=Panel] >> [name=OK]");
+        Assert.That(cmd.Selectors, Has.Length.EqualTo(2));
+        Assert.That(cmd.Selectors[0], Is.EqualTo("[name=Panel]"));
+        Assert.That(cmd.Selectors[1], Is.EqualTo("[name=OK]"));
+    }
+
+    [Test]
+    public void Parse_Locate_ThreeChainedSelectors()
+    {
+        var cmd = (LocateCommand)CommandParser.Parse("locate type=Window >> type=Panel >> [name=OK]");
+        Assert.That(cmd.Selectors, Has.Length.EqualTo(3));
+    }
+
+    [Test]
+    public void Parse_Locate_MissingSelector_Throws()
+    {
+        Assert.Throws<ArgumentException>(() => CommandParser.Parse("locate"));
+    }
+
+    // ── unselect ────────────────────────────────────────────────────────────
+
+    [Test]
+    public void Parse_Unselect_ReturnsUnselectCommand()
+    {
+        Assert.That(CommandParser.Parse("unselect"), Is.InstanceOf<UnselectCommand>());
+    }
+
+    // ── attribute ───────────────────────────────────────────────────────────
+
+    [Test]
+    public void Parse_Attribute_ReturnsAttributeCommand()
+    {
+        var cmd = (AttributeCommand)CommandParser.Parse("attribute automationid");
+        Assert.That(cmd.AttributeName, Is.EqualTo("automationid"));
+    }
+
+    [Test]
+    public void Parse_Attribute_MissingName_Throws()
+    {
+        Assert.Throws<ArgumentException>(() => CommandParser.Parse("attribute"));
+    }
+
+    // ── click ───────────────────────────────────────────────────────────────
+
+    [Test]
+    public void Parse_Click_ReturnsClickCommand()
+    {
+        Assert.That(CommandParser.Parse("click"), Is.InstanceOf<ClickCommand>());
+    }
+
+    // ── doubleclick ─────────────────────────────────────────────────────────
+
+    [Test]
+    public void Parse_DoubleClick_ReturnsDoubleClickCommand()
+    {
+        Assert.That(CommandParser.Parse("doubleclick"), Is.InstanceOf<DoubleClickCommand>());
+    }
+
+    // ── type ────────────────────────────────────────────────────────────────
+
+    [Test]
+    public void Parse_Type_ReturnsTypeCommand()
+    {
+        var cmd = (TypeCommand)CommandParser.Parse("type Hello World");
+        Assert.That(cmd.Text, Is.EqualTo("Hello World"));
+    }
+
+    [Test]
+    public void Parse_Type_QuotedText()
+    {
+        var cmd = (TypeCommand)CommandParser.Parse("type \"Hello World\"");
+        Assert.That(cmd.Text, Is.EqualTo("Hello World"));
+    }
+
+    [Test]
+    public void Parse_Type_MissingText_Throws()
+    {
+        Assert.Throws<ArgumentException>(() => CommandParser.Parse("type"));
+    }
+
+    // ── focus ───────────────────────────────────────────────────────────────
+
+    [Test]
+    public void Parse_Focus_ReturnsFocusCommand()
+    {
+        Assert.That(CommandParser.Parse("focus"), Is.InstanceOf<FocusCommand>());
+    }
+
+    // ── text ────────────────────────────────────────────────────────────────
+
+    [Test]
+    public void Parse_Text_ReturnsTextCommand()
+    {
+        Assert.That(CommandParser.Parse("text"), Is.InstanceOf<TextCommand>());
+    }
+
+    // ── screenshot ──────────────────────────────────────────────────────────
+
+    [Test]
+    public void Parse_Screenshot_ReturnsScreenshotCommand()
+    {
+        Assert.That(CommandParser.Parse("screenshot"), Is.InstanceOf<ScreenshotCommand>());
+    }
+
+    // ── Tokenize ────────────────────────────────────────────────────────────
+
+    [Test]
+    public void Tokenize_SimpleTokens()
+    {
+        var tokens = CommandParser.Tokenize("connect ws://localhost/");
+        Assert.That(tokens, Is.EqualTo(new[] { "connect", "ws://localhost/" }));
+    }
+
+    [Test]
+    public void Tokenize_DoubleQuoted()
+    {
+        var tokens = CommandParser.Tokenize("type \"Hello World\"");
+        Assert.That(tokens, Is.EqualTo(new[] { "type", "Hello World" }));
+    }
+
+    [Test]
+    public void Tokenize_SingleQuoted()
+    {
+        var tokens = CommandParser.Tokenize("type 'Hello World'");
+        Assert.That(tokens, Is.EqualTo(new[] { "type", "Hello World" }));
+    }
+
+    [Test]
+    public void Tokenize_MixedQuotesAndTokens()
+    {
+        var tokens = CommandParser.Tokenize("launch app.exe \"my arg\" flag");
+        Assert.That(tokens, Is.EqualTo(new[] { "launch", "app.exe", "my arg", "flag" }));
+    }
+
+    [Test]
+    public void Tokenize_ExtraWhitespace()
+    {
+        var tokens = CommandParser.Tokenize("  click   ");
+        Assert.That(tokens, Is.EqualTo(new[] { "click" }));
+    }
+
+    [Test]
+    public void Tokenize_EmptyInput()
+    {
+        var tokens = CommandParser.Tokenize("");
+        Assert.That(tokens, Is.Empty);
+    }
+}

@@ -8,6 +8,7 @@
     <RootNamespace>WindowsConductor.DriverFlaUI</RootNamespace>
     <AssemblyName>WindowsConductor.DriverFlaUI</AssemblyName>
     <Platforms>AnyCPU;x64</Platforms>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
   </PropertyGroup>
 
   <ItemGroup>

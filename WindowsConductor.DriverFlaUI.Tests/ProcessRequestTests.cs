@@ -19,6 +19,7 @@ internal sealed class FakeAppOperations : IAppOperations
     public bool IsVisibleResult { get; set; } = true;
     public string GetWindowTitleResult { get; set; } = "My App";
     public object GetBoundingRectResult { get; set; } = new { x = 0, y = 0, width = 100, height = 50 };
+    public object GetWindowBoundingRectResult { get; set; } = new { x = 10, y = 20, width = 800, height = 600 };
     public string ScreenshotElementResult { get; set; } = "/tmp/el.png";
     public string ScreenshotAppResult { get; set; } = "/tmp/app.png";
     public string StartRecordingResult { get; set; } = "/tmp/video.mp4";
@@ -59,6 +60,7 @@ internal sealed class FakeAppOperations : IAppOperations
 
     public string GetWindowTitle(string appId) { Record("GetWindowTitle", appId); return GetWindowTitleResult; }
     public object GetBoundingRect(string elementId) { Record("GetBoundingRect", elementId); return GetBoundingRectResult; }
+    public object GetWindowBoundingRect(string appId) { Record("GetWindowBoundingRect", appId); return GetWindowBoundingRectResult; }
 
     public string ScreenshotElement(string elementId, string? path)
     { Record("ScreenshotElement", elementId, path); return ScreenshotElementResult; }
@@ -322,6 +324,18 @@ public class ProcessRequestTests
         var resp = WsServer.ProcessRequest(_fake, MakeRequest("getBoundingRect", new() { ["elementId"] = "e1" }));
         Assert.That(resp.Success, Is.True);
         Assert.That(resp.Result, Is.Not.Null);
+    }
+
+    // ── getWindowBoundingRect ─────────────────────────────────────────────────
+
+    [Test]
+    public void GetWindowBoundingRect_ReturnsRect()
+    {
+        var resp = WsServer.ProcessRequest(_fake, MakeRequest("getWindowBoundingRect", new() { ["appId"] = "a1" }));
+        Assert.That(resp.Success, Is.True);
+        Assert.That(resp.Result, Is.Not.Null);
+        Assert.That(_fake.Calls[0].Method, Is.EqualTo("GetWindowBoundingRect"));
+        Assert.That(_fake.Calls[0].Args[0], Is.EqualTo("a1"));
     }
 
     // ── screenshot ───────────────────────────────────────────────────────────

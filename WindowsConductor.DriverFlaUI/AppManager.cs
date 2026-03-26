@@ -182,6 +182,12 @@ public sealed class AppManager : IAppOperations, IDisposable
         return new { x = r.X, y = r.Y, width = r.Width, height = r.Height };
     }
 
+    public object GetWindowBoundingRect(string appId)
+    {
+        var r = GetAppRoot(appId).BoundingRectangle;
+        return new { x = r.X, y = r.Y, width = r.Width, height = r.Height };
+    }
+
     // ── Screenshots ──────────────────────────────────────────────────────────
 
     /// <summary>Captures an element and saves it as a PNG file. Returns the file path.</summary>

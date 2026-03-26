@@ -21,6 +21,7 @@ internal interface IAppOperations
     void Focus(string elementId);
     string GetWindowTitle(string appId);
     object GetBoundingRect(string elementId);
+    object GetWindowBoundingRect(string appId);
     string ScreenshotElement(string elementId, string? path);
     string ScreenshotApp(string appId, string? path);
     string StartRecording(string appId, string? path, string? ffmpegPath);

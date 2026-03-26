@@ -1,0 +1,53 @@
+<Window x:Class="WindowsConductor.InspectorGUI.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="WindowsConductor Inspector" Height="700" Width="900"
+        WindowStartupLocation="CenterScreen">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="120" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- Screenshot display with highlight overlay -->
+        <Border Grid.Row="0" Background="#1E1E1E" Margin="4">
+            <Grid x:Name="ScreenshotContainer">
+                <Image x:Name="ScreenshotImage" Stretch="Uniform" />
+                <Canvas x:Name="HighlightCanvas">
+                    <Rectangle x:Name="HighlightRect"
+                               Stroke="Red" StrokeThickness="2"
+                               Visibility="Collapsed" />
+                </Canvas>
+            </Grid>
+        </Border>
+
+        <GridSplitter Grid.Row="1" Height="4" HorizontalAlignment="Stretch"
+                      Background="#333333" />
+
+        <!-- Output log -->
+        <TextBox Grid.Row="2" x:Name="OutputLog"
+                 IsReadOnly="True" VerticalScrollBarVisibility="Auto"
+                 Background="#1E1E1E" Foreground="#CCCCCC"
+                 FontFamily="Consolas" FontSize="12"
+                 Margin="4" TextWrapping="Wrap" />
+
+        <!-- Command input -->
+        <Grid Grid.Row="3" Margin="4">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="0" Text="&gt; " Foreground="#CCCCCC"
+                       FontFamily="Consolas" FontSize="14"
+                       VerticalAlignment="Center" Margin="4,0" />
+            <TextBox Grid.Column="1" x:Name="CommandInput"
+                     FontFamily="Consolas" FontSize="14"
+                     Background="#2D2D2D" Foreground="#FFFFFF"
+                     CaretBrush="White" BorderThickness="1"
+                     BorderBrush="#555555" Padding="4"
+                     PreviewKeyDown="CommandInput_PreviewKeyDown" />
+        </Grid>
+    </Grid>
+</Window>

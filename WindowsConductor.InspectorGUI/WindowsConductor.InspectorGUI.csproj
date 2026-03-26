@@ -1,18 +1,21 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <OutputType>Library</OutputType>
+    <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <RootNamespace>WindowsConductor.Client</RootNamespace>
-    <AssemblyName>WindowsConductor.Client</AssemblyName>
+    <UseWPF>true</UseWPF>
+    <RootNamespace>WindowsConductor.InspectorGUI</RootNamespace>
+    <AssemblyName>WindowsConductor.InspectorGUI</AssemblyName>
   </PropertyGroup>
 
   <ItemGroup>
-    <InternalsVisibleTo Include="WindowsConductor.Client.Tests" />
-    <InternalsVisibleTo Include="WindowsConductor.InspectorGUI" />
     <InternalsVisibleTo Include="WindowsConductor.InspectorGUI.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\WindowsConductor.Client\WindowsConductor.Client.csproj" />
   </ItemGroup>
 
 </Project>
