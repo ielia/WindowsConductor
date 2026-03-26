@@ -77,9 +77,9 @@ public sealed class AppManager : IDisposable
     // ── Element discovery ───────────────────────────────────────────────────
 
     /// <summary>Returns the element ID of the first element matching <paramref name="selector"/>.</summary>
-    public string FindElement(string appId, string selector)
+    public string FindElement(string appId, string selector, string? rootElementId = null)
     {
-        var root = GetAppRoot(appId);
+        var root = rootElementId != null ? GetElement(rootElementId) : GetAppRoot(appId);
         var element = _selector.FindElement(root, selector)
             ?? throw new InvalidOperationException(
                 $"No element found for selector '{selector}'.");
@@ -88,9 +88,9 @@ public sealed class AppManager : IDisposable
     }
 
     /// <summary>Returns element IDs for all elements matching <paramref name="selector"/>.</summary>
-    public string[] FindElements(string appId, string selector)
+    public string[] FindElements(string appId, string selector, string? rootElementId = null)
     {
-        var root = GetAppRoot(appId);
+        var root = rootElementId != null ? GetElement(rootElementId) : GetAppRoot(appId);
         return _selector.FindElements(root, selector)
             .Select(CacheElement)
             .ToArray();

@@ -12,12 +12,13 @@ namespace WindowsConductor.Client;
 /// </summary>
 public sealed class WcElement
 {
-    private readonly string _elementId;
     private readonly WcSession _conn;
+
+    internal string ElementId { get; }
 
     internal WcElement(string elementId, WcSession conn)
     {
-        _elementId = elementId;
+        ElementId = elementId;
         _conn = conn;
     }
 
@@ -25,47 +26,47 @@ public sealed class WcElement
 
     // Task<T> derives from Task, so these are valid Task-returning methods.
     public Task ClickAsync(CancellationToken ct = default) =>
-        _conn.SendAsync("click", new { elementId = _elementId }, ct);
+        _conn.SendAsync("click", new { elementId = ElementId }, ct);
 
     public Task DoubleClickAsync(CancellationToken ct = default) =>
-        _conn.SendAsync("doubleClick", new { elementId = _elementId }, ct);
+        _conn.SendAsync("doubleClick", new { elementId = ElementId }, ct);
 
     public Task TypeAsync(string text, CancellationToken ct = default) =>
-        _conn.SendAsync("typeText", new { elementId = _elementId, text }, ct);
+        _conn.SendAsync("typeText", new { elementId = ElementId, text }, ct);
 
     public Task FocusAsync(CancellationToken ct = default) =>
-        _conn.SendAsync("focus", new { elementId = _elementId }, ct);
+        _conn.SendAsync("focus", new { elementId = ElementId }, ct);
 
     // ── Queries ──────────────────────────────────────────────────────────────
 
     public async Task<string> GetTextAsync(CancellationToken ct = default)
     {
-        var r = await _conn.SendAsync("getText", new { elementId = _elementId }, ct);
+        var r = await _conn.SendAsync("getText", new { elementId = ElementId }, ct);
         return r.GetString() ?? "";
     }
 
     public async Task<string> GetAttributeAsync(string attribute, CancellationToken ct = default)
     {
         var r = await _conn.SendAsync("getAttribute",
-            new { elementId = _elementId, attribute }, ct);
+            new { elementId = ElementId, attribute }, ct);
         return r.GetString() ?? "";
     }
 
     public async Task<bool> IsEnabledAsync(CancellationToken ct = default)
     {
-        var r = await _conn.SendAsync("isEnabled", new { elementId = _elementId }, ct);
+        var r = await _conn.SendAsync("isEnabled", new { elementId = ElementId }, ct);
         return r.ValueKind == JsonValueKind.True;
     }
 
     public async Task<bool> IsVisibleAsync(CancellationToken ct = default)
     {
-        var r = await _conn.SendAsync("isVisible", new { elementId = _elementId }, ct);
+        var r = await _conn.SendAsync("isVisible", new { elementId = ElementId }, ct);
         return r.ValueKind == JsonValueKind.True;
     }
 
     public async Task<BoundingRect> GetBoundingRectAsync(CancellationToken ct = default)
     {
-        var r = await _conn.SendAsync("getBoundingRect", new { elementId = _elementId }, ct);
+        var r = await _conn.SendAsync("getBoundingRect", new { elementId = ElementId }, ct);
         return new BoundingRect(
             r.GetProperty("x").GetDouble(),
             r.GetProperty("y").GetDouble(),
@@ -79,11 +80,11 @@ public sealed class WcElement
     public async Task<string> ScreenshotAsync(string? path = null, CancellationToken ct = default)
     {
         var r = await _conn.SendAsync("screenshot",
-            new { elementId = _elementId, path = path ?? "" }, ct);
+            new { elementId = ElementId, path = path ?? "" }, ct);
         return r.GetString() ?? "";
     }
 
-    public override string ToString() => $"WcElement({_elementId})";
+    public override string ToString() => $"WcElement({ElementId})";
 }
 
 /// <summary>Screen coordinates and dimensions of a UIAutomation element.</summary>

@@ -1,5 +1,4 @@
 using System.Text.Json;
-using System.Text.RegularExpressions;
 
 namespace WindowsConductor.Client;
 
@@ -10,37 +9,71 @@ namespace WindowsConductor.Client;
 /// The selector is not resolved until an action or query method is called.
 /// Each call re-queries the Driver, so the locator always reflects the
 /// current state of the UI.
+///
+/// Chaining narrows scope: <c>app.GetByControlType("Panel").GetByName("OK")</c>
+/// first resolves the panel, then searches within it.
 /// </summary>
 public sealed class WcLocator
 {
     private readonly string _appId;
     private readonly string _selector;
     private readonly WcSession _conn;
+    private readonly WcLocator? _parent;
 
-    internal WcLocator(string appId, string selector, WcSession conn)
+    internal WcLocator(string appId, string selector, WcSession conn, WcLocator? parent = null)
     {
         SelectorValidator.Validate(selector);
         _appId = appId;
         _selector = selector;
         _conn = conn;
+        _parent = parent;
     }
 
-    // ── Chaining ─────────────────────────────────────────────────────────────
+    // ── Scoped factory methods ────────────────────────────────────────────────
 
-    /// <summary>
-    /// Returns a new locator scoped to elements matching <paramref name="selector"/>
-    /// that are descendants of the current locator's match.
-    /// </summary>
+    /// <summary>Returns a locator scoped within this locator's match.</summary>
     public WcLocator Locator(string selector) =>
-        new(_appId, _selector + " >> " + selector, _conn);
+        new(_appId, selector, _conn, this);
+
+    /// <summary>Finds elements by <c>AutomationId</c> within this locator's match.</summary>
+    public WcLocator GetByAutomationId(string automationId) =>
+        Locator($"[automationid={automationId.Replace("]", "\\]")}]");
+
+    /// <summary>Finds elements by <c>Name</c> within this locator's match.</summary>
+    public WcLocator GetByName(string name) =>
+        Locator($"[name={name.Replace("]", "\\]")}]");
+
+    /// <summary>Finds elements whose <c>Name</c> equals <paramref name="text"/> within this locator's match.</summary>
+    public WcLocator GetByText(string text) =>
+        Locator($"text={text.Replace("]", "\\]")}");
+
+    /// <summary>Finds elements using an XPath expression within this locator's match.</summary>
+    public WcLocator GetByXPath(string xpath)
+    {
+        string normalised = xpath.StartsWith('/') ? xpath : $"//{xpath}";
+        return Locator(normalised);
+    }
+
+    /// <summary>Finds elements by <c>ControlType</c> within this locator's match.</summary>
+    public WcLocator GetByControlType(string controlType) =>
+        Locator($"type={controlType}");
 
     // ── Element resolution ───────────────────────────────────────────────────
 
     /// <summary>Resolves and returns the first matching element.</summary>
     public async Task<WcElement> GetElementAsync(CancellationToken ct = default)
     {
+        string? rootElementId = null;
+        if (_parent != null)
+        {
+            var parentElement = await _parent.GetElementAsync(ct);
+            rootElementId = parentElement.ElementId;
+        }
+
         var result = await _conn.SendAsync(
-            "findElement", new { appId = _appId, selector = _selector }, ct);
+            "findElement",
+            new { appId = _appId, selector = _selector, rootElementId },
+            ct);
 
         string? elementId = result.GetString();
         if (elementId is null)
@@ -52,8 +85,17 @@ public sealed class WcLocator
     /// <summary>Resolves and returns all matching elements.</summary>
     public async Task<IReadOnlyList<WcElement>> GetAllElementsAsync(CancellationToken ct = default)
     {
+        string? rootElementId = null;
+        if (_parent != null)
+        {
+            var parentElement = await _parent.GetElementAsync(ct);
+            rootElementId = parentElement.ElementId;
+        }
+
         var result = await _conn.SendAsync(
-            "findElements", new { appId = _appId, selector = _selector }, ct);
+            "findElements",
+            new { appId = _appId, selector = _selector, rootElementId },
+            ct);
 
         return result.EnumerateArray()
             .Select(e => new WcElement(e.GetString()!, _conn))
@@ -142,5 +184,7 @@ public sealed class WcLocator
         return await el.ScreenshotAsync(path, ct);
     }
 
-    public override string ToString() => $"WcLocator({_selector})";
+    public override string ToString() => _parent != null
+        ? $"{_parent} > WcLocator({_selector})"
+        : $"WcLocator({_selector})";
 }

@@ -142,13 +142,21 @@ public sealed class WsServer
 
                 case "findElement":
                     {
-                        var elementId = mgr.FindElement(req.GetString("appId"), req.GetString("selector"));
+                        var rootElId = req.GetString("rootElementId");
+                        var elementId = mgr.FindElement(
+                            req.GetString("appId"),
+                            req.GetString("selector"),
+                            string.IsNullOrEmpty(rootElId) ? null : rootElId);
                         return WcResponse.Ok(req.Id, elementId);
                     }
 
                 case "findElements":
                     {
-                        var ids = mgr.FindElements(req.GetString("appId"), req.GetString("selector"));
+                        var rootElId = req.GetString("rootElementId");
+                        var ids = mgr.FindElements(
+                            req.GetString("appId"),
+                            req.GetString("selector"),
+                            string.IsNullOrEmpty(rootElId) ? null : rootElId);
                         return WcResponse.Ok(req.Id, ids);
                     }
 

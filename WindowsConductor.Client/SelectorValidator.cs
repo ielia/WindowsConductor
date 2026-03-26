@@ -27,20 +27,12 @@ public static class SelectorValidator
         if (string.IsNullOrWhiteSpace(selector))
             throw new ArgumentException("Selector must not be empty.", nameof(selector));
 
-        // Handle chained selectors (split by " >> ")
-        var segments = selector.Split(" >> ");
-        foreach (var segment in segments)
-        {
-            var s = segment.Trim();
-            if (string.IsNullOrWhiteSpace(s))
-                throw new ArgumentException(
-                    $"Selector contains an empty segment: '{selector}'", nameof(selector));
+        var s = selector.Trim();
 
-            if (s.StartsWith('/'))
-                ValidateXPath(s, selector);
-            else
-                ValidateSimpleSelector(s, selector);
-        }
+        if (s.StartsWith('/'))
+            ValidateXPath(s, selector);
+        else
+            ValidateSimpleSelector(s, selector);
     }
 
     private static void ValidateXPath(string xpath, string fullSelector)

@@ -28,6 +28,7 @@ applications remotely through a websocket connection, targetting native Windows 
 * Use `async` and `await` for all I/O operations; never call `.Result` or `.Wait()` on tasks.
 * Prefer good naming schemas rather than abundance of comments. Keep comments to a minimum, only whenever necessary.
 * Favour short code lengths, but not at the expense of making it cryptic. Always prefer readable code.
+* Reach 90% unit test coverage on all non-testing projects inside this solution.
 
 ## AI Workflow
 * **YOU MUST NEVER commit code to the git repository. Always leave the human to control that aspect of development.**

@@ -114,22 +114,6 @@ public class SelectorValidatorTests
         Assert.Throws<ArgumentException>(() => SelectorValidator.Validate(selector));
     }
 
-    // -- Chained selectors (" >> ") -------------------------------------------
-
-    [Test]
-    public void Validate_ChainedWithInvalidSegment_Throws()
-    {
-        Assert.Throws<ArgumentException>(
-            () => SelectorValidator.Validate("[automationid=foo] >> //[@Name='bar']"));
-    }
-
-    [Test]
-    public void Validate_ChainedWithEmptySegment_Throws()
-    {
-        Assert.Throws<ArgumentException>(
-            () => SelectorValidator.Validate("[automationid=foo] >>  >> [name=bar]"));
-    }
-
     // -- Valid selectors should NOT throw -------------------------------------
 
     [TestCase("[automationid=num7Button]")]
@@ -146,16 +130,6 @@ public class SelectorValidatorTests
     [TestCase("//Button")]                              // XPath without predicate
     [TestCase("//Window[@Name='Calc']//Button[@Name='7']")]
     public void Validate_ValidSelector_DoesNotThrow(string selector)
-    {
-        Assert.DoesNotThrow(() => SelectorValidator.Validate(selector));
-    }
-
-    // -- Valid chained selectors ----------------------------------------------
-
-    [TestCase("[automationid=parent] >> [name=child]")]
-    [TestCase("type=Window >> type=Button")]
-    [TestCase("[automationid=foo] >> //Button[@Name='OK']")]
-    public void Validate_ValidChainedSelector_DoesNotThrow(string selector)
     {
         Assert.DoesNotThrow(() => SelectorValidator.Validate(selector));
     }
