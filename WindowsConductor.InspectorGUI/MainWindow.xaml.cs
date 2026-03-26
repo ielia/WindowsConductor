@@ -1,6 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
@@ -16,6 +17,8 @@ public partial class MainWindow : Window, ICommandOutput
     private DispatcherTimer? _blinkTimer;
     private bool _blinkVisible = true;
     private DateTime _lastTabTime = DateTime.MinValue;
+    private BitmapImage? _currentBitmap;
+    private HighlightInfo? _currentHighlight;
 
     public MainWindow()
     {
@@ -139,44 +142,59 @@ public partial class MainWindow : Window, ICommandOutput
 
     private void ShowHighlight(BitmapImage bitmap, HighlightInfo highlight)
     {
-        // With Stretch="Uniform", the image is scaled uniformly and centered
-        // within the control. We need to compute the actual rendered image
-        // offset and scale to position the highlight correctly.
-        ScreenshotImage.UpdateLayout();
-        var controlWidth = ScreenshotImage.ActualWidth;
-        var controlHeight = ScreenshotImage.ActualHeight;
-        if (controlWidth <= 0 || controlHeight <= 0) return;
+        _currentBitmap = bitmap;
+        _currentHighlight = highlight;
+        PositionHighlight();
+        StartBlinking();
+    }
 
-        var scale = Math.Min(controlWidth / bitmap.PixelWidth, controlHeight / bitmap.PixelHeight);
+    private void ScreenshotContainer_SizeChanged(object sender, SizeChangedEventArgs e) =>
+        PositionHighlight();
+
+    private void PositionHighlight()
+    {
+        if (_currentBitmap is null || _currentHighlight is null)
+            return;
+
+        // Use the container Grid dimensions — it always fills the Border cell.
+        var containerWidth = ScreenshotContainer.ActualWidth;
+        var containerHeight = ScreenshotContainer.ActualHeight;
+        if (containerWidth <= 0 || containerHeight <= 0) return;
+
+        var bitmap = _currentBitmap;
+        var highlight = _currentHighlight;
+
+        // Compute the same uniform scale that Image Stretch="Uniform" applies.
+        var scaleX = containerWidth / bitmap.PixelWidth;
+        var scaleY = containerHeight / bitmap.PixelHeight;
+        var scale = Math.Min(scaleX, scaleY);
+
         var renderedWidth = bitmap.PixelWidth * scale;
         var renderedHeight = bitmap.PixelHeight * scale;
 
-        // Centering offset (letterbox/pillarbox margins)
-        var offsetX = (controlWidth - renderedWidth) / 2;
-        var offsetY = (controlHeight - renderedHeight) / 2;
+        // Centering offset — the Image centers content within its layout slot.
+        var offsetX = (containerWidth - renderedWidth) / 2;
+        var offsetY = (containerHeight - renderedHeight) / 2;
 
-        // UIAutomation bounding rects may be in logical (DPI-virtualized) pixels
-        // while the screenshot is in physical pixels. Use the ratio between the
-        // image pixel dimensions and the window rect dimensions to compensate.
+        // UIAutomation rects are in logical pixels; screenshot is in physical pixels.
         var dpiScaleX = (highlight.WindowWidth > 0) ? bitmap.PixelWidth / highlight.WindowWidth : 1.0;
         var dpiScaleY = (highlight.WindowHeight > 0) ? bitmap.PixelHeight / highlight.WindowHeight : 1.0;
 
-        var physX = highlight.X * dpiScaleX;
-        var physY = highlight.Y * dpiScaleY;
-        var physW = highlight.Width * dpiScaleX;
-        var physH = highlight.Height * dpiScaleY;
+        // Convert element coords to physical pixel space, then scale to rendered size.
+        var left = offsetX + highlight.X * dpiScaleX * scale;
+        var top = offsetY + highlight.Y * dpiScaleY * scale;
 
-        System.Windows.Controls.Canvas.SetLeft(HighlightRect, offsetX + physX * scale);
-        System.Windows.Controls.Canvas.SetTop(HighlightRect, offsetY + physY * scale);
-        HighlightRect.Width = physW * scale;
-        HighlightRect.Height = physH * scale;
+        Canvas.SetLeft(HighlightRect, left);
+        Canvas.SetTop(HighlightRect, top);
+        HighlightRect.Width = highlight.Width * dpiScaleX * scale;
+        HighlightRect.Height = highlight.Height * dpiScaleY * scale;
         HighlightRect.Visibility = Visibility.Visible;
-
-        StartBlinking();
     }
 
     private void HideHighlight()
     {
+        _currentBitmap = null;
+        _currentHighlight = null;
         StopBlinking();
         HighlightRect.Visibility = Visibility.Collapsed;
     }
