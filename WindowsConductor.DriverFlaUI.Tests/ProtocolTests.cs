@@ -20,7 +20,8 @@ public class WcRequestTests
     {
         var req = new WcRequest
         {
-            Id = "1", Command = "test",
+            Id = "1",
+            Command = "test",
             Params = new() { ["path"] = ToJsonElement("C:\\app.exe") }
         };
         Assert.That(req.GetString("path"), Is.EqualTo("C:\\app.exe"));
@@ -45,7 +46,8 @@ public class WcRequestTests
     {
         var req = new WcRequest
         {
-            Id = "1", Command = "test",
+            Id = "1",
+            Command = "test",
             Params = new() { ["key"] = ToJsonElement((string?)null!) }
         };
         Assert.That(req.GetString("key", "fb"), Is.EqualTo("fb"));
@@ -58,7 +60,8 @@ public class WcRequestTests
     {
         var req = new WcRequest
         {
-            Id = "1", Command = "test",
+            Id = "1",
+            Command = "test",
             Params = new() { ["args"] = ToJsonElement(new[] { "a", "b", "c" }) }
         };
         Assert.That(req.GetStringArray("args"), Is.EqualTo(new[] { "a", "b", "c" }));
@@ -76,7 +79,8 @@ public class WcRequestTests
     {
         var req = new WcRequest
         {
-            Id = "1", Command = "test",
+            Id = "1",
+            Command = "test",
             Params = new() { ["args"] = ToJsonElement(Array.Empty<string>()) }
         };
         Assert.That(req.GetStringArray("args"), Is.Empty);
@@ -89,7 +93,8 @@ public class WcRequestTests
     {
         var req = new WcRequest
         {
-            Id = "1", Command = "test",
+            Id = "1",
+            Command = "test",
             Params = new() { ["timeout"] = ToJsonElement(5000) }
         };
         Assert.That(req.GetInt("timeout"), Is.EqualTo(5000));
@@ -116,7 +121,8 @@ public class WcRequestTests
     {
         var req = new WcRequest
         {
-            Id = "1", Command = "test",
+            Id = "1",
+            Command = "test",
             Params = new() { ["flag"] = ToJsonElement(true) }
         };
         Assert.That(req.GetBool("flag"), Is.True);
@@ -127,7 +133,8 @@ public class WcRequestTests
     {
         var req = new WcRequest
         {
-            Id = "1", Command = "test",
+            Id = "1",
+            Command = "test",
             Params = new() { ["flag"] = ToJsonElement(false) }
         };
         Assert.That(req.GetBool("flag"), Is.False);

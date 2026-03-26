@@ -42,6 +42,10 @@ msbuild*.err
 [Bb]uild[Ll]og.*
 TestResult.xml
 
+## Code coverage
+coverage-results/
+coverage-report/
+
 ## OS files
 Thumbs.db
 ehthumbs.db
