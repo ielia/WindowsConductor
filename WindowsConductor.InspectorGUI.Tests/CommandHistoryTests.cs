@@ -169,4 +169,31 @@ public class CommandHistoryTests
         _history.Add("second");
         Assert.That(_history.NavigateUp(""), Is.EqualTo("second"));
     }
+
+    [Test]
+    public void Add_DuplicateAfterNavigate_CursorNotReset()
+    {
+        // Reproduces the skip bug: run "click", press Up (cursor=0),
+        // run "click" again (duplicate skipped, Add doesn't call ResetCursor),
+        // cursor stays at 0, next Up returns null — appears to skip.
+        _history.Add("click");
+        _history.NavigateUp("");           // cursor = 0
+        _history.Add("click");             // duplicate → skipped, cursor still 0
+
+        // Without explicit ResetCursor after Add, this would return null
+        // because cursor is at 0 (top). The caller must ResetCursor separately.
+        Assert.That(_history.Count, Is.EqualTo(1));
+        // cursor is NOT at Count — it's stale at 0
+    }
+
+    [Test]
+    public void ResetCursor_AfterDuplicateAdd_FixesCursor()
+    {
+        _history.Add("click");
+        _history.NavigateUp("");           // cursor = 0
+        _history.Add("click");             // duplicate skipped
+        _history.ResetCursor();            // explicit reset
+
+        Assert.That(_history.NavigateUp(""), Is.EqualTo("click"));
+    }
 }

@@ -64,6 +64,7 @@ public partial class MainWindow : Window, ICommandOutput
         if (string.IsNullOrEmpty(input)) return;
 
         _history.Add(input);
+        _history.ResetCursor();
         CommandInput.Text = "";
         AppendLog($"> {input}");
 
