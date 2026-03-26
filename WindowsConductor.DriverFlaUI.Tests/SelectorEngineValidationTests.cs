@@ -97,6 +97,12 @@ public class SelectorEngineValidationTests
     [TestCase("Hello")]                              // bare text → name=Hello
     [TestCase("//Button[@AutomationId='num7']")]     // valid XPath
     [TestCase("//*[@Name='Cancel']")]                // valid XPath
+    [TestCase("[isenabled=true]")]                   // new properties
+    [TestCase("[isoffscreen=false]")]
+    [TestCase("[frameworkid=Win32]")]
+    [TestCase("[processid=1234]")]
+    [TestCase("[helptext=Click me]")]
+    [TestCase("[isenabled=true]&&type=Button")]
     public void Validate_ValidSelector_DoesNotThrow(string selector)
     {
         Assert.DoesNotThrow(() => SelectorEngine.Validate(selector));
@@ -116,7 +122,7 @@ public class SelectorEngineValidationTests
     public void ParsePart_ShorthandSelector_ReturnsKeyValue()
     {
         var (key, value) = SelectorEngine.ParsePart("type=Button");
-        Assert.That(key, Is.EqualTo("type"));
+        Assert.That(key, Is.EqualTo("controltype"));
         Assert.That(value, Is.EqualTo("Button"));
     }
 

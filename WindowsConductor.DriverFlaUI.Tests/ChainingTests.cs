@@ -39,7 +39,7 @@ public class CompoundSelectorChainingTests
         Assert.That(v1, Is.EqualTo("ok"));
 
         var (k2, v2) = SelectorEngine.ParsePart(parts[1]);
-        Assert.That(k2, Is.EqualTo("type"));
+        Assert.That(k2, Is.EqualTo("controltype"));
         Assert.That(v2, Is.EqualTo("Button"));
 
         var (k3, v3) = SelectorEngine.ParsePart(parts[2]);
@@ -72,7 +72,7 @@ public class CompoundSelectorChainingTests
         var (k2, v2) = SelectorEngine.ParsePart(parts[1]);
 
         Assert.That(k1, Is.EqualTo("automationid"));
-        Assert.That(k2, Is.EqualTo("text"));
+        Assert.That(k2, Is.EqualTo("name"));
         Assert.That(v2, Is.EqualTo("Hello"));
     }
 
@@ -183,10 +183,10 @@ public class CompoundSelectorChainingTests
 
     [TestCase("class=MyPanel")]
     [TestCase("[class=MyPanel]")]
-    public void ParsePart_ClassAlias_Works(string part)
+    public void ParsePart_ClassAlias_NormalizesToClassName(string part)
     {
         var (key, _) = SelectorEngine.ParsePart(part);
-        Assert.That(key, Is.EqualTo("class"));
+        Assert.That(key, Is.EqualTo("classname"));
     }
 
     [TestCase("controltype=Button")]

@@ -12,6 +12,7 @@ namespace WindowsConductor.DriverFlaUI;
 ///   text=value                    Same as [name=value] (shorthand)
 ///   type=Button                   By ControlType name  (Button, Edit, Window …)
 ///   classname=Foo                 By ClassName
+///   [isenabled=true]              Any property from <see cref="ElementProperties"/>
 ///
 /// Compound selectors (AND logic):
 ///   [automationid=okBtn]&&type=Button
@@ -56,11 +57,6 @@ public sealed class SelectorEngine
     }
 
     // ── Validation ──────────────────────────────────────────────────────────
-
-    private static readonly HashSet<string> ValidKeys = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "automationid", "name", "text", "classname", "class", "type", "controltype"
-    };
 
     /// <summary>
     /// Validates a selector string without resolving it.
@@ -111,14 +107,9 @@ public sealed class SelectorEngine
                 throw new ArgumentException(
                     $"Bracket selector must have the format [key=value]: '{part}'", nameof(part));
 
-            var key = inner[..eq].Trim().ToLowerInvariant();
-            if (!ValidKeys.Contains(key))
-                throw new ArgumentException(
-                    $"Unknown selector attribute '{inner[..eq].Trim()}' in '{part}'. " +
-                    $"Valid attributes: {string.Join(", ", ValidKeys)}",
-                    nameof(part));
-
-            return (key, inner[(eq + 1)..].Trim());
+            var key = inner[..eq].Trim();
+            ValidateKey(key, part);
+            return (ElementProperties.Normalize(key), inner[(eq + 1)..].Trim());
         }
 
         // Unclosed/mismatched brackets
@@ -130,17 +121,21 @@ public sealed class SelectorEngine
         var sep = part.IndexOf('=');
         if (sep > 0)
         {
-            var key2 = part[..sep].Trim().ToLowerInvariant();
-            if (!ValidKeys.Contains(key2))
-                throw new ArgumentException(
-                    $"Unknown selector attribute '{part[..sep].Trim()}' in '{part}'. " +
-                    $"Valid attributes: {string.Join(", ", ValidKeys)}",
-                    nameof(part));
-            return (key2, part[(sep + 1)..].Trim());
+            var key2 = part[..sep].Trim();
+            ValidateKey(key2, part);
+            return (ElementProperties.Normalize(key2), part[(sep + 1)..].Trim());
         }
 
         // bare value → treat as name
         return ("name", part);
+    }
+
+    private static void ValidateKey(string key, string context)
+    {
+        if (!ElementProperties.IsSupported(key))
+            throw new ArgumentException(
+                $"Unknown selector attribute '{key}' in '{context}'.",
+                nameof(context));
     }
 
     private static AutomationElement[] Filter(

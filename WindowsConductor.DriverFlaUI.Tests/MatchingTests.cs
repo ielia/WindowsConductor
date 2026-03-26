@@ -6,17 +6,19 @@ namespace WindowsConductor.DriverFlaUI.Tests;
 [Category("Unit")]
 public class SelectorMatchingTests
 {
+    private static Func<string, string?> Props(Dictionary<string, string?> values) =>
+        key => values.TryGetValue(key, out var v) ? v : null;
+
     private static Func<string, string?> Props(
         string? automationId = null, string? name = null,
         string? className = null, string? controlType = null) =>
-        key => key switch
+        Props(new Dictionary<string, string?>
         {
-            "automationid" => automationId,
-            "name" or "text" => name,
-            "classname" or "class" => className,
-            "type" or "controltype" => controlType,
-            _ => null
-        };
+            ["automationid"] = automationId,
+            ["name"] = name,
+            ["classname"] = className,
+            ["controltype"] = controlType,
+        });
 
     // ── automationid ──────────────────────────────────────────────────────────
 
@@ -40,7 +42,7 @@ public class SelectorMatchingTests
         Assert.That(SelectorEngine.MatchesProperty("automationid", "okBtn",
             Props()), Is.False);
 
-    // ── name / text ───────────────────────────────────────────────────────────
+    // ── name ──────────────────────────────────────────────────────────────────
 
     [Test]
     public void MatchesProperty_Name_ExactMatch() =>
@@ -57,12 +59,7 @@ public class SelectorMatchingTests
         Assert.That(SelectorEngine.MatchesProperty("name", "Cancel",
             Props(name: "OK")), Is.False);
 
-    [Test]
-    public void MatchesProperty_Text_AliasForName() =>
-        Assert.That(SelectorEngine.MatchesProperty("text", "Hello",
-            Props(name: "Hello")), Is.True);
-
-    // ── classname / class ─────────────────────────────────────────────────────
+    // ── classname ─────────────────────────────────────────────────────────────
 
     [Test]
     public void MatchesProperty_ClassName_ExactMatch() =>
@@ -70,36 +67,48 @@ public class SelectorMatchingTests
             Props(className: "Panel")), Is.True);
 
     [Test]
-    public void MatchesProperty_Class_Alias() =>
-        Assert.That(SelectorEngine.MatchesProperty("class", "Panel",
-            Props(className: "Panel")), Is.True);
-
-    [Test]
     public void MatchesProperty_ClassName_Mismatch() =>
         Assert.That(SelectorEngine.MatchesProperty("classname", "Grid",
             Props(className: "Panel")), Is.False);
 
-    // ── type / controltype ────────────────────────────────────────────────────
+    // ── controltype ───────────────────────────────────────────────────────────
 
     [Test]
-    public void MatchesProperty_Type_ExactMatch() =>
-        Assert.That(SelectorEngine.MatchesProperty("type", "Button",
+    public void MatchesProperty_ControlType_ExactMatch() =>
+        Assert.That(SelectorEngine.MatchesProperty("controltype", "Button",
             Props(controlType: "Button")), Is.True);
 
     [Test]
-    public void MatchesProperty_ControlType_Alias() =>
+    public void MatchesProperty_ControlType_CaseInsensitive() =>
+        Assert.That(SelectorEngine.MatchesProperty("controltype", "button",
+            Props(controlType: "Button")), Is.True);
+
+    [Test]
+    public void MatchesProperty_ControlType_Mismatch() =>
         Assert.That(SelectorEngine.MatchesProperty("controltype", "Edit",
-            Props(controlType: "Edit")), Is.True);
-
-    [Test]
-    public void MatchesProperty_Type_CaseInsensitive() =>
-        Assert.That(SelectorEngine.MatchesProperty("type", "button",
-            Props(controlType: "Button")), Is.True);
-
-    [Test]
-    public void MatchesProperty_Type_Mismatch() =>
-        Assert.That(SelectorEngine.MatchesProperty("type", "Edit",
             Props(controlType: "Button")), Is.False);
+
+    // ── new properties ────────────────────────────────────────────────────────
+
+    [Test]
+    public void MatchesProperty_IsEnabled_Matches() =>
+        Assert.That(SelectorEngine.MatchesProperty("isenabled", "true",
+            Props(new() { ["isenabled"] = "true" })), Is.True);
+
+    [Test]
+    public void MatchesProperty_FrameworkId_Matches() =>
+        Assert.That(SelectorEngine.MatchesProperty("frameworkid", "Win32",
+            Props(new() { ["frameworkid"] = "Win32" })), Is.True);
+
+    [Test]
+    public void MatchesProperty_ProcessId_Matches() =>
+        Assert.That(SelectorEngine.MatchesProperty("processid", "1234",
+            Props(new() { ["processid"] = "1234" })), Is.True);
+
+    [Test]
+    public void MatchesProperty_HelpText_Matches() =>
+        Assert.That(SelectorEngine.MatchesProperty("helptext", "Click me",
+            Props(new() { ["helptext"] = "Click me" })), Is.True);
 
     // ── unknown key ───────────────────────────────────────────────────────────
 
@@ -304,4 +313,73 @@ public class XPathMatchingTests
 
         Assert.That(accessed, Is.EqualTo(new[] { "name" }));
     }
+}
+
+[TestFixture]
+[Category("Unit")]
+public class ElementPropertiesTests
+{
+    // ── Normalize ─────────────────────────────────────────────────────────────
+
+    [TestCase("text", "name")]
+    [TestCase("Text", "name")]
+    [TestCase("class", "classname")]
+    [TestCase("CLASS", "classname")]
+    [TestCase("type", "controltype")]
+    [TestCase("Type", "controltype")]
+    public void Normalize_Alias_ReturnsCanonical(string input, string expected) =>
+        Assert.That(ElementProperties.Normalize(input), Is.EqualTo(expected));
+
+    [TestCase("automationid")]
+    [TestCase("name")]
+    [TestCase("classname")]
+    [TestCase("controltype")]
+    [TestCase("isenabled")]
+    [TestCase("processid")]
+    public void Normalize_Canonical_ReturnsSelf(string key) =>
+        Assert.That(ElementProperties.Normalize(key), Is.EqualTo(key));
+
+    // ── IsSupported ───────────────────────────────────────────────────────────
+
+    [TestCase("automationid")]
+    [TestCase("name")]
+    [TestCase("classname")]
+    [TestCase("controltype")]
+    [TestCase("isenabled")]
+    [TestCase("isoffscreen")]
+    [TestCase("frameworkid")]
+    [TestCase("helptext")]
+    [TestCase("processid")]
+    [TestCase("itemtype")]
+    [TestCase("acceleratorkey")]
+    [TestCase("accesskey")]
+    [TestCase("haskeyboardfocus")]
+    [TestCase("iscontentelement")]
+    [TestCase("iscontrolelement")]
+    [TestCase("iskeyboardfocusable")]
+    [TestCase("ispassword")]
+    [TestCase("isrequiredforform")]
+    [TestCase("itemstatus")]
+    [TestCase("localizedcontroltype")]
+    [TestCase("nativewindowhandle")]
+    [TestCase("orientation")]
+    [TestCase("boundingrectangle")]
+    public void IsSupported_KnownKey_ReturnsTrue(string key) =>
+        Assert.That(ElementProperties.IsSupported(key), Is.True);
+
+    [TestCase("text")]   // alias for name
+    [TestCase("class")]  // alias for classname
+    [TestCase("type")]   // alias for controltype
+    [TestCase("TEXT")]
+    [TestCase("Class")]
+    [TestCase("Type")]
+    public void IsSupported_Alias_ReturnsTrue(string key) =>
+        Assert.That(ElementProperties.IsSupported(key), Is.True);
+
+    [TestCase("invalid")]
+    [TestCase("href")]
+    [TestCase("id")]
+    [TestCase("")]
+    public void IsSupported_Unknown_ReturnsFalse(string key) =>
+        Assert.That(ElementProperties.IsSupported(key), Is.False);
 }
