@@ -7,6 +7,7 @@ namespace WindowsConductor.DriverFlaUI;
 internal interface IAppOperations
 {
     string LaunchApp(string path, string[] args, string? detachedTitleRegex, int? mainWindowTimeout);
+    string AttachApp(string mainWindowTitleRegex, int? mainWindowTimeout);
     void CloseApp(string appId);
     string FindElement(string appId, string selector, string? rootElementId = null);
     string[] FindElements(string appId, string selector, string? rootElementId = null);

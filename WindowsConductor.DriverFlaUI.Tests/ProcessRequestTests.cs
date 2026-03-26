@@ -10,6 +10,7 @@ internal sealed class FakeAppOperations : IAppOperations
 
     // Configurable return values
     public string LaunchResult { get; set; } = "app-1";
+    public string AttachResult { get; set; } = "app-2";
     public string FindElementResult { get; set; } = "el-1";
     public string[] FindElementsResult { get; set; } = { "el-1", "el-2" };
     public string GetTextResult { get; set; } = "Hello";
@@ -32,6 +33,9 @@ internal sealed class FakeAppOperations : IAppOperations
 
     public string LaunchApp(string path, string[] args, string? detachedTitleRegex, int? mainWindowTimeout)
     { Record("LaunchApp", path, args, detachedTitleRegex, mainWindowTimeout); return LaunchResult; }
+
+    public string AttachApp(string mainWindowTitleRegex, int? mainWindowTimeout)
+    { Record("AttachApp", mainWindowTitleRegex, mainWindowTimeout); return AttachResult; }
 
     public void CloseApp(string appId) => Record("CloseApp", appId);
 
@@ -126,6 +130,39 @@ public class ProcessRequestTests
         WsServer.ProcessRequest(_fake, req);
         var args = _fake.Calls[0].Args;
         Assert.That(args[3], Is.Null); // mainWindowTimeout passed as null when 0
+    }
+
+    // ── attach ───────────────────────────────────────────────────────────────
+
+    [Test]
+    public void Attach_CallsAttachApp_ReturnsAppId()
+    {
+        var req = MakeRequest("attach", new()
+        {
+            ["mainWindowTitleRegex"] = "Calc.*",
+            ["mainWindowTimeout"] = 2000
+        });
+
+        var resp = WsServer.ProcessRequest(_fake, req);
+
+        Assert.That(resp.Success, Is.True);
+        Assert.That(resp.Result, Is.EqualTo("app-2"));
+        Assert.That(_fake.Calls[0].Method, Is.EqualTo("AttachApp"));
+        Assert.That(_fake.Calls[0].Args[0], Is.EqualTo("Calc.*"));
+        Assert.That(_fake.Calls[0].Args[1], Is.EqualTo(2000));
+    }
+
+    [Test]
+    public void Attach_ZeroTimeout_PassesNull()
+    {
+        var req = MakeRequest("attach", new()
+        {
+            ["mainWindowTitleRegex"] = "App.*",
+            ["mainWindowTimeout"] = 0
+        });
+
+        WsServer.ProcessRequest(_fake, req);
+        Assert.That(_fake.Calls[0].Args[1], Is.Null);
     }
 
     // ── close ────────────────────────────────────────────────────────────────

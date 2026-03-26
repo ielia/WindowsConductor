@@ -103,9 +103,44 @@ public class WcAppAsyncTests
     // ── DisposeAsync ─────────────────────────────────────────────────────────
 
     [Test]
-    public async Task DisposeAsync_SendsClose()
+    public async Task DisposeAsync_Launched_SendsClose()
     {
         await _app.DisposeAsync();
+        Assert.That(_transport.Calls, Has.Count.EqualTo(1));
+        Assert.That(_transport.Calls[0].Command, Is.EqualTo("close"));
+    }
+
+    [Test]
+    public async Task DisposeAsync_Attached_DoesNotSendClose()
+    {
+        var attached = new WcApp("app-99", _transport, ownsApp: false);
+        await attached.DisposeAsync();
+        Assert.That(_transport.Calls, Is.Empty);
+    }
+
+    [Test]
+    public async Task DisposeAsync_Launched_OwnsAppIsTrue()
+    {
+        var launched = new WcApp("app-1", _transport);
+        Assert.That(launched.OwnsApp, Is.True);
+        await launched.DisposeAsync();
+        Assert.That(_transport.Calls, Has.Count.EqualTo(1));
+    }
+
+    [Test]
+    public async Task DisposeAsync_Attached_OwnsAppIsFalse()
+    {
+        var attached = new WcApp("app-1", _transport, ownsApp: false);
+        Assert.That(attached.OwnsApp, Is.False);
+        await attached.DisposeAsync();
+        Assert.That(_transport.Calls, Is.Empty);
+    }
+
+    [Test]
+    public async Task CloseAsync_Attached_StillSendsClose()
+    {
+        var attached = new WcApp("app-99", _transport, ownsApp: false);
+        await attached.CloseAsync();
         Assert.That(_transport.Calls, Has.Count.EqualTo(1));
         Assert.That(_transport.Calls[0].Command, Is.EqualTo("close"));
     }

@@ -9,11 +9,13 @@ public sealed class WcApp : IAsyncDisposable
 {
     internal string AppId { get; }
     internal IWcTransport Connection { get; }
+    internal bool OwnsApp { get; }
 
-    internal WcApp(string appId, IWcTransport connection)
+    internal WcApp(string appId, IWcTransport connection, bool ownsApp = true)
     {
         AppId = appId;
         Connection = connection;
+        OwnsApp = ownsApp;
     }
 
     // ── Factory methods ──────────────────────────────────────────────────────
@@ -99,6 +101,7 @@ public sealed class WcApp : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
+        if (!OwnsApp) return;
         try { await CloseAsync(); }
         catch { /* ignore if already closed */ }
     }

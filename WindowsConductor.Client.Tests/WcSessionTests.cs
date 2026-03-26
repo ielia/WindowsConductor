@@ -284,6 +284,84 @@ public class WcSessionTests
         await CleanupAsync(serverWs, session);
     }
 
+    // ── AttachAsync ─────────────────────────────────────────────────────────
+
+    [Test]
+    public async Task AttachAsync_ReturnsWcApp_WithOwnsAppFalse()
+    {
+        var acceptTask = AcceptClientAsync();
+        var session = await WcSession.ConnectAsync(_wsUrl, _cts.Token);
+        var serverWs = await acceptTask;
+
+        var attachTask = session.AttachAsync("Calc.*", ct: _cts.Token);
+
+        using var reqDoc = await ReceiveJsonAsync(serverWs, _cts.Token);
+        var id = reqDoc.RootElement.GetProperty("id").GetString()!;
+        Assert.That(reqDoc.RootElement.GetProperty("command").GetString(), Is.EqualTo("attach"));
+
+        await SendJsonAsync(serverWs, new { id, success = true, result = "app-55" }, _cts.Token);
+        var app = await attachTask;
+        Assert.That(app.AppId, Is.EqualTo("app-55"));
+        Assert.That(app.OwnsApp, Is.False);
+        await CleanupAsync(serverWs, session);
+    }
+
+    [Test]
+    public async Task AttachAsync_SendsAllParameters()
+    {
+        var acceptTask = AcceptClientAsync();
+        var session = await WcSession.ConnectAsync(_wsUrl, _cts.Token);
+        var serverWs = await acceptTask;
+
+        var attachTask = session.AttachAsync("MyApp.*", mainWindowTimeout: 3000, ct: _cts.Token);
+
+        using var reqDoc = await ReceiveJsonAsync(serverWs, _cts.Token);
+        var id = reqDoc.RootElement.GetProperty("id").GetString()!;
+        var p = reqDoc.RootElement.GetProperty("params");
+
+        Assert.That(p.GetProperty("mainWindowTitleRegex").GetString(), Is.EqualTo("MyApp.*"));
+        Assert.That(p.GetProperty("mainWindowTimeout").GetUInt32(), Is.EqualTo(3000));
+
+        await SendJsonAsync(serverWs, new { id, success = true, result = "app-1" }, _cts.Token);
+        await attachTask;
+        await CleanupAsync(serverWs, session);
+    }
+
+    [Test]
+    public async Task AttachAsync_NullResult_Throws()
+    {
+        var acceptTask = AcceptClientAsync();
+        var session = await WcSession.ConnectAsync(_wsUrl, _cts.Token);
+        var serverWs = await acceptTask;
+
+        var attachTask = session.AttachAsync("Bad.*", ct: _cts.Token);
+
+        using var reqDoc = await ReceiveJsonAsync(serverWs, _cts.Token);
+        var id = reqDoc.RootElement.GetProperty("id").GetString()!;
+        await SendJsonAsync(serverWs, new { id, success = true, result = (string?)null }, _cts.Token);
+
+        Assert.ThrowsAsync<InvalidOperationException>(async () => await attachTask);
+        await CleanupAsync(serverWs, session);
+    }
+
+    [Test]
+    public async Task LaunchAsync_ReturnsWcApp_WithOwnsAppTrue()
+    {
+        var acceptTask = AcceptClientAsync();
+        var session = await WcSession.ConnectAsync(_wsUrl, _cts.Token);
+        var serverWs = await acceptTask;
+
+        var launchTask = session.LaunchAsync("calc.exe", ct: _cts.Token);
+
+        using var reqDoc = await ReceiveJsonAsync(serverWs, _cts.Token);
+        var id = reqDoc.RootElement.GetProperty("id").GetString()!;
+        await SendJsonAsync(serverWs, new { id, success = true, result = "app-1" }, _cts.Token);
+
+        var app = await launchTask;
+        Assert.That(app.OwnsApp, Is.True);
+        await CleanupAsync(serverWs, session);
+    }
+
     // ── Cancellation ─────────────────────────────────────────────────────────
 
     [Test]

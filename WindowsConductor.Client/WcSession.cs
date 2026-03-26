@@ -72,6 +72,28 @@ public sealed class WcSession : IWcTransport, IAsyncDisposable
         return new WcApp(appId, this);
     }
 
+    /// <summary>
+    /// Attaches to an already-running Windows application by matching its main
+    /// window title. The returned <see cref="WcApp"/> will <b>not</b> close
+    /// the application on dispose.
+    /// </summary>
+    /// <param name="mainWindowTitleRegex">Regex pattern matched against window titles.</param>
+    /// <param name="mainWindowTimeout">Time in ms to wait for the window to appear (0 = driver default).</param>
+    public async Task<WcApp> AttachAsync(
+        string mainWindowTitleRegex,
+        uint? mainWindowTimeout = 0,
+        CancellationToken ct = default)
+    {
+        var result = await SendAsync("attach",
+            new { mainWindowTitleRegex, mainWindowTimeout },
+            ct);
+
+        string appId = result.GetString()
+            ?? throw new WcException("Driver returned no appId for 'attach'.");
+
+        return new WcApp(appId, this, ownsApp: false);
+    }
+
     // ── Internal transport ───────────────────────────────────────────────────
 
     /// <summary>

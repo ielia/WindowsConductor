@@ -136,6 +136,16 @@ public sealed class WsServer
                         return WcResponse.Ok(req.Id, appId);
                     }
 
+                case "attach":
+                    {
+                        var mwt = req.GetInt("mainWindowTimeout");
+                        var appId = mgr.AttachApp(
+                            req.GetString("mainWindowTitleRegex"),
+                            mwt > 0 ? mwt : null
+                        );
+                        return WcResponse.Ok(req.Id, appId);
+                    }
+
                 case "close":
                     mgr.CloseApp(req.GetString("appId"));
                     return WcResponse.Ok(req.Id);

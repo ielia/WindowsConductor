@@ -20,6 +20,7 @@ public sealed class AppManager : IAppOperations, IDisposable
 
     private readonly UIA3Automation _automation = new();
     private readonly Dictionary<string, Application> _apps = new();
+    private readonly HashSet<string> _attachedApps = new();
     private readonly Dictionary<string, AutomationElement> _elements = new();
     private readonly SelectorEngine _selector;
     private bool _disposed;
@@ -66,12 +67,34 @@ public sealed class AppManager : IAppOperations, IDisposable
         return id;
     }
 
+    /// <summary>
+    /// Attaches to an already-running application by matching its main window title.
+    /// Returns a session ID for the attached application.
+    /// </summary>
+    public string AttachApp(string mainWindowTitleRegex, int? mainWindowTimeout)
+    {
+        if (mainWindowTimeout is > 0)
+            Thread.Sleep(mainWindowTimeout.Value);
+
+        var automation = new UIA3Automation();
+        var window = FindWindow(automation, mainWindowTitleRegex);
+        automation.Dispose();
+
+        var app = Application.Attach(window.Properties.ProcessId.Value);
+        var id = NewId();
+        _apps[id] = app;
+        _attachedApps.Add(id);
+        return id;
+    }
+
     /// <summary>Closes the application and removes it from the session.</summary>
     public void CloseApp(string appId)
     {
         if (!_apps.TryGetValue(appId, out var app)) return;
-        try { app.Close(); } catch { /* already closed */ }
+        if (!_attachedApps.Contains(appId))
+            try { app.Close(); } catch { /* already closed */ }
         _apps.Remove(appId);
+        _attachedApps.Remove(appId);
     }
 
     // ── Element discovery ───────────────────────────────────────────────────
@@ -333,9 +356,10 @@ public sealed class AppManager : IAppOperations, IDisposable
         }
         _recorders.Clear();
 
-        foreach (var app in _apps.Values)
+        foreach (var (id, app) in _apps)
         {
-            try { app.Close(); } catch { }
+            if (!_attachedApps.Contains(id))
+                try { app.Close(); } catch { }
             try { app.Dispose(); } catch { }
         }
 
