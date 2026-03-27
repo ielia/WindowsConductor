@@ -86,6 +86,15 @@ public class CommandExecutorTests
         Assert.That(_output.Screenshots, Has.Count.EqualTo(1));
     }
 
+    [Test]
+    public async Task Execute_Attach_WithoutTimeout_PassesZero()
+    {
+        _session.IsConnected = true;
+        await _executor.ExecuteAsync("attach Calculator.*");
+        var call = _session.Calls.First(c => c.Method == "Attach");
+        Assert.That(call.Args[1], Is.EqualTo(0u));
+    }
+
     // ── close ───────────────────────────────────────────────────────────────
 
     [Test]

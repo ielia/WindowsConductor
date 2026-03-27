@@ -35,7 +35,7 @@ public sealed class WcSession : IWcTransport, IAsyncDisposable
 
     /// <summary>Connects to a WcApp Driver and starts the receive loop.</summary>
     public static async Task<WcSession> ConnectAsync(
-        string wsUri = "ws://localhost:8765/",
+        string wsUri = WcDefaults.WebSocketUrl,
         CancellationToken ct = default)
     {
         var ws = new ClientWebSocket();

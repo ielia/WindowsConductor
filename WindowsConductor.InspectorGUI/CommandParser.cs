@@ -1,3 +1,5 @@
+using WindowsConductor.Client;
+
 namespace WindowsConductor.InspectorGUI;
 
 internal static class CommandParser
@@ -32,9 +34,8 @@ internal static class CommandParser
 
     private static ConnectCommand ParseConnect(string[] parts)
     {
-        if (parts.Length < 2)
-            throw new ArgumentException("Usage: connect <URL>");
-        return new ConnectCommand(parts[1]);
+        var url = parts.Length >= 2 ? parts[1] : WcDefaults.WebSocketUrl;
+        return new ConnectCommand(url);
     }
 
     private static LaunchCommand ParseLaunch(string[] parts)

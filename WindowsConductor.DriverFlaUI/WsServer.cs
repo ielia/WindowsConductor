@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
+using WindowsConductor.Client;
 
 namespace WindowsConductor.DriverFlaUI;
 
@@ -19,7 +20,7 @@ public sealed class WsServer
         WriteIndented = false
     };
 
-    public WsServer(string prefix = "http://localhost:8765/")
+    public WsServer(string prefix = WcDefaults.HttpPrefix)
     {
         _listener.Prefixes.Add(prefix);
     }

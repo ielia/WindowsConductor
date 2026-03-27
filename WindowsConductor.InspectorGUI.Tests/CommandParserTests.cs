@@ -1,3 +1,4 @@
+using WindowsConductor.Client;
 using WindowsConductor.InspectorGUI;
 
 namespace WindowsConductor.InspectorGUI.Tests;
@@ -34,9 +35,10 @@ public class CommandParserTests
     }
 
     [Test]
-    public void Parse_Connect_MissingUrl_Throws()
+    public void Parse_Connect_NoUrl_UsesDefault()
     {
-        Assert.Throws<ArgumentException>(() => CommandParser.Parse("connect"));
+        var cmd = (ConnectCommand)CommandParser.Parse("connect");
+        Assert.That(cmd.Url, Is.EqualTo(WcDefaults.WebSocketUrl));
     }
 
     [Test]

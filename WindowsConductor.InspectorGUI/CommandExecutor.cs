@@ -45,7 +45,7 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
 
             case AttachCommand cmd:
                 RequireConnected();
-                await session.AttachAsync(cmd.MainWindowTitleRegex, cmd.MainWindowTimeout, ct);
+                await session.AttachAsync(cmd.MainWindowTitleRegex, cmd.MainWindowTimeout ?? 0, ct);
                 output.WriteInfo($"Attached to '{cmd.MainWindowTitleRegex}'");
                 await ShowWindowScreenshotAsync(ct);
                 break;
