@@ -101,6 +101,12 @@ internal sealed class FakeInspectorSession : IInspectorSession
         return Task.CompletedTask;
     }
 
+    public Task RightClickAsync(CancellationToken ct = default)
+    {
+        Record("RightClick");
+        return Task.CompletedTask;
+    }
+
     public Task TypeAsync(string text, CancellationToken ct = default)
     {
         Record("Type", text);

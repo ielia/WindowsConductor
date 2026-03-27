@@ -197,6 +197,14 @@ public class CommandParserTests
         Assert.That(CommandParser.Parse("doubleclick"), Is.InstanceOf<DoubleClickCommand>());
     }
 
+    // ── rightclick ───────────────────────────────────────────────────────────
+
+    [Test]
+    public void Parse_RightClick_ReturnsRightClickCommand()
+    {
+        Assert.That(CommandParser.Parse("rightclick"), Is.InstanceOf<RightClickCommand>());
+    }
+
     // ── type ────────────────────────────────────────────────────────────────
 
     [Test]

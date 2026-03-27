@@ -85,6 +85,9 @@ internal sealed class WcInspectorSession : IInspectorSession, IAsyncDisposable
     public async Task DoubleClickAsync(CancellationToken ct = default) =>
         await _selectedElement!.DoubleClickAsync(ct);
 
+    public async Task RightClickAsync(CancellationToken ct = default) =>
+        await _selectedElement!.RightClickAsync(ct);
+
     public async Task TypeAsync(string text, CancellationToken ct = default) =>
         await _selectedElement!.TypeAsync(text, ct);
 

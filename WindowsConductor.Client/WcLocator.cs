@@ -118,6 +118,13 @@ public sealed class WcLocator
         await el.DoubleClickAsync(ct);
     }
 
+    /// <summary>Right-clicks the first matching element.</summary>
+    public async Task RightClickAsync(CancellationToken ct = default)
+    {
+        var el = await GetElementAsync(ct);
+        await el.RightClickAsync(ct);
+    }
+
     /// <summary>
     /// Focuses the first matching element and types <paramref name="text"/>
     /// using keyboard simulation.

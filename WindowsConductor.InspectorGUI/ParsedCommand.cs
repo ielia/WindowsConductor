@@ -28,6 +28,8 @@ internal sealed record ClickCommand : ParsedCommand;
 
 internal sealed record DoubleClickCommand : ParsedCommand;
 
+internal sealed record RightClickCommand : ParsedCommand;
+
 internal sealed record TypeCommand(string Text) : ParsedCommand;
 
 internal sealed record FocusCommand : ParsedCommand;

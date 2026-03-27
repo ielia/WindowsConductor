@@ -22,6 +22,7 @@ internal interface IInspectorSession
     Task<string> GetAttributeAsync(string attributeName, CancellationToken ct = default);
     Task ClickAsync(CancellationToken ct = default);
     Task DoubleClickAsync(CancellationToken ct = default);
+    Task RightClickAsync(CancellationToken ct = default);
     Task TypeAsync(string text, CancellationToken ct = default);
     Task FocusAsync(CancellationToken ct = default);
     Task<string> GetTextAsync(CancellationToken ct = default);

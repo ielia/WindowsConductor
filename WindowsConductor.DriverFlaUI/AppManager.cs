@@ -127,6 +127,9 @@ public sealed class AppManager : IAppOperations, IDisposable
     public void DoubleClick(string elementId) =>
         GetElement(elementId).DoubleClick();
 
+    public void RightClick(string elementId) =>
+        GetElement(elementId).RightClick();
+
     /// <summary>
     /// Focuses the element and types <paramref name="text"/> using keyboard simulation.
     /// For editable controls this appends to existing content; call SelectAll first

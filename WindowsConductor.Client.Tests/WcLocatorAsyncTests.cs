@@ -140,6 +140,14 @@ public class WcLocatorAsyncTests
     }
 
     [Test]
+    public async Task RightClickAsync_ResolvesAndRightClicks()
+    {
+        _transport.Enqueue("el-1");
+        await MakeLocator("[name=OK]").RightClickAsync();
+        Assert.That(_transport.Calls[1].Command, Is.EqualTo("rightClick"));
+    }
+
+    [Test]
     public async Task TypeAsync_ResolvesAndTypes()
     {
         _transport.Enqueue("el-1");

@@ -241,6 +241,19 @@ public class CommandExecutorTests
         Assert.That(_output.InfoMessages[0], Does.Contain("Double-clicked"));
     }
 
+    // ── rightclick ───────────────────────────────────────────────────────────
+
+    [Test]
+    public async Task Execute_RightClick_CallsRightClick()
+    {
+        _session.IsConnected = true;
+        _session.HasApp = true;
+        _session.HasSelectedElement = true;
+        await _executor.ExecuteAsync("rightclick");
+        Assert.That(_session.Calls.Any(c => c.Method == "RightClick"), Is.True);
+        Assert.That(_output.InfoMessages[0], Does.Contain("Right-clicked"));
+    }
+
     // ── type ────────────────────────────────────────────────────────────────
 
     [Test]
@@ -381,6 +394,16 @@ public class CommandExecutorTests
         _session.HasApp = true;
         _session.HasSelectedElement = false;
         await _executor.ExecuteAsync("doubleclick");
+        Assert.That(_output.ErrorMessages[0], Does.Contain("No element selected"));
+    }
+
+    [Test]
+    public async Task Execute_RightClick_NoElement_RequiresElement()
+    {
+        _session.IsConnected = true;
+        _session.HasApp = true;
+        _session.HasSelectedElement = false;
+        await _executor.ExecuteAsync("rightclick");
         Assert.That(_output.ErrorMessages[0], Does.Contain("No element selected"));
     }
 

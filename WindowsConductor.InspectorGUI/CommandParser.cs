@@ -24,6 +24,7 @@ internal static class CommandParser
             "attribute" => ParseAttribute(parts),
             "click" => new ClickCommand(),
             "doubleclick" => new DoubleClickCommand(),
+            "rightclick" => new RightClickCommand(),
             "type" => ParseType(parts),
             "focus" => new FocusCommand(),
             "text" => new TextCommand(),

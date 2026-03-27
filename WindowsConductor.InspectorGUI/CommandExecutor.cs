@@ -95,6 +95,13 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
                 await ShowWindowScreenshotWithHighlightAsync(ct);
                 break;
 
+            case RightClickCommand:
+                RequireElement();
+                await session.RightClickAsync(ct);
+                output.WriteInfo("Right-clicked.");
+                await ShowWindowScreenshotWithHighlightAsync(ct);
+                break;
+
             case TypeCommand cmd:
                 RequireElement();
                 await session.TypeAsync(cmd.Text, ct);

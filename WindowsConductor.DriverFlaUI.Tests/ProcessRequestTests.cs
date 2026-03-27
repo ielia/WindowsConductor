@@ -48,6 +48,7 @@ internal sealed class FakeAppOperations : IAppOperations
 
     public void Click(string elementId) => Record("Click", elementId);
     public void DoubleClick(string elementId) => Record("DoubleClick", elementId);
+    public void RightClick(string elementId) => Record("RightClick", elementId);
     public void TypeText(string elementId, string text) => Record("TypeText", elementId, text);
     public string GetText(string elementId) { Record("GetText", elementId); return GetTextResult; }
 
@@ -240,6 +241,15 @@ public class ProcessRequestTests
     {
         var resp = WsServer.ProcessRequest(_fake, MakeRequest("doubleClick", new() { ["elementId"] = "e1" }));
         Assert.That(_fake.Calls[0].Method, Is.EqualTo("DoubleClick"));
+    }
+
+    // ── rightClick ───────────────────────────────────────────────────────────
+
+    [Test]
+    public void RightClick_CallsRightClick()
+    {
+        var resp = WsServer.ProcessRequest(_fake, MakeRequest("rightClick", new() { ["elementId"] = "e1" }));
+        Assert.That(_fake.Calls[0].Method, Is.EqualTo("RightClick"));
     }
 
     // ── typeText ─────────────────────────────────────────────────────────────

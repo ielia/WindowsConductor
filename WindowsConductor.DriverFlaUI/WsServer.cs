@@ -179,6 +179,10 @@ public sealed class WsServer
                     mgr.DoubleClick(req.GetString("elementId"));
                     return WcResponse.Ok(req.Id);
 
+                case "rightClick":
+                    mgr.RightClick(req.GetString("elementId"));
+                    return WcResponse.Ok(req.Id);
+
                 case "typeText":
                     mgr.TypeText(req.GetString("elementId"), req.GetString("text"));
                     return WcResponse.Ok(req.Id);

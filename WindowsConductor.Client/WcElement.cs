@@ -31,6 +31,9 @@ public sealed class WcElement
     public Task DoubleClickAsync(CancellationToken ct = default) =>
         _conn.SendAsync("doubleClick", new { elementId = ElementId }, ct);
 
+    public Task RightClickAsync(CancellationToken ct = default) =>
+        _conn.SendAsync("rightClick", new { elementId = ElementId }, ct);
+
     public Task TypeAsync(string text, CancellationToken ct = default) =>
         _conn.SendAsync("typeText", new { elementId = ElementId, text }, ct);
 

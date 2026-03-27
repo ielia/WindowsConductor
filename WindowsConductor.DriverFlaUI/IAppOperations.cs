@@ -13,6 +13,7 @@ internal interface IAppOperations
     string[] FindElements(string appId, string selector, string? rootElementId = null);
     void Click(string elementId);
     void DoubleClick(string elementId);
+    void RightClick(string elementId);
     void TypeText(string elementId, string text);
     string GetText(string elementId);
     string GetAttribute(string elementId, string attribute);

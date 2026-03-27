@@ -36,6 +36,14 @@ public class WcElementAsyncTests
     }
 
     [Test]
+    public async Task RightClickAsync_SendsCorrectCommand()
+    {
+        await _element.RightClickAsync();
+        Assert.That(_transport.Calls[0].Command, Is.EqualTo("rightClick"));
+        Assert.That(_transport.Calls[0].ParamsJson, Does.Contain("\"elementId\":\"el-123\""));
+    }
+
+    [Test]
     public async Task TypeAsync_SendsTextAndElementId()
     {
         await _element.TypeAsync("hello world");
