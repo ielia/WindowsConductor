@@ -55,6 +55,16 @@ public sealed class WcElement
         return r.GetString() ?? "";
     }
 
+    public async Task<Dictionary<string, object?>> GetAttributesAsync(CancellationToken ct = default)
+    {
+        var r = await _conn.SendAsync("getAttributes",
+            new { elementId = ElementId }, ct);
+        var dict = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
+        foreach (var prop in r.EnumerateObject())
+            dict[prop.Name] = prop.Value.ValueKind == JsonValueKind.Null ? null : prop.Value.ToString();
+        return dict;
+    }
+
     public async Task<bool> IsEnabledAsync(CancellationToken ct = default)
     {
         var r = await _conn.SendAsync("isEnabled", new { elementId = ElementId }, ct);

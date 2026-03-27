@@ -186,6 +186,16 @@ public class WcLocatorAsyncTests
     }
 
     [Test]
+    public async Task GetAttributesAsync_ResolvesAndReturnsDictionary()
+    {
+        _transport.Enqueue("el-1");
+        _transport.Enqueue(new { name = "OK", controltype = "Button" });
+        var attrs = await MakeLocator("[name=OK]").GetAttributesAsync();
+        Assert.That(attrs["name"], Is.EqualTo("OK"));
+        Assert.That(_transport.Calls[1].Command, Is.EqualTo("getAttributes"));
+    }
+
+    [Test]
     public async Task IsEnabledAsync_ResolvesAndReturnsValue()
     {
         _transport.Enqueue("el-1");

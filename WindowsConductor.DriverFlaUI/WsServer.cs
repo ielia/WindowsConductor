@@ -194,6 +194,10 @@ public sealed class WsServer
                     return WcResponse.Ok(req.Id,
                         mgr.GetAttribute(req.GetString("elementId"), req.GetString("attribute")));
 
+                case "getAttributes":
+                    return WcResponse.Ok(req.Id,
+                        mgr.GetAttributes(req.GetString("elementId")));
+
                 case "isEnabled":
                     return WcResponse.Ok(req.Id, mgr.IsEnabled(req.GetString("elementId")));
 

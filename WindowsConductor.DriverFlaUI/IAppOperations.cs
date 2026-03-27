@@ -17,6 +17,7 @@ internal interface IAppOperations
     void TypeText(string elementId, string text);
     string GetText(string elementId);
     string GetAttribute(string elementId, string attribute);
+    Dictionary<string, object?> GetAttributes(string elementId);
     bool IsEnabled(string elementId);
     bool IsVisible(string elementId);
     void Focus(string elementId);

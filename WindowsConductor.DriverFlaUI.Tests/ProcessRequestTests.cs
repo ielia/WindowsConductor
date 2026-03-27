@@ -55,6 +55,10 @@ internal sealed class FakeAppOperations : IAppOperations
     public string GetAttribute(string elementId, string attribute)
     { Record("GetAttribute", elementId, attribute); return GetAttributeResult; }
 
+    public Dictionary<string, object?> GetAttributesResult { get; set; } = new() { ["name"] = "OK" };
+    public Dictionary<string, object?> GetAttributes(string elementId)
+    { Record("GetAttributes", elementId); return GetAttributesResult; }
+
     public bool IsEnabled(string elementId) { Record("IsEnabled", elementId); return IsEnabledResult; }
     public bool IsVisible(string elementId) { Record("IsVisible", elementId); return IsVisibleResult; }
     public void Focus(string elementId) => Record("Focus", elementId);
@@ -287,6 +291,18 @@ public class ProcessRequestTests
         }));
         Assert.That(resp.Result, Is.EqualTo("btn-class"));
         Assert.That(_fake.Calls[0].Args[1], Is.EqualTo("classname"));
+    }
+
+    // ── getAttributes ───────────────────────────────────────────────────────
+
+    [Test]
+    public void GetAttributes_ReturnsDictionary()
+    {
+        var resp = WsServer.ProcessRequest(_fake, MakeRequest("getAttributes", new()
+        {
+            ["elementId"] = "e1"
+        }));
+        Assert.That(_fake.Calls[0].Method, Is.EqualTo("GetAttributes"));
     }
 
     // ── isEnabled ────────────────────────────────────────────────────────────

@@ -41,6 +41,24 @@ internal static class ElementProperties
         return Aliases.TryGetValue(key, out var canonical) ? canonical : key;
     }
 
+    internal static Dictionary<string, object?> ResolveAll(AutomationElement el)
+    {
+        var result = new Dictionary<string, object?>(PropertyMap.Count, StringComparer.OrdinalIgnoreCase);
+        foreach (var (name, propInfo) in PropertyMap)
+        {
+            try
+            {
+                var automationProp = propInfo.GetValue(el.Properties);
+                if (automationProp is null) continue;
+                var value = automationProp.GetType().GetProperty("ValueOrDefault")?.GetValue(automationProp);
+                if (value is not null)
+                    result[name] = value.ToString();
+            }
+            catch { /* skip unsupported properties */ }
+        }
+        return result;
+    }
+
     internal static string? Resolve(AutomationElement el, string key)
     {
         var normalized = Normalize(key);

@@ -161,6 +161,13 @@ public sealed class WcLocator
         return await el.GetAttributeAsync(attribute, ct);
     }
 
+    /// <summary>Returns all UIAutomation properties of the first matching element.</summary>
+    public async Task<Dictionary<string, object?>> GetAttributesAsync(CancellationToken ct = default)
+    {
+        var el = await GetElementAsync(ct);
+        return await el.GetAttributesAsync(ct);
+    }
+
     /// <summary>Returns <c>true</c> if the first matching element is enabled.</summary>
     public async Task<bool> IsEnabledAsync(CancellationToken ct = default)
     {

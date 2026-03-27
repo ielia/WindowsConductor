@@ -167,6 +167,9 @@ public sealed class AppManager : IAppOperations, IDisposable
             ?? throw new NotSupportedException($"Attribute not supported: '{attribute}'");
     }
 
+    public Dictionary<string, object?> GetAttributes(string elementId) =>
+        ElementProperties.ResolveAll(GetElement(elementId));
+
     public bool IsEnabled(string elementId) =>
         GetElement(elementId).IsEnabled;
 

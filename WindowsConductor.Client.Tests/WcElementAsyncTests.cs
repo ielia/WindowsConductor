@@ -90,6 +90,16 @@ public class WcElementAsyncTests
     }
 
     [Test]
+    public async Task GetAttributesAsync_ReturnsDictionary()
+    {
+        _transport.Enqueue(new { name = "OK", classname = "Button" });
+        var attrs = await _element.GetAttributesAsync();
+        Assert.That(attrs["name"], Is.EqualTo("OK"));
+        Assert.That(attrs["classname"], Is.EqualTo("Button"));
+        Assert.That(_transport.Calls[0].Command, Is.EqualTo("getAttributes"));
+    }
+
+    [Test]
     public async Task IsEnabledAsync_True()
     {
         _transport.Enqueue(true);
