@@ -11,8 +11,8 @@ public enum XPathAxis { Child, Descendant }
 /// <summary>A single <c>@Attr='value'</c> or <c>@Attr=('v1','v2')</c> predicate.</summary>
 public sealed record XPathPredicate(string Attribute, IReadOnlyList<string> Values);
 
-/// <summary>One step of an XPath expression: axis + element type + predicates.</summary>
-public sealed record XPathStep(XPathAxis Axis, string Type, IReadOnlyList<XPathPredicate> Predicates);
+/// <summary>One step of an XPath expression: axis + element type + predicates + optional 1-based positional index.</summary>
+public sealed record XPathStep(XPathAxis Axis, string Type, IReadOnlyList<XPathPredicate> Predicates, int? Index = null);
 
 // ── Engine ───────────────────────────────────────────────────────────────────
 
@@ -25,8 +25,9 @@ public sealed record XPathStep(XPathAxis Axis, string Type, IReadOnlyList<XPathP
 ///   step        ::= axis type predicate*
 ///   axis        ::= '//' (descendant) | '/' (child)
 ///   type        ::= '*' | ControlTypeName          e.g. Button, Edit, Window
-///   predicate   ::= '[' '@' attr '=' value_expr ']'
+///   predicate   ::= '[' '@' attr '=' value_expr ']' | '[' index ']'
 ///   value_expr  ::= quote value quote | '(' quote value quote (',' quote value quote)* ')'
+///   index       ::= positive integer (1-based)
 ///   attr        ::= AutomationId | Name | ClassName | ControlType
 ///   quote       ::= ' | "
 ///
@@ -36,6 +37,7 @@ public sealed record XPathStep(XPathAxis Axis, string Type, IReadOnlyList<XPathP
 ///   //Window[@Name='Calculator']//Button[@Name='7']
 ///   //*[@Name='Cancel']
 ///   //Edit
+///   //Button[3]
 /// </summary>
 public sealed class XPathEngine
 {
@@ -84,6 +86,13 @@ public sealed class XPathEngine
                 if (Matches(el, step))
                     results.Add(el);
             }
+        }
+
+        if (step.Index is { } idx)
+        {
+            if (idx < 1 || idx > results.Count)
+                return [];
+            return [results[idx - 1]];
         }
 
         return results;
@@ -163,6 +172,7 @@ public sealed class XPathEngine
 
             // ── Predicates ───────────────────────────────────────────────────
             var predicates = new List<XPathPredicate>();
+            int? index = null;
 
             while (pos < len && xpath[pos] == '[')
             {
@@ -190,11 +200,22 @@ public sealed class XPathEngine
                         $"Empty predicate '[]' in XPath expression: '{xpath}'",
                         nameof(xpath));
 
+                // Positional index predicate: [3]
+                if (int.TryParse(predContent.Trim(), out int parsedIndex))
+                {
+                    if (parsedIndex < 1)
+                        throw new ArgumentException(
+                            $"Index predicate must be >= 1, got '{predContent}' in XPath expression: '{xpath}'",
+                            nameof(xpath));
+                    index = parsedIndex;
+                    continue;
+                }
+
                 var m = PredicateRx.Match(predContent);
                 if (!m.Success)
                     throw new ArgumentException(
                         $"Invalid predicate syntax '{predContent}' in XPath expression: '{xpath}'. " +
-                        "Expected format: @Attribute='value' or @Attribute=('v1','v2')",
+                        "Expected format: @Attribute='value' or @Attribute=('v1','v2') or positional index",
                         nameof(xpath));
 
                 var attr = m.Groups["attr"].Value;
@@ -217,7 +238,8 @@ public sealed class XPathEngine
             steps.Add(new XPathStep(
                 isDescendant ? XPathAxis.Descendant : XPathAxis.Child,
                 type,
-                predicates));
+                predicates,
+                index));
         }
 
         if (steps.Count == 0)

@@ -56,6 +56,16 @@ public class SelectorValidatorTests
         Assert.That(ex!.Message, Does.Contain("Predicates must start with '@'"));
     }
 
+    // -- XPath: index predicate zero or negative ------------------------------
+
+    [TestCase("//Button[0]")]
+    [TestCase("//Button[-1]")]
+    public void Validate_XPathIndexLessThanOne_Throws(string selector)
+    {
+        var ex = Assert.Throws<ArgumentException>(() => SelectorValidator.Validate(selector));
+        Assert.That(ex!.Message, Does.Contain("Index predicate must be >= 1"));
+    }
+
     // -- Simple: unclosed bracket ---------------------------------------------
 
     [TestCase("[automationid=foo")]
@@ -129,6 +139,8 @@ public class SelectorValidatorTests
     [TestCase("//*[@Name='Cancel']")]                   // valid XPath
     [TestCase("//Button")]                              // XPath without predicate
     [TestCase("//Window[@Name='Calc']//Button[@Name='7']")]
+    [TestCase("//Button[3]")]                             // XPath index predicate
+    [TestCase("//Button[@Name='OK'][2]")]                 // XPath index + attribute
     public void Validate_ValidSelector_DoesNotThrow(string selector)
     {
         Assert.DoesNotThrow(() => SelectorValidator.Validate(selector));

@@ -67,11 +67,20 @@ public static class SelectorValidator
                 $"Empty predicate '[]' in XPath expression: '{fullSelector}'",
                 nameof(fullSelector));
 
-        // Check that predicates have valid @attr='value' format
+        // Check that predicates have valid @attr='value' or numeric index format
         var predicateMatches = Regex.Matches(xpath, @"\[([^\]]*)\]");
         foreach (Match m in predicateMatches)
         {
             var content = m.Groups[1].Value.Trim();
+            // Allow positional index predicates: [1], [3], etc.
+            if (int.TryParse(content, out int idx))
+            {
+                if (idx < 1)
+                    throw new ArgumentException(
+                        $"Index predicate must be >= 1, got '{content}' in XPath expression: '{fullSelector}'",
+                        nameof(fullSelector));
+                continue;
+            }
             if (!content.StartsWith('@'))
                 throw new ArgumentException(
                     $"Invalid predicate syntax '{content}' in XPath expression: '{fullSelector}'. " +

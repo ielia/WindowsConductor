@@ -53,7 +53,6 @@ public class XPathEngineValidationTests
 
     [TestCase("//Button[Name='foo']", Description = "Missing @ prefix")]
     [TestCase("//Button[invalid]", Description = "No @attr=value pattern")]
-    [TestCase("//Button[123]", Description = "Numeric predicate")]
     public void ParseXPath_InvalidPredicateSyntax_Throws(string xpath)
     {
         var ex = Assert.Throws<ArgumentException>(() => XPathEngine.Validate(xpath));
@@ -72,6 +71,18 @@ public class XPathEngineValidationTests
 
     // ── Valid expressions should NOT throw ───────────────────────────────────
 
+    // ── Index predicate: zero or negative ────────────────────────────────────
+
+    [TestCase("//Button[0]")]
+    [TestCase("//Button[-1]")]
+    public void ParseXPath_IndexLessThanOne_Throws(string xpath)
+    {
+        var ex = Assert.Throws<ArgumentException>(() => XPathEngine.Validate(xpath));
+        Assert.That(ex!.Message, Does.Contain("Index predicate must be >= 1"));
+    }
+
+    // ── Valid expressions should NOT throw ───────────────────────────────────
+
     [TestCase("//Button")]
     [TestCase("//Button[@AutomationId='num7Button']")]
     [TestCase("//*[@Name='Cancel']")]
@@ -80,6 +91,9 @@ public class XPathEngineValidationTests
     [TestCase("//Button[@AutomationId=('clearButton','clearEntryButton')]")]
     [TestCase("/Window/Button")]
     [TestCase("//*")]
+    [TestCase("//Button[3]")]
+    [TestCase("//Button[@Name='OK'][2]")]
+    [TestCase("//Window[@Name='Calc']//Button[1]")]
     public void ParseXPath_ValidExpression_DoesNotThrow(string xpath)
     {
         Assert.DoesNotThrow(() => XPathEngine.Validate(xpath));
@@ -139,5 +153,43 @@ public class XPathEngineValidationTests
         var steps = XPathEngine.ParseXPath("//Button[@AutomationId=('a','b','c')]");
         Assert.That(steps, Has.Count.EqualTo(1));
         Assert.That(steps[0].Predicates[0].Values, Is.EqualTo(new[] { "a", "b", "c" }));
+    }
+
+    // ── Index predicate parsing ──────────────────────────────────────────────
+
+    [Test]
+    public void ParseXPath_IndexPredicate_ParsesCorrectly()
+    {
+        var steps = XPathEngine.ParseXPath("//Button[3]");
+        Assert.That(steps, Has.Count.EqualTo(1));
+        Assert.That(steps[0].Type, Is.EqualTo("Button"));
+        Assert.That(steps[0].Index, Is.EqualTo(3));
+        Assert.That(steps[0].Predicates, Is.Empty);
+    }
+
+    [Test]
+    public void ParseXPath_IndexWithAttributePredicate_ParsesBoth()
+    {
+        var steps = XPathEngine.ParseXPath("//Button[@Name='OK'][2]");
+        Assert.That(steps, Has.Count.EqualTo(1));
+        Assert.That(steps[0].Predicates, Has.Count.EqualTo(1));
+        Assert.That(steps[0].Predicates[0].Attribute, Is.EqualTo("Name"));
+        Assert.That(steps[0].Index, Is.EqualTo(2));
+    }
+
+    [Test]
+    public void ParseXPath_IndexInMultiStep_ParsesCorrectly()
+    {
+        var steps = XPathEngine.ParseXPath("//Window[@Name='Calc']//Button[1]");
+        Assert.That(steps, Has.Count.EqualTo(2));
+        Assert.That(steps[0].Index, Is.Null);
+        Assert.That(steps[1].Index, Is.EqualTo(1));
+    }
+
+    [Test]
+    public void ParseXPath_NoIndex_IndexIsNull()
+    {
+        var steps = XPathEngine.ParseXPath("//Button[@Name='OK']");
+        Assert.That(steps[0].Index, Is.Null);
     }
 }
