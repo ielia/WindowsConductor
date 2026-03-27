@@ -16,6 +16,10 @@ internal sealed record AttachCommand(
 
 internal sealed record CloseCommand : ParsedCommand;
 
+internal sealed record DetachCommand : ParsedCommand;
+
+internal sealed record DisconnectCommand : ParsedCommand;
+
 internal sealed record WindowScreenshotCommand : ParsedCommand;
 
 internal sealed record LocateCommand(string[] Selectors) : ParsedCommand;

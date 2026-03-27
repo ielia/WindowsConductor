@@ -53,8 +53,22 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
             case CloseCommand:
                 RequireApp();
                 await session.CloseAppAsync(ct);
-                output.ClearHighlight();
+                output.ClearScreenshot();
                 output.WriteInfo("Application closed.");
+                break;
+
+            case DetachCommand:
+                RequireApp();
+                await session.DetachAppAsync();
+                output.ClearScreenshot();
+                output.WriteInfo("Detached from application.");
+                break;
+
+            case DisconnectCommand:
+                RequireConnected();
+                await session.DisconnectAsync();
+                output.ClearScreenshot();
+                output.WriteInfo("Disconnected.");
                 break;
 
             case WindowScreenshotCommand:

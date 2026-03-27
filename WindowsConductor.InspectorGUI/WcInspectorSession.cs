@@ -47,6 +47,13 @@ internal sealed class WcInspectorSession : IInspectorSession, IAsyncDisposable
         _app = null;
     }
 
+    public Task DetachAppAsync()
+    {
+        _selectedElement = null;
+        _app = null;
+        return Task.CompletedTask;
+    }
+
     public async Task<byte[]> WindowScreenshotAsync(CancellationToken ct = default)
     {
         var path = await _app!.ScreenshotAsync(ct: ct);

@@ -5,6 +5,7 @@ internal interface ICommandOutput
     void WriteInfo(string message);
     void WriteError(string message);
     void ShowScreenshot(byte[] imageData, HighlightInfo? highlight = null);
+    void ClearScreenshot();
     void ClearHighlight();
 }
 

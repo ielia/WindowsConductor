@@ -9,6 +9,8 @@ internal static class CommandCompleter
         "click",
         "close",
         "connect",
+        "detach",
+        "disconnect",
         "doubleclick",
         "focus",
         "launch",

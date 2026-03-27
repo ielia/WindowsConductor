@@ -18,6 +18,8 @@ internal static class CommandParser
             "launch" => ParseLaunch(parts),
             "attach" => ParseAttach(parts),
             "close" => new CloseCommand(),
+            "detach" => new DetachCommand(),
+            "disconnect" => new DisconnectCommand(),
             "wscreenshot" => new WindowScreenshotCommand(),
             "locate" => ParseLocate(parts),
             "unselect" => new UnselectCommand(),

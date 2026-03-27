@@ -7,6 +7,7 @@ internal sealed class FakeCommandOutput : ICommandOutput
     public List<string> InfoMessages { get; } = new();
     public List<string> ErrorMessages { get; } = new();
     public List<(byte[] Data, HighlightInfo? Highlight)> Screenshots { get; } = new();
+    public int ClearScreenshotCount { get; private set; }
     public int ClearHighlightCount { get; private set; }
 
     public void WriteInfo(string message) => InfoMessages.Add(message);
@@ -15,5 +16,6 @@ internal sealed class FakeCommandOutput : ICommandOutput
     public void ShowScreenshot(byte[] imageData, HighlightInfo? highlight = null) =>
         Screenshots.Add((imageData, highlight));
 
+    public void ClearScreenshot() => ClearScreenshotCount++;
     public void ClearHighlight() => ClearHighlightCount++;
 }

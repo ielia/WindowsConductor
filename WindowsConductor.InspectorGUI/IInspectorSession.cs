@@ -12,6 +12,7 @@ internal interface IInspectorSession
     Task LaunchAsync(string path, string[] args, string? detachedTitleRegex, uint? mainWindowTimeout, CancellationToken ct = default);
     Task AttachAsync(string mainWindowTitleRegex, uint? mainWindowTimeout, CancellationToken ct = default);
     Task CloseAppAsync(CancellationToken ct = default);
+    Task DetachAppAsync();
 
     Task<byte[]> WindowScreenshotAsync(CancellationToken ct = default);
     Task<BoundingRect> GetWindowBoundingRectAsync(CancellationToken ct = default);

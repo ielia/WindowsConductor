@@ -58,6 +58,14 @@ internal sealed class FakeInspectorSession : IInspectorSession
         return Task.CompletedTask;
     }
 
+    public Task DetachAppAsync()
+    {
+        Record("DetachApp");
+        HasApp = false;
+        HasSelectedElement = false;
+        return Task.CompletedTask;
+    }
+
     public Task<byte[]> WindowScreenshotAsync(CancellationToken ct = default)
     {
         Record("WindowScreenshot");

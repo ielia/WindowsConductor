@@ -119,6 +119,22 @@ public class CommandParserTests
         Assert.That(CommandParser.Parse("close"), Is.InstanceOf<CloseCommand>());
     }
 
+    // ── detach ──────────────────────────────────────────────────────────────
+
+    [Test]
+    public void Parse_Detach_ReturnsDetachCommand()
+    {
+        Assert.That(CommandParser.Parse("detach"), Is.InstanceOf<DetachCommand>());
+    }
+
+    // ── disconnect ──────────────────────────────────────────────────────────
+
+    [Test]
+    public void Parse_Disconnect_ReturnsDisconnectCommand()
+    {
+        Assert.That(CommandParser.Parse("disconnect"), Is.InstanceOf<DisconnectCommand>());
+    }
+
     // ── wscreenshot ─────────────────────────────────────────────────────────
 
     [Test]

@@ -113,7 +113,47 @@ public class CommandExecutorTests
         await _executor.ExecuteAsync("close");
         Assert.That(_session.Calls[0].Method, Is.EqualTo("CloseApp"));
         Assert.That(_output.InfoMessages[0], Does.Contain("closed"));
-        Assert.That(_output.ClearHighlightCount, Is.EqualTo(1));
+        Assert.That(_output.ClearScreenshotCount, Is.EqualTo(1));
+    }
+
+    // ── detach ──────────────────────────────────────────────────────────────
+
+    [Test]
+    public async Task Execute_Detach_NoApp_WritesError()
+    {
+        _session.IsConnected = true;
+        await _executor.ExecuteAsync("detach");
+        Assert.That(_output.ErrorMessages[0], Does.Contain("No application"));
+    }
+
+    [Test]
+    public async Task Execute_Detach_CallsDetachApp()
+    {
+        _session.IsConnected = true;
+        _session.HasApp = true;
+        await _executor.ExecuteAsync("detach");
+        Assert.That(_session.Calls[0].Method, Is.EqualTo("DetachApp"));
+        Assert.That(_output.InfoMessages[0], Does.Contain("Detached"));
+        Assert.That(_output.ClearScreenshotCount, Is.EqualTo(1));
+    }
+
+    // ── disconnect ──────────────────────────────────────────────────────────
+
+    [Test]
+    public async Task Execute_Disconnect_NotConnected_WritesError()
+    {
+        await _executor.ExecuteAsync("disconnect");
+        Assert.That(_output.ErrorMessages[0], Does.Contain("Not connected"));
+    }
+
+    [Test]
+    public async Task Execute_Disconnect_CallsDisconnect()
+    {
+        _session.IsConnected = true;
+        await _executor.ExecuteAsync("disconnect");
+        Assert.That(_session.Calls[0].Method, Is.EqualTo("Disconnect"));
+        Assert.That(_output.InfoMessages[0], Does.Contain("Disconnected"));
+        Assert.That(_output.ClearScreenshotCount, Is.EqualTo(1));
     }
 
     // ── wscreenshot ─────────────────────────────────────────────────────────

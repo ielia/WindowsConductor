@@ -137,6 +137,13 @@ public partial class MainWindow : Window, ICommandOutput
         });
     }
 
+    void ICommandOutput.ClearScreenshot() =>
+        Dispatcher.Invoke(() =>
+        {
+            ScreenshotImage.Source = null;
+            HideHighlight();
+        });
+
     void ICommandOutput.ClearHighlight() =>
         Dispatcher.Invoke(HideHighlight);
 
