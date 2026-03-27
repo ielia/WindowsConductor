@@ -4,6 +4,7 @@ namespace WindowsConductor.InspectorGUI;
 
 internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput output)
 {
+    private string[]? _currentSelectors;
     internal async Task ExecuteAsync(string input, CancellationToken ct = default)
     {
         ParsedCommand command;
@@ -53,21 +54,27 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
             case CloseCommand:
                 RequireApp();
                 await session.CloseAppAsync(ct);
+                _currentSelectors = null;
                 output.ClearScreenshot();
+                output.ClearAttributes();
                 output.WriteInfo("Application closed.");
                 break;
 
             case DetachCommand:
                 RequireApp();
                 await session.DetachAppAsync();
+                _currentSelectors = null;
                 output.ClearScreenshot();
+                output.ClearAttributes();
                 output.WriteInfo("Detached from application.");
                 break;
 
             case DisconnectCommand:
                 RequireConnected();
                 await session.DisconnectAsync();
+                _currentSelectors = null;
                 output.ClearScreenshot();
+                output.ClearAttributes();
                 output.WriteInfo("Disconnected.");
                 break;
 
@@ -79,13 +86,17 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
             case LocateCommand cmd:
                 RequireApp();
                 var elementId = await session.LocateAsync(cmd.Selectors, ct);
+                _currentSelectors = cmd.Selectors;
                 output.WriteInfo($"Located element: {elementId}");
                 await ShowWindowScreenshotWithHighlightAsync(ct);
+                await ShowAttributesAsync(ct);
                 break;
 
             case UnselectCommand:
                 session.Unselect();
+                _currentSelectors = null;
                 output.ClearHighlight();
+                output.ClearAttributes();
                 output.WriteInfo("Element unselected.");
                 break;
 
@@ -100,6 +111,7 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
                 await session.ClickAsync(ct);
                 output.WriteInfo("Clicked.");
                 await ShowWindowScreenshotWithHighlightAsync(ct);
+                await ShowAttributesAsync(ct);
                 break;
 
             case DoubleClickCommand:
@@ -107,6 +119,7 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
                 await session.DoubleClickAsync(ct);
                 output.WriteInfo("Double-clicked.");
                 await ShowWindowScreenshotWithHighlightAsync(ct);
+                await ShowAttributesAsync(ct);
                 break;
 
             case RightClickCommand:
@@ -114,6 +127,7 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
                 await session.RightClickAsync(ct);
                 output.WriteInfo("Right-clicked.");
                 await ShowWindowScreenshotWithHighlightAsync(ct);
+                await ShowAttributesAsync(ct);
                 break;
 
             case TypeCommand cmd:
@@ -121,6 +135,7 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
                 await session.TypeAsync(cmd.Text, ct);
                 output.WriteInfo($"Typed: {cmd.Text}");
                 await ShowWindowScreenshotWithHighlightAsync(ct);
+                await ShowAttributesAsync(ct);
                 break;
 
             case FocusCommand:
@@ -154,6 +169,23 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
     {
         var imgData = await session.WindowScreenshotAsync(ct);
         output.ShowScreenshot(imgData);
+    }
+
+    internal async Task RefreshAsync(CancellationToken ct = default)
+    {
+        if (!session.HasApp) return;
+        await ShowWindowScreenshotWithHighlightAsync(ct);
+        await ShowAttributesAsync(ct);
+    }
+
+    private async Task ShowAttributesAsync(CancellationToken ct)
+    {
+        if (!session.HasSelectedElement) return;
+        var chain = _currentSelectors is not null
+            ? string.Join(" >> ", _currentSelectors)
+            : "";
+        var attrs = await session.GetAttributesAsync(ct);
+        output.ShowAttributes(chain, attrs);
     }
 
     private async Task ShowWindowScreenshotWithHighlightAsync(CancellationToken ct)

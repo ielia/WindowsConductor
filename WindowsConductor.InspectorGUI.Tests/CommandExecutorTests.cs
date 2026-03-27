@@ -114,6 +114,7 @@ public class CommandExecutorTests
         Assert.That(_session.Calls[0].Method, Is.EqualTo("CloseApp"));
         Assert.That(_output.InfoMessages[0], Does.Contain("closed"));
         Assert.That(_output.ClearScreenshotCount, Is.EqualTo(1));
+        Assert.That(_output.ClearAttributesCount, Is.EqualTo(1));
     }
 
     // ── detach ──────────────────────────────────────────────────────────────
@@ -135,6 +136,7 @@ public class CommandExecutorTests
         Assert.That(_session.Calls[0].Method, Is.EqualTo("DetachApp"));
         Assert.That(_output.InfoMessages[0], Does.Contain("Detached"));
         Assert.That(_output.ClearScreenshotCount, Is.EqualTo(1));
+        Assert.That(_output.ClearAttributesCount, Is.EqualTo(1));
     }
 
     // ── disconnect ──────────────────────────────────────────────────────────
@@ -154,6 +156,7 @@ public class CommandExecutorTests
         Assert.That(_session.Calls[0].Method, Is.EqualTo("Disconnect"));
         Assert.That(_output.InfoMessages[0], Does.Contain("Disconnected"));
         Assert.That(_output.ClearScreenshotCount, Is.EqualTo(1));
+        Assert.That(_output.ClearAttributesCount, Is.EqualTo(1));
     }
 
     // ── wscreenshot ─────────────────────────────────────────────────────────
@@ -197,6 +200,7 @@ public class CommandExecutorTests
         // Should show screenshot with highlight
         Assert.That(_output.Screenshots, Has.Count.EqualTo(1));
         Assert.That(_output.Screenshots[0].Highlight, Is.Not.Null);
+        Assert.That(_output.AttributesSets, Has.Count.EqualTo(1));
     }
 
     [Test]
@@ -219,6 +223,7 @@ public class CommandExecutorTests
         await _executor.ExecuteAsync("unselect");
         Assert.That(_session.Calls[0].Method, Is.EqualTo("Unselect"));
         Assert.That(_output.ClearHighlightCount, Is.EqualTo(1));
+        Assert.That(_output.ClearAttributesCount, Is.EqualTo(1));
         Assert.That(_output.InfoMessages[0], Does.Contain("unselected"));
     }
 
@@ -470,6 +475,116 @@ public class CommandExecutorTests
         await _executor.ExecuteAsync("exit");
         Assert.That(_session.Calls[0].Method, Is.EqualTo("Disconnect"));
         Assert.That(_output.RequestExitCount, Is.EqualTo(1));
+    }
+
+    // ── attributes panel ───────────────────────────────────────────────────
+
+    [Test]
+    public async Task Execute_Locate_ShowsAttributesWithLocatorChain()
+    {
+        _session.IsConnected = true;
+        _session.HasApp = true;
+        _session.GetAttributesResult = new Dictionary<string, object?> { ["name"] = "OK" };
+        await _executor.ExecuteAsync("locate [name=OK]");
+        Assert.That(_output.AttributesSets, Has.Count.EqualTo(1));
+        Assert.That(_output.AttributesSets[0].LocatorChain, Is.EqualTo("[name=OK]"));
+        Assert.That(_output.AttributesSets[0].Attributes["name"], Is.EqualTo("OK"));
+    }
+
+    [Test]
+    public async Task Execute_Locate_ChainedSelectors_ShowsFullChain()
+    {
+        _session.IsConnected = true;
+        _session.HasApp = true;
+        await _executor.ExecuteAsync("locate type=Panel >> [name=OK]");
+        Assert.That(_output.AttributesSets[0].LocatorChain, Is.EqualTo("type=Panel >> [name=OK]"));
+    }
+
+    [Test]
+    public async Task Execute_Click_RefreshesAttributes()
+    {
+        _session.IsConnected = true;
+        _session.HasApp = true;
+        _session.HasSelectedElement = true;
+        await _executor.ExecuteAsync("click");
+        Assert.That(_output.AttributesSets, Has.Count.EqualTo(1));
+    }
+
+    [Test]
+    public async Task Execute_DoubleClick_RefreshesAttributes()
+    {
+        _session.IsConnected = true;
+        _session.HasApp = true;
+        _session.HasSelectedElement = true;
+        await _executor.ExecuteAsync("doubleclick");
+        Assert.That(_output.AttributesSets, Has.Count.EqualTo(1));
+    }
+
+    [Test]
+    public async Task Execute_RightClick_RefreshesAttributes()
+    {
+        _session.IsConnected = true;
+        _session.HasApp = true;
+        _session.HasSelectedElement = true;
+        await _executor.ExecuteAsync("rightclick");
+        Assert.That(_output.AttributesSets, Has.Count.EqualTo(1));
+    }
+
+    [Test]
+    public async Task Execute_Type_RefreshesAttributes()
+    {
+        _session.IsConnected = true;
+        _session.HasApp = true;
+        _session.HasSelectedElement = true;
+        await _executor.ExecuteAsync("type Hello");
+        Assert.That(_output.AttributesSets, Has.Count.EqualTo(1));
+    }
+
+    // ── refresh ──────────────────────────────────────────────────────────────
+
+    [Test]
+    public async Task Refresh_WithElement_RefreshesScreenshotAndAttributes()
+    {
+        _session.IsConnected = true;
+        _session.HasApp = true;
+        _session.HasSelectedElement = true;
+        await _executor.RefreshAsync();
+        Assert.That(_output.Screenshots, Has.Count.EqualTo(1));
+        Assert.That(_output.Screenshots[0].Highlight, Is.Not.Null);
+        Assert.That(_output.AttributesSets, Has.Count.EqualTo(1));
+    }
+
+    [Test]
+    public async Task Refresh_NoApp_DoesNothing()
+    {
+        _session.IsConnected = true;
+        await _executor.RefreshAsync();
+        Assert.That(_output.Screenshots, Has.Count.EqualTo(0));
+        Assert.That(_output.AttributesSets, Has.Count.EqualTo(0));
+    }
+
+    [Test]
+    public async Task Refresh_AppButNoElement_ShowsScreenshotOnly()
+    {
+        _session.IsConnected = true;
+        _session.HasApp = true;
+        await _executor.RefreshAsync();
+        Assert.That(_output.Screenshots, Has.Count.EqualTo(1));
+        Assert.That(_output.AttributesSets, Has.Count.EqualTo(0));
+    }
+
+    [Test]
+    public async Task Refresh_PreservesLocatorChain()
+    {
+        _session.IsConnected = true;
+        _session.HasApp = true;
+        _session.HasSelectedElement = true;
+        await _executor.ExecuteAsync("locate type=Panel >> [name=OK]");
+        _output.AttributesSets.Clear();
+        _output.Screenshots.Clear();
+
+        await _executor.RefreshAsync();
+        Assert.That(_output.AttributesSets[0].LocatorChain, Is.EqualTo("type=Panel >> [name=OK]"));
     }
 
     // ── highlight coordinate translation ────────────────────────────────────

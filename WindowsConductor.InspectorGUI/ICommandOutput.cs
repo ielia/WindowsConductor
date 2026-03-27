@@ -7,6 +7,8 @@ internal interface ICommandOutput
     void ShowScreenshot(byte[] imageData, HighlightInfo? highlight = null);
     void ClearScreenshot();
     void ClearHighlight();
+    void ShowAttributes(string locatorChain, Dictionary<string, object?> attributes);
+    void ClearAttributes();
     void RequestExit();
 }
 

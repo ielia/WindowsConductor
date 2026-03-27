@@ -147,8 +147,60 @@ public partial class MainWindow : Window, ICommandOutput
     void ICommandOutput.ClearHighlight() =>
         Dispatcher.Invoke(HideHighlight);
 
+    void ICommandOutput.ShowAttributes(string locatorChain, Dictionary<string, object?> attributes) =>
+        Dispatcher.Invoke(() =>
+        {
+            if (!string.IsNullOrEmpty(locatorChain))
+            {
+                LocatorChainText.Text = locatorChain;
+                LocatorChainText.Visibility = Visibility.Visible;
+            }
+
+            AttributesGrid.ItemsSource = attributes
+                .OrderBy(kv => kv.Key, StringComparer.OrdinalIgnoreCase)
+                .Select(kv => new { Name = kv.Key, Value = kv.Value?.ToString() ?? "" })
+                .ToList();
+        });
+
+    void ICommandOutput.ClearAttributes() =>
+        Dispatcher.Invoke(() =>
+        {
+            LocatorChainText.Text = "";
+            LocatorChainText.Visibility = Visibility.Collapsed;
+            AttributesGrid.ItemsSource = null;
+        });
+
     void ICommandOutput.RequestExit() =>
         Dispatcher.Invoke(Close);
+
+    private void CopyButton_Click(object sender, RoutedEventArgs e)
+    {
+        var items = AttributesGrid.SelectedItems.Count > 0
+            ? AttributesGrid.SelectedItems.Cast<dynamic>()
+            : AttributesGrid.ItemsSource?.Cast<dynamic>() ?? Enumerable.Empty<dynamic>();
+
+        var lines = items.Select(item => $"{item.Name}\t{item.Value}");
+        var text = string.Join(Environment.NewLine, lines);
+        if (!string.IsNullOrEmpty(text))
+            Clipboard.SetText(text);
+    }
+
+    private async void RefreshButton_Click(object sender, RoutedEventArgs e)
+    {
+        RefreshButton.IsEnabled = false;
+        try
+        {
+            await _executor.RefreshAsync();
+        }
+        catch (Exception ex)
+        {
+            AppendLog($"ERROR: {ex.Message}");
+        }
+        finally
+        {
+            RefreshButton.IsEnabled = true;
+        }
+    }
 
     private void ShowHighlight(BitmapImage bitmap, HighlightInfo highlight)
     {

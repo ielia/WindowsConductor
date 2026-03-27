@@ -17,6 +17,7 @@ internal sealed class FakeInspectorSession : IInspectorSession
     public BoundingRect WindowBoundingRectResult { get; set; } = new(0, 0, 800, 600);
     public string LocateResult { get; set; } = "el-1";
     public string GetAttributeResult { get; set; } = "value-1";
+    public Dictionary<string, object?> GetAttributesResult { get; set; } = new() { ["name"] = "OK", ["controltype"] = "Button" };
     public string GetTextResult { get; set; } = "Hello";
     public byte[] ScreenshotElementResult { get; set; } = [0x89, 0x50, 0x4E, 0x47];
     public BoundingRect ElementBoundingRectResult { get; set; } = new(100, 200, 50, 30);
@@ -95,6 +96,12 @@ internal sealed class FakeInspectorSession : IInspectorSession
     {
         Record("GetAttribute", attributeName);
         return Task.FromResult(GetAttributeResult);
+    }
+
+    public Task<Dictionary<string, object?>> GetAttributesAsync(CancellationToken ct = default)
+    {
+        Record("GetAttributes");
+        return Task.FromResult(GetAttributesResult);
     }
 
     public Task ClickAsync(CancellationToken ct = default)

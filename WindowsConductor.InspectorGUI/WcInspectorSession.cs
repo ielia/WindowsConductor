@@ -86,6 +86,9 @@ internal sealed class WcInspectorSession : IInspectorSession, IAsyncDisposable
     public async Task<string> GetAttributeAsync(string attributeName, CancellationToken ct = default) =>
         await _selectedElement!.GetAttributeAsync(attributeName, ct);
 
+    public async Task<Dictionary<string, object?>> GetAttributesAsync(CancellationToken ct = default) =>
+        await _selectedElement!.GetAttributesAsync(ct);
+
     public async Task ClickAsync(CancellationToken ct = default) =>
         await _selectedElement!.ClickAsync(ct);
 

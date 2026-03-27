@@ -11,17 +11,98 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <!-- Screenshot display with highlight overlay -->
-        <Border Grid.Row="0" Background="#1E1E1E" Margin="4">
-            <Grid x:Name="ScreenshotContainer" SizeChanged="ScreenshotContainer_SizeChanged">
-                <Image x:Name="ScreenshotImage" Stretch="Uniform" />
-                <Canvas x:Name="HighlightCanvas" IsHitTestVisible="False">
-                    <Rectangle x:Name="HighlightRect"
-                               Stroke="Red" StrokeThickness="2"
-                               Visibility="Collapsed" />
-                </Canvas>
-            </Grid>
-        </Border>
+        <!-- Screenshot + Attributes panel -->
+        <Grid Grid.Row="0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="280" />
+            </Grid.ColumnDefinitions>
+
+            <!-- Screenshot display with highlight overlay -->
+            <Border Grid.Column="0" Background="#1E1E1E" Margin="4">
+                <Grid x:Name="ScreenshotContainer" SizeChanged="ScreenshotContainer_SizeChanged">
+                    <Image x:Name="ScreenshotImage" Stretch="Uniform" />
+                    <Canvas x:Name="HighlightCanvas" IsHitTestVisible="False">
+                        <Rectangle x:Name="HighlightRect"
+                                   Stroke="Red" StrokeThickness="2"
+                                   Visibility="Collapsed" />
+                    </Canvas>
+                </Grid>
+            </Border>
+
+            <GridSplitter Grid.Column="1" Width="4" HorizontalAlignment="Center"
+                          VerticalAlignment="Stretch" Background="#333333" />
+
+            <!-- Attributes panel -->
+            <Border Grid.Column="2" Background="#1E1E1E" Margin="4">
+                <DockPanel>
+                    <!-- Locator chain -->
+                    <TextBox x:Name="LocatorChainText" DockPanel.Dock="Top"
+                             IsReadOnly="True" TextWrapping="Wrap"
+                             Background="#252525" Foreground="#E0E080"
+                             FontFamily="Consolas" FontSize="11"
+                             BorderThickness="0" Padding="6,4"
+                             Visibility="Collapsed" />
+
+                    <TextBlock DockPanel.Dock="Top" Text="Attributes"
+                               Foreground="#AAAAAA" FontFamily="Consolas" FontSize="12"
+                               FontWeight="Bold" Margin="6,4,6,2" />
+
+                    <!-- Footer with Copy and Refresh buttons -->
+                    <Grid DockPanel.Dock="Bottom" Margin="4,2">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="4" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <Button Grid.Column="1" x:Name="CopyButton"
+                                Content="Copy" Padding="12,3"
+                                FontFamily="Consolas" FontSize="11"
+                                Background="#2D2D2D" Foreground="#CCCCCC"
+                                BorderBrush="#555555" BorderThickness="1"
+                                Click="CopyButton_Click" />
+                        <Button Grid.Column="3" x:Name="RefreshButton"
+                                Content="Refresh" Padding="12,3"
+                                FontFamily="Consolas" FontSize="11"
+                                Background="#2D2D2D" Foreground="#CCCCCC"
+                                BorderBrush="#555555" BorderThickness="1"
+                                Click="RefreshButton_Click" />
+                    </Grid>
+
+                    <DataGrid x:Name="AttributesGrid"
+                              AutoGenerateColumns="False"
+                              IsReadOnly="True"
+                              HeadersVisibility="Column"
+                              GridLinesVisibility="Horizontal"
+                              HorizontalGridLinesBrush="#333333"
+                              Background="#1E1E1E"
+                              Foreground="#CCCCCC"
+                              RowBackground="#1E1E1E"
+                              AlternatingRowBackground="#252525"
+                              BorderThickness="0"
+                              FontFamily="Consolas" FontSize="11"
+                              CanUserResizeRows="False"
+                              SelectionMode="Extended">
+                        <DataGrid.ColumnHeaderStyle>
+                            <Style TargetType="DataGridColumnHeader">
+                                <Setter Property="Background" Value="#2D2D2D" />
+                                <Setter Property="Foreground" Value="#AAAAAA" />
+                                <Setter Property="FontWeight" Value="Bold" />
+                                <Setter Property="Padding" Value="6,3" />
+                                <Setter Property="BorderBrush" Value="#333333" />
+                                <Setter Property="BorderThickness" Value="0,0,0,1" />
+                            </Style>
+                        </DataGrid.ColumnHeaderStyle>
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="Auto" MinWidth="80" />
+                            <DataGridTextColumn Header="Value" Binding="{Binding Value}" Width="*" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </DockPanel>
+            </Border>
+        </Grid>
 
         <GridSplitter Grid.Row="1" Height="4" HorizontalAlignment="Stretch"
                       Background="#333333" />
