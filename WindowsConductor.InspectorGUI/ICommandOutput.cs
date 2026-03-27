@@ -7,6 +7,7 @@ internal interface ICommandOutput
     void ShowScreenshot(byte[] imageData, HighlightInfo? highlight = null);
     void ClearScreenshot();
     void ClearHighlight();
+    void RequestExit();
 }
 
 /// <summary>

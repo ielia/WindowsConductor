@@ -141,6 +141,12 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
                 output.ShowScreenshot(imgData);
                 output.WriteInfo("Element screenshot captured.");
                 break;
+
+            case ExitCommand:
+                if (session.IsConnected)
+                    await session.DisconnectAsync();
+                output.RequestExit();
+                break;
         }
     }
 

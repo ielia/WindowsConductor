@@ -18,4 +18,7 @@ internal sealed class FakeCommandOutput : ICommandOutput
 
     public void ClearScreenshot() => ClearScreenshotCount++;
     public void ClearHighlight() => ClearHighlightCount++;
+
+    public int RequestExitCount { get; private set; }
+    public void RequestExit() => RequestExitCount++;
 }

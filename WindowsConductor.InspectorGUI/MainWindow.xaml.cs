@@ -147,6 +147,9 @@ public partial class MainWindow : Window, ICommandOutput
     void ICommandOutput.ClearHighlight() =>
         Dispatcher.Invoke(HideHighlight);
 
+    void ICommandOutput.RequestExit() =>
+        Dispatcher.Invoke(Close);
+
     private void ShowHighlight(BitmapImage bitmap, HighlightInfo highlight)
     {
         _currentBitmap = bitmap;

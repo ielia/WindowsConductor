@@ -267,6 +267,20 @@ public class CommandParserTests
         Assert.That(CommandParser.Parse("screenshot"), Is.InstanceOf<ScreenshotCommand>());
     }
 
+    // ── exit / quit ──────────────────────────────────────────────────────────
+
+    [Test]
+    public void Parse_Exit_ReturnsExitCommand()
+    {
+        Assert.That(CommandParser.Parse("exit"), Is.InstanceOf<ExitCommand>());
+    }
+
+    [Test]
+    public void Parse_Quit_ReturnsExitCommand()
+    {
+        Assert.That(CommandParser.Parse("quit"), Is.InstanceOf<ExitCommand>());
+    }
+
     // ── Tokenize ────────────────────────────────────────────────────────────
 
     [Test]

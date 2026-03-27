@@ -31,6 +31,7 @@ internal static class CommandParser
             "focus" => new FocusCommand(),
             "text" => new TextCommand(),
             "screenshot" => new ScreenshotCommand(),
+            "exit" or "quit" => new ExitCommand(),
             _ => throw new ArgumentException($"Unknown command: '{parts[0]}'.")
         };
     }

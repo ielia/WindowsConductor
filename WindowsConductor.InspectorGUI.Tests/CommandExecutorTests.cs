@@ -447,6 +447,31 @@ public class CommandExecutorTests
         Assert.That(_output.ErrorMessages[0], Does.Contain("No element selected"));
     }
 
+    // ── exit / quit ─────────────────────────────────────────────────────────
+
+    [Test]
+    public async Task Execute_Exit_RequestsExit()
+    {
+        await _executor.ExecuteAsync("exit");
+        Assert.That(_output.RequestExitCount, Is.EqualTo(1));
+    }
+
+    [Test]
+    public async Task Execute_Quit_RequestsExit()
+    {
+        await _executor.ExecuteAsync("quit");
+        Assert.That(_output.RequestExitCount, Is.EqualTo(1));
+    }
+
+    [Test]
+    public async Task Execute_Exit_DisconnectsIfConnected()
+    {
+        _session.IsConnected = true;
+        await _executor.ExecuteAsync("exit");
+        Assert.That(_session.Calls[0].Method, Is.EqualTo("Disconnect"));
+        Assert.That(_output.RequestExitCount, Is.EqualTo(1));
+    }
+
     // ── highlight coordinate translation ────────────────────────────────────
 
     [Test]

@@ -79,5 +79,6 @@ public class ParsedCommandTests
         Assert.That(new RightClickCommand(), Is.EqualTo(new RightClickCommand()));
         Assert.That(new DetachCommand(), Is.EqualTo(new DetachCommand()));
         Assert.That(new DisconnectCommand(), Is.EqualTo(new DisconnectCommand()));
+        Assert.That(new ExitCommand(), Is.EqualTo(new ExitCommand()));
     }
 }

@@ -41,3 +41,5 @@ internal sealed record FocusCommand : ParsedCommand;
 internal sealed record TextCommand : ParsedCommand;
 
 internal sealed record ScreenshotCommand : ParsedCommand;
+
+internal sealed record ExitCommand : ParsedCommand;
