@@ -144,6 +144,10 @@ public sealed class XPathEngine
         if (string.IsNullOrWhiteSpace(xpath))
             throw new ArgumentException("XPath expression must not be empty.", nameof(xpath));
 
+        // Strip leading '.' (self axis) — ./Button is equivalent to /Button from the current root.
+        if (xpath.Length >= 2 && xpath[0] == '.' && xpath[1] == '/')
+            xpath = xpath[1..];
+
         var steps = new List<XPathStep>();
         int pos = 0;
         int len = xpath.Length;

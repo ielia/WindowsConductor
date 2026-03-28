@@ -81,6 +81,17 @@ internal sealed class WcInspectorSession : IInspectorSession, IAsyncDisposable
         return element.ElementId;
     }
 
+    public async Task<string> LocateFromElementAsync(string[] selectors, CancellationToken ct = default)
+    {
+        WcLocator locator = _selectedElement!.Locator(selectors[0]);
+        for (int i = 1; i < selectors.Length; i++)
+            locator = locator.Locator(selectors[i]);
+
+        var element = await locator.GetElementAsync(ct);
+        _selectedElement = element;
+        return element.ElementId;
+    }
+
     public void Unselect() => _selectedElement = null;
 
     public async Task<string> ParentAsync(CancellationToken ct = default)

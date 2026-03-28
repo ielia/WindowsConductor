@@ -19,14 +19,16 @@ public sealed class WcLocator
     private readonly string _selector;
     private readonly IWcTransport _conn;
     private readonly WcLocator? _parent;
+    private readonly string? _rootElementId;
 
-    internal WcLocator(string appId, string selector, IWcTransport conn, WcLocator? parent = null)
+    internal WcLocator(string appId, string selector, IWcTransport conn, WcLocator? parent = null, string? rootElementId = null)
     {
         SelectorValidator.Validate(selector);
         _appId = appId;
         _selector = selector;
         _conn = conn;
         _parent = parent;
+        _rootElementId = rootElementId;
     }
 
     // ── Scoped factory methods ────────────────────────────────────────────────
@@ -50,7 +52,7 @@ public sealed class WcLocator
     /// <summary>Finds elements using an XPath expression within this locator's match.</summary>
     public WcLocator GetByXPath(string xpath)
     {
-        string normalised = xpath.StartsWith('/') ? xpath : $"//{xpath}";
+        string normalised = xpath.StartsWith('/') || xpath.StartsWith("./") ? xpath : $"//{xpath}";
         return Locator(normalised);
     }
 
@@ -66,8 +68,8 @@ public sealed class WcLocator
     /// <summary>Resolves and returns the first matching element.</summary>
     public async Task<WcElement> GetElementAsync(CancellationToken ct = default)
     {
-        string? rootElementId = null;
-        if (_parent != null)
+        string? rootElementId = _rootElementId;
+        if (rootElementId is null && _parent != null)
         {
             var parentElement = await _parent.GetElementAsync(ct);
             rootElementId = parentElement.ElementId;
@@ -82,14 +84,14 @@ public sealed class WcLocator
         if (elementId is null)
             throw new WcException($"No element found for selector: '{_selector}'");
 
-        return new WcElement(elementId, _conn);
+        return new WcElement(elementId, _conn, _appId);
     }
 
     /// <summary>Resolves and returns all matching elements.</summary>
     public async Task<IReadOnlyList<WcElement>> GetAllElementsAsync(CancellationToken ct = default)
     {
-        string? rootElementId = null;
-        if (_parent != null)
+        string? rootElementId = _rootElementId;
+        if (rootElementId is null && _parent != null)
         {
             var parentElement = await _parent.GetElementAsync(ct);
             rootElementId = parentElement.ElementId;
@@ -101,7 +103,7 @@ public sealed class WcLocator
             ct);
 
         return result.EnumerateArray()
-            .Select(e => new WcElement(e.GetString()!, _conn))
+            .Select(e => new WcElement(e.GetString()!, _conn, _appId))
             .ToList();
     }
 

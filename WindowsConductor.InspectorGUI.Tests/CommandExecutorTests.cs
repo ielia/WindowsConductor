@@ -215,6 +215,39 @@ public class CommandExecutorTests
         Assert.That(selectors!, Has.Length.EqualTo(2));
     }
 
+    [Test]
+    public async Task Execute_Locate_WithElementSelected_UsesLocateFromElement()
+    {
+        _session.IsConnected = true;
+        _session.HasApp = true;
+        _session.HasSelectedElement = true;
+        await _executor.ExecuteAsync("locate type=Button");
+        Assert.That(_session.Calls.Any(c => c.Method == "LocateFromElement"), Is.True);
+    }
+
+    [Test]
+    public async Task Execute_Locate_WithElementSelected_AppendsSelectorChain()
+    {
+        _session.IsConnected = true;
+        _session.HasApp = true;
+        await _executor.ExecuteAsync("locate type=Panel");
+        _output.AttributesSets.Clear();
+
+        await _executor.ExecuteAsync("locate [name=OK]");
+        Assert.That(_output.AttributesSets[0].LocatorChain, Is.EqualTo("type=Panel >> [name=OK]"));
+    }
+
+    [Test]
+    public async Task Execute_Locate_WithoutElementSelected_UsesLocate()
+    {
+        _session.IsConnected = true;
+        _session.HasApp = true;
+        _session.HasSelectedElement = false;
+        await _executor.ExecuteAsync("locate type=Button");
+        Assert.That(_session.Calls.Any(c => c.Method == "Locate"), Is.True);
+        Assert.That(_session.Calls.All(c => c.Method != "LocateFromElement"), Is.True);
+    }
+
     // ── parent ─────────────────────────────────────────────────────────────
 
     [Test]

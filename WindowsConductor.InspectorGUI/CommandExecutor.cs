@@ -85,8 +85,17 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
 
             case LocateCommand cmd:
                 RequireApp();
-                var elementId = await session.LocateAsync(cmd.Selectors, ct);
-                _currentSelectors = cmd.Selectors;
+                string elementId;
+                if (session.HasSelectedElement)
+                {
+                    elementId = await session.LocateFromElementAsync(cmd.Selectors, ct);
+                    _currentSelectors = [.. _currentSelectors ?? [], .. cmd.Selectors];
+                }
+                else
+                {
+                    elementId = await session.LocateAsync(cmd.Selectors, ct);
+                    _currentSelectors = cmd.Selectors;
+                }
                 output.WriteInfo($"Located element: {elementId}");
                 await ShowWindowScreenshotWithHighlightAsync(ct);
                 await ShowAttributesAsync(ct);

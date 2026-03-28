@@ -37,7 +37,7 @@ public sealed class SelectorEngine
         selector = selector.Trim();
 
         // Delegate XPath to the dedicated engine
-        if (selector.StartsWith('/'))
+        if (selector.StartsWith('/') || selector.StartsWith("./"))
             return _xpath.Evaluate(root, selector).ToArray();
 
         // Split compound conditions on &&
@@ -70,7 +70,7 @@ public sealed class SelectorEngine
         selector = selector.Trim();
 
         // XPath validation is handled by XPathEngine
-        if (selector.StartsWith('/'))
+        if (selector.StartsWith('/') || selector.StartsWith("./"))
         {
             XPathEngine.Validate(selector);
             return;

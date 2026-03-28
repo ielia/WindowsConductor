@@ -12,14 +12,24 @@ namespace WindowsConductor.Client;
 /// </summary>
 public sealed class WcElement
 {
+    private readonly string? _appId;
     private readonly IWcTransport _conn;
 
     internal string ElementId { get; }
 
-    internal WcElement(string elementId, IWcTransport conn)
+    internal WcElement(string elementId, IWcTransport conn, string? appId = null)
     {
         ElementId = elementId;
         _conn = conn;
+        _appId = appId;
+    }
+
+    /// <summary>Returns a locator scoped within this element.</summary>
+    public WcLocator Locator(string selector)
+    {
+        if (_appId is null)
+            throw new InvalidOperationException("Cannot create a locator from an element without an associated application.");
+        return new WcLocator(_appId, selector, _conn, rootElementId: ElementId);
     }
 
     // ── Actions ──────────────────────────────────────────────────────────────
@@ -45,7 +55,7 @@ public sealed class WcElement
         var r = await _conn.SendAsync("getParent", new { elementId = ElementId }, ct);
         var parentId = r.GetString()
             ?? throw new WcException("Parent element not found.");
-        return new WcElement(parentId, _conn);
+        return new WcElement(parentId, _conn, _appId);
     }
 
     // ── Queries ──────────────────────────────────────────────────────────────

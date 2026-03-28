@@ -18,6 +18,7 @@ internal interface IInspectorSession
     Task<BoundingRect> GetWindowBoundingRectAsync(CancellationToken ct = default);
 
     Task<string> LocateAsync(string[] selectors, CancellationToken ct = default);
+    Task<string> LocateFromElementAsync(string[] selectors, CancellationToken ct = default);
     void Unselect();
 
     Task<string> GetAttributeAsync(string attributeName, CancellationToken ct = default);

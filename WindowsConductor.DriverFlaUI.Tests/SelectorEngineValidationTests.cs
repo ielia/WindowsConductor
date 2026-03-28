@@ -105,6 +105,8 @@ public class SelectorEngineValidationTests
     [TestCase("[isenabled=true]&&type=Button")]
     [TestCase("[ariarole=button]")]                  // auto-discovered via reflection
     [TestCase("[headinglevel=1]")]
+    [TestCase("./Button")]                             // XPath self child axis
+    [TestCase(".//Button[@Name='OK']")]                // XPath self descendant axis
     public void Validate_ValidSelector_DoesNotThrow(string selector)
     {
         Assert.DoesNotThrow(() => SelectorEngine.Validate(selector));

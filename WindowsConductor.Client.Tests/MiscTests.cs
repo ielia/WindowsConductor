@@ -100,6 +100,22 @@ public class WcElementTests
         var el = new WcElement("xyz", null!);
         Assert.That(el.ElementId, Is.EqualTo("xyz"));
     }
+
+    [Test]
+    public void Locator_WithoutAppId_Throws()
+    {
+        var el = new WcElement("el-1", null!);
+        Assert.Throws<InvalidOperationException>(() => el.Locator("./Button"));
+    }
+
+    [Test]
+    public void Locator_WithAppId_ReturnsLocator()
+    {
+        var el = new WcElement("el-1", null!, appId: "app-1");
+        var locator = el.Locator(".//Button");
+        Assert.That(locator, Is.Not.Null);
+        Assert.That(locator.ToString(), Does.Contain(".//Button"));
+    }
 }
 
 [TestFixture]

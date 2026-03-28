@@ -87,6 +87,13 @@ internal sealed class FakeInspectorSession : IInspectorSession
         return Task.FromResult(LocateResult);
     }
 
+    public Task<string> LocateFromElementAsync(string[] selectors, CancellationToken ct = default)
+    {
+        Record("LocateFromElement", (object)selectors);
+        HasSelectedElement = true;
+        return Task.FromResult(LocateResult);
+    }
+
     public void Unselect()
     {
         Record("Unselect");
