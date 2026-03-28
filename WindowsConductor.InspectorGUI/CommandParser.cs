@@ -29,6 +29,7 @@ internal static class CommandParser
             "rightclick" => new RightClickCommand(),
             "type" => ParseType(parts),
             "focus" => new FocusCommand(),
+            "parent" => new ParentCommand(),
             "text" => new TextCommand(),
             "screenshot" => new ScreenshotCommand(),
             "exit" or "quit" => new ExitCommand(),

@@ -94,6 +94,9 @@ public class XPathEngineValidationTests
     [TestCase("//Button[3]")]
     [TestCase("//Button[@Name='OK'][2]")]
     [TestCase("//Window[@Name='Calc']//Button[1]")]
+    [TestCase("//Button[@Name='OK']/..")]
+    [TestCase("//Button/..")]
+    [TestCase("//Window/Button[@Name='OK']/..")]
     public void ParseXPath_ValidExpression_DoesNotThrow(string xpath)
     {
         Assert.DoesNotThrow(() => XPathEngine.Validate(xpath));
@@ -191,5 +194,40 @@ public class XPathEngineValidationTests
     {
         var steps = XPathEngine.ParseXPath("//Button[@Name='OK']");
         Assert.That(steps[0].Index, Is.Null);
+    }
+
+    // ── Parent axis (..) parsing ─────────────────────────────────────────────
+
+    [Test]
+    public void ParseXPath_ParentAxis_ParsesCorrectly()
+    {
+        var steps = XPathEngine.ParseXPath("//Button/..");
+        Assert.That(steps, Has.Count.EqualTo(2));
+        Assert.That(steps[0].Type, Is.EqualTo("Button"));
+        Assert.That(steps[0].Axis, Is.EqualTo(XPathAxis.Descendant));
+        Assert.That(steps[1].Type, Is.EqualTo(".."));
+        Assert.That(steps[1].Axis, Is.EqualTo(XPathAxis.Parent));
+        Assert.That(steps[1].Predicates, Is.Empty);
+    }
+
+    [Test]
+    public void ParseXPath_ParentAfterPredicate_ParsesCorrectly()
+    {
+        var steps = XPathEngine.ParseXPath("//Button[@Name='OK']/..");
+        Assert.That(steps, Has.Count.EqualTo(2));
+        Assert.That(steps[0].Predicates, Has.Count.EqualTo(1));
+        Assert.That(steps[1].Axis, Is.EqualTo(XPathAxis.Parent));
+    }
+
+    [Test]
+    public void ParseXPath_ParentInMiddleOfChain_ParsesCorrectly()
+    {
+        var steps = XPathEngine.ParseXPath("//Panel/Button/../Edit");
+        Assert.That(steps, Has.Count.EqualTo(4));
+        Assert.That(steps[0].Type, Is.EqualTo("Panel"));
+        Assert.That(steps[1].Type, Is.EqualTo("Button"));
+        Assert.That(steps[2].Axis, Is.EqualTo(XPathAxis.Parent));
+        Assert.That(steps[3].Type, Is.EqualTo("Edit"));
+        Assert.That(steps[3].Axis, Is.EqualTo(XPathAxis.Child));
     }
 }

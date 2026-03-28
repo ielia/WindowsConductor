@@ -40,6 +40,14 @@ public sealed class WcElement
     public Task FocusAsync(CancellationToken ct = default) =>
         _conn.SendAsync("focus", new { elementId = ElementId }, ct);
 
+    public async Task<WcElement> ParentAsync(CancellationToken ct = default)
+    {
+        var r = await _conn.SendAsync("getParent", new { elementId = ElementId }, ct);
+        var parentId = r.GetString()
+            ?? throw new WcException("Parent element not found.");
+        return new WcElement(parentId, _conn);
+    }
+
     // ── Queries ──────────────────────────────────────────────────────────────
 
     public async Task<string> GetTextAsync(CancellationToken ct = default)

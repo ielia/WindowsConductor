@@ -174,6 +174,14 @@ public class CommandParserTests
         Assert.Throws<ArgumentException>(() => CommandParser.Parse("locate"));
     }
 
+    // ── parent ─────────────────────────────────────────────────────────────
+
+    [Test]
+    public void Parse_Parent_ReturnsParentCommand()
+    {
+        Assert.That(CommandParser.Parse("parent"), Is.InstanceOf<ParentCommand>());
+    }
+
     // ── unselect ────────────────────────────────────────────────────────────
 
     [Test]

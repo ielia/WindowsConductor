@@ -141,6 +141,8 @@ public class SelectorValidatorTests
     [TestCase("//Window[@Name='Calc']//Button[@Name='7']")]
     [TestCase("//Button[3]")]                             // XPath index predicate
     [TestCase("//Button[@Name='OK'][2]")]                 // XPath index + attribute
+    [TestCase("//Button[@Name='OK']/..")]                 // XPath parent axis
+    [TestCase("//Button/..")]                             // XPath parent axis
     public void Validate_ValidSelector_DoesNotThrow(string selector)
     {
         Assert.DoesNotThrow(() => SelectorValidator.Validate(selector));

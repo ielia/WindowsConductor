@@ -16,6 +16,7 @@ internal static class CommandCompleter
         "focus",
         "launch",
         "locate",
+        "parent",
         "rightclick",
         "screenshot",
         "text",

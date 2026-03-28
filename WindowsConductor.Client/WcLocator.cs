@@ -58,6 +58,9 @@ public sealed class WcLocator
     public WcLocator GetByControlType(string controlType) =>
         Locator($"type={controlType}");
 
+    /// <summary>Returns a locator that resolves to the parent of this locator's match.</summary>
+    public WcLocator Parent() => Locator("/..");
+
     // ── Element resolution ───────────────────────────────────────────────────
 
     /// <summary>Resolves and returns the first matching element.</summary>

@@ -215,6 +215,55 @@ public class CommandExecutorTests
         Assert.That(selectors!, Has.Length.EqualTo(2));
     }
 
+    // ── parent ─────────────────────────────────────────────────────────────
+
+    [Test]
+    public async Task Execute_Parent_NoElement_WritesError()
+    {
+        _session.IsConnected = true;
+        _session.HasApp = true;
+        _session.HasSelectedElement = false;
+        await _executor.ExecuteAsync("parent");
+        Assert.That(_output.ErrorMessages[0], Does.Contain("No element selected"));
+    }
+
+    [Test]
+    public async Task Execute_Parent_CallsParent_ShowsHighlightAndAttributes()
+    {
+        _session.IsConnected = true;
+        _session.HasApp = true;
+        _session.HasSelectedElement = true;
+        _session.ParentResult = "parent-el-1";
+        await _executor.ExecuteAsync("parent");
+        Assert.That(_session.Calls.Any(c => c.Method == "Parent"), Is.True);
+        Assert.That(_output.InfoMessages[0], Does.Contain("parent-el-1"));
+        Assert.That(_output.Screenshots, Has.Count.EqualTo(1));
+        Assert.That(_output.Screenshots[0].Highlight, Is.Not.Null);
+        Assert.That(_output.AttributesSets, Has.Count.EqualTo(1));
+    }
+
+    [Test]
+    public async Task Execute_Parent_AppendsDoubleDotToLocatorChain()
+    {
+        _session.IsConnected = true;
+        _session.HasApp = true;
+        await _executor.ExecuteAsync("locate [name=OK]");
+        _output.AttributesSets.Clear();
+
+        await _executor.ExecuteAsync("parent");
+        Assert.That(_output.AttributesSets[0].LocatorChain, Is.EqualTo("[name=OK] >> .."));
+    }
+
+    [Test]
+    public async Task Execute_Parent_NoLocatorChain_ShowsDoubleDotOnly()
+    {
+        _session.IsConnected = true;
+        _session.HasApp = true;
+        _session.HasSelectedElement = true;
+        await _executor.ExecuteAsync("parent");
+        Assert.That(_output.AttributesSets[0].LocatorChain, Is.EqualTo(".."));
+    }
+
     // ── unselect ────────────────────────────────────────────────────────────
 
     [Test]

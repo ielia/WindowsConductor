@@ -42,4 +42,6 @@ internal sealed record TextCommand : ParsedCommand;
 
 internal sealed record ScreenshotCommand : ParsedCommand;
 
+internal sealed record ParentCommand : ParsedCommand;
+
 internal sealed record ExitCommand : ParsedCommand;

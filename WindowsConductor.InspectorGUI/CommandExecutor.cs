@@ -138,6 +138,15 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
                 await ShowAttributesAsync(ct);
                 break;
 
+            case ParentCommand:
+                RequireElement();
+                var parentId = await session.ParentAsync(ct);
+                _currentSelectors = [.. _currentSelectors ?? [], ".."];
+                output.WriteInfo($"Navigated to parent: {parentId}");
+                await ShowWindowScreenshotWithHighlightAsync(ct);
+                await ShowAttributesAsync(ct);
+                break;
+
             case FocusCommand:
                 RequireElement();
                 await session.FocusAsync(ct);

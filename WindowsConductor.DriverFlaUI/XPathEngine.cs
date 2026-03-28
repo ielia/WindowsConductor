@@ -6,7 +6,7 @@ namespace WindowsConductor.DriverFlaUI;
 
 // ── Data model ───────────────────────────────────────────────────────────────
 
-public enum XPathAxis { Child, Descendant }
+public enum XPathAxis { Child, Descendant, Parent }
 
 /// <summary>A single <c>@Attr='value'</c> or <c>@Attr=('v1','v2')</c> predicate.</summary>
 public sealed record XPathPredicate(string Attribute, IReadOnlyList<string> Values);
@@ -22,9 +22,9 @@ public sealed record XPathStep(XPathAxis Axis, string Type, IReadOnlyList<XPathP
 /// Supported grammar
 /// ─────────────────
 ///   xpath       ::= step+
-///   step        ::= axis type predicate*
+///   step        ::= axis type predicate* | axis '..'
 ///   axis        ::= '//' (descendant) | '/' (child)
-///   type        ::= '*' | ControlTypeName          e.g. Button, Edit, Window
+///   type        ::= '*' | '..' | ControlTypeName   e.g. Button, Edit, Window
 ///   predicate   ::= '[' '@' attr '=' value_expr ']' | '[' index ']'
 ///   value_expr  ::= quote value quote | '(' quote value quote (',' quote value quote)* ')'
 ///   index       ::= positive integer (1-based)
@@ -38,6 +38,7 @@ public sealed record XPathStep(XPathAxis Axis, string Type, IReadOnlyList<XPathP
 ///   //*[@Name='Cancel']
 ///   //Edit
 ///   //Button[3]
+///   //Button[@Name='OK']/..
 /// </summary>
 public sealed class XPathEngine
 {
@@ -73,6 +74,18 @@ public sealed class XPathEngine
     private static IReadOnlyList<AutomationElement> ApplyStep(
         IReadOnlyList<AutomationElement> roots, XPathStep step)
     {
+        if (step.Axis == XPathAxis.Parent)
+        {
+            var parents = new List<AutomationElement>();
+            foreach (var root in roots)
+            {
+                var parent = root.Parent;
+                if (parent is not null)
+                    parents.Add(parent);
+            }
+            return parents;
+        }
+
         var results = new List<AutomationElement>();
 
         foreach (var root in roots)
@@ -167,6 +180,13 @@ public sealed class XPathEngine
                     throw new ArgumentException(
                         $"XPath is missing an element type before predicate at position {typeStart}: '{xpath}'",
                         nameof(xpath));
+                continue;
+            }
+
+            // ── Parent axis (..) ─────────────────────────────────────────────
+            if (type == "..")
+            {
+                steps.Add(new XPathStep(XPathAxis.Parent, "..", []));
                 continue;
             }
 

@@ -60,6 +60,25 @@ public class WcElementAsyncTests
         Assert.That(_transport.Calls[0].ParamsJson, Does.Contain("\"elementId\":\"el-123\""));
     }
 
+    // ── Parent ───────────────────────────────────────────────────────────────
+
+    [Test]
+    public async Task ParentAsync_ReturnsParentElement()
+    {
+        _transport.Enqueue("parent-el-1");
+        var parent = await _element.ParentAsync();
+        Assert.That(parent.ElementId, Is.EqualTo("parent-el-1"));
+        Assert.That(_transport.Calls[0].Command, Is.EqualTo("getParent"));
+        Assert.That(_transport.Calls[0].ParamsJson, Does.Contain("\"elementId\":\"el-123\""));
+    }
+
+    [Test]
+    public void ParentAsync_NullResult_ThrowsWcException()
+    {
+        _transport.Enqueue(null);
+        Assert.ThrowsAsync<WcException>(async () => await _element.ParentAsync());
+    }
+
     // ── Queries ──────────────────────────────────────────────────────────────
 
     [Test]

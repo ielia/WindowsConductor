@@ -170,6 +170,14 @@ public sealed class AppManager : IAppOperations, IDisposable
     public Dictionary<string, object?> GetAttributes(string elementId) =>
         ElementProperties.ResolveAll(GetElement(elementId));
 
+    public string GetParent(string elementId)
+    {
+        var el = GetElement(elementId);
+        var parent = el.Parent
+            ?? throw new InvalidOperationException($"Element '{elementId}' has no parent.");
+        return CacheElement(parent);
+    }
+
     public bool IsEnabled(string elementId) =>
         GetElement(elementId).IsEnabled;
 

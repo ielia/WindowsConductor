@@ -81,6 +81,24 @@ public class WcLocatorAsyncTests
         Assert.That(el.ElementId, Is.EqualTo("c-el"));
     }
 
+    // ── Parent chaining ──────────────────────────────────────────────────────
+
+    [Test]
+    public async Task Parent_ResolvesElementThenNavigatesUp()
+    {
+        _transport.Enqueue("btn-el");    // findElement for Button
+        _transport.Enqueue("parent-el"); // findElement for /..
+
+        var locator = MakeLocator("type=Button").Parent();
+        var el = await locator.GetElementAsync();
+
+        Assert.That(_transport.Calls, Has.Count.EqualTo(2));
+        Assert.That(_transport.Calls[0].ParamsJson, Does.Contain("\"selector\":\"type=Button\""));
+        Assert.That(_transport.Calls[1].ParamsJson, Does.Contain("\"selector\":\"/..\""));
+        Assert.That(_transport.Calls[1].ParamsJson, Does.Contain("\"rootElementId\":\"btn-el\""));
+        Assert.That(el.ElementId, Is.EqualTo("parent-el"));
+    }
+
     // ── GetAllElementsAsync ──────────────────────────────────────────────────
 
     [Test]

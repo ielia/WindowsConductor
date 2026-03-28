@@ -164,4 +164,13 @@ public class WcLocatorTests
         Assert.That(str, Does.Contain("type=Panel"));
         Assert.That(str, Does.Contain("[automationid=btn1]"));
     }
+
+    [Test]
+    public void Parent_SetsParent_ShowsInToString()
+    {
+        var locator = MakeLocator("type=Button").Parent();
+        var str = locator.ToString();
+        Assert.That(str, Does.Contain("type=Button"));
+        Assert.That(str, Does.Contain("/.."));
+    }
 }

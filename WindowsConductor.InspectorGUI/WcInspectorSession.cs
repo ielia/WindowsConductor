@@ -83,6 +83,13 @@ internal sealed class WcInspectorSession : IInspectorSession, IAsyncDisposable
 
     public void Unselect() => _selectedElement = null;
 
+    public async Task<string> ParentAsync(CancellationToken ct = default)
+    {
+        var parent = await _selectedElement!.ParentAsync(ct);
+        _selectedElement = parent;
+        return parent.ElementId;
+    }
+
     public async Task<string> GetAttributeAsync(string attributeName, CancellationToken ct = default) =>
         await _selectedElement!.GetAttributeAsync(attributeName, ct);
 
