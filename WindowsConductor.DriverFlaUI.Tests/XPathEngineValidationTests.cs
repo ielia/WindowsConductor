@@ -30,13 +30,23 @@ public class XPathEngineValidationTests
 
     // ── No valid steps ───────────────────────────────────────────────────────
 
-    [TestCase("/")]
     [TestCase("//")]
     [TestCase("///")]
     public void ParseXPath_NoValidSteps_Throws(string xpath)
     {
         var ex = Assert.Throws<ArgumentException>(() => XPathEngine.Validate(xpath));
         Assert.That(ex!.Message, Does.Contain("no valid steps"));
+    }
+
+    // ── Root selector ─────────────────────────────────────────────────────────
+
+    [Test]
+    public void ParseXPath_BareSlash_ParsesAsSelfStep()
+    {
+        Assert.DoesNotThrow(() => XPathEngine.Validate("/"));
+        var steps = XPathEngine.ParseXPath("/");
+        Assert.That(steps, Has.Count.EqualTo(1));
+        Assert.That(steps[0].Axis, Is.EqualTo(XPathAxis.Self));
     }
 
     // ── Empty predicate [] ───────────────────────────────────────────────────

@@ -249,6 +249,21 @@ public class CommandExecutorTests
     }
 
     [Test]
+    public async Task Execute_Locate_RootThenDescendantSequence_CombinesCorrectly()
+    {
+        _session.IsConnected = true;
+        _session.HasApp = true;
+        await _executor.ExecuteAsync("locate /");
+        await _executor.ExecuteAsync("locate //button[@automationid=num3Button]");
+        await _executor.ExecuteAsync("locate /../");
+        _output.AttributesSets.Clear();
+
+        await _executor.ExecuteAsync("locate //button[@automationid=num2Button]");
+        Assert.That(_output.AttributesSets[0].LocatorChain,
+            Is.EqualTo("//button[@automationid=num3Button]/..//button[@automationid=num2Button]"));
+    }
+
+    [Test]
     public async Task Execute_Locate_DescendantXPathOnXPath_CombinesWithoutSlash()
     {
         _session.IsConnected = true;

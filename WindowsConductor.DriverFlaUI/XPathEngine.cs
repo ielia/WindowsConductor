@@ -176,7 +176,13 @@ public sealed class XPathEngine
                 }
             }
 
-            if (pos >= len) break;
+            if (pos >= len)
+            {
+                // Bare '/' (the entire expression) selects the root.
+                if (axisStart == 0 && pos == 1)
+                    steps.Add(new XPathStep(XPathAxis.Self, ".", []));
+                break;
+            }
 
             // ── Element type ─────────────────────────────────────────────────
             int typeStart = pos;

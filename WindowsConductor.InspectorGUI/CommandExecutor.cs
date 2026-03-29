@@ -270,8 +270,13 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
     {
         if (current is { Length: > 0 } && IsXPath(current[^1]) && IsXPath(incoming[0]))
         {
-            var needsSlash = !current[^1].EndsWith('/') && !incoming[0].TrimStart().StartsWith('/');
-            var combined = current[^1] + (needsSlash ? "/" : "") + incoming[0];
+            var left = current[^1];
+            var right = incoming[0];
+            // Strip trailing '/' from left when right already starts with '/'
+            if (left.EndsWith('/') && right.TrimStart().StartsWith('/'))
+                left = left.TrimEnd('/');
+            var needsSlash = !left.EndsWith('/') && !right.TrimStart().StartsWith('/');
+            var combined = left + (needsSlash ? "/" : "") + right;
             return [.. current[..^1], combined, .. incoming[1..]];
         }
         return [.. current ?? [], .. incoming];
