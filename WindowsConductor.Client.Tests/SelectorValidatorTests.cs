@@ -158,7 +158,18 @@ public class SelectorValidatorTests
     [TestCase("//Button[position() >= 2]")]                  // XPath >=
     [TestCase("//Button[position() <= last() - 2]")]         // XPath <=
     [TestCase("//Button[last() / 2 = position()]")]          // XPath division
-    [TestCase("//Button[position() => 2]")]                  // XPath => (alias for >=)
+    [TestCase("//Button[position() >= 2]")]                  // XPath >=
+    [TestCase("//Button[@Name^='Start']")]                   // starts with
+    [TestCase("//Button[@Name*='thing']")]                   // contains
+    [TestCase("//Button[@Name$='End']")]                     // ends with
+    [TestCase("//Button[@Name='foo' and @AutomationId='bar']")] // and
+    [TestCase("//Button[@Name='a' or @Name='b']")]           // or
+    [TestCase("//Button[@Name=concat('foo', 'bar')]")]       // concat
+    [TestCase("//Button[string-length(@Name) > 5]")]         // string-length
+    [TestCase("//Button[position() mod 2 = 1]")]             // mod
+    [TestCase("//Button[position() div 3 > 1.5]")]           // div
+    [TestCase("//Button[position() > 2 and position() < last()]")] // and in function expr
+    [TestCase("//Button[position() = 1 or position() = last()]")] // or in function expr
     public void Validate_ValidSelector_DoesNotThrow(string selector)
     {
         Assert.DoesNotThrow(() => SelectorValidator.Validate(selector));

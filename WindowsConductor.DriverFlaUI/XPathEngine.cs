@@ -8,50 +8,35 @@ namespace WindowsConductor.DriverFlaUI;
 
 public enum XPathAxis { Child, Descendant, Parent, Self }
 
-/// <summary>A single <c>@Attr='value'</c> or <c>@Attr=('v1','v2')</c> predicate.</summary>
-public sealed record XPathPredicate(string Attribute, IReadOnlyList<string> Values);
+public enum AttributeMatchMode { Exact, StartsWith, Contains, EndsWith }
+
+public abstract record ConcatArg;
+public sealed record StringConcatArg(string Value) : ConcatArg;
+public sealed record AttrConcatArg(string Attribute) : ConcatArg;
+
+/// <summary>A single attribute predicate such as <c>@Attr='value'</c>.</summary>
+public sealed record XPathPredicate(
+    string Attribute,
+    IReadOnlyList<string> Values,
+    AttributeMatchMode MatchMode = AttributeMatchMode.Exact,
+    IReadOnlyList<ConcatArg>? ConcatArgs = null);
 
 /// <summary>One step of an XPath expression: axis + element type + predicates + optional 1-based positional index.</summary>
 /// <param name="Index">Result-set index from <c>[N]</c> — selects the Nth overall match.</param>
-/// <param name="FunctionPredicates">Expressions containing <c>position()</c> and/or <c>last()</c> that must all evaluate to truthy.</param>
-public sealed record XPathStep(XPathAxis Axis, string Type, IReadOnlyList<XPathPredicate> Predicates, int? Index = null, IReadOnlyList<string>? FunctionPredicates = null);
+/// <param name="FunctionPredicates">Expressions containing <c>position()</c>, <c>last()</c>, or <c>string-length()</c> that must all evaluate to truthy.</param>
+/// <param name="OrPredicateGroups">Predicate groups joined by <c>or</c> — for each group, at least one predicate must match.</param>
+public sealed record XPathStep(
+    XPathAxis Axis,
+    string Type,
+    IReadOnlyList<XPathPredicate> Predicates,
+    int? Index = null,
+    IReadOnlyList<string>? FunctionPredicates = null,
+    IReadOnlyList<IReadOnlyList<XPathPredicate>>? OrPredicateGroups = null);
 
 // ── Engine ───────────────────────────────────────────────────────────────────
 
-/// <summary>
-/// Evaluates a structural subset of XPath over the UIAutomation element tree.
-///
-/// Supported grammar
-/// ─────────────────
-///   xpath       ::= step+
-///   step        ::= axis type predicate* | axis '..' | '.'
-///   axis        ::= '//' (descendant) | '/' (child)
-///   type        ::= '*' | '.' | '..' | ControlTypeName   e.g. Button, Edit, Window
-///   predicate   ::= '[' '@' attr '=' value_expr ']' | '[' index ']'
-///   value_expr  ::= quote value quote | '(' quote value quote (',' quote value quote)* ')'
-///   index       ::= positive integer (1-based)
-///   attr        ::= AutomationId | Name | ClassName | ControlType
-///   quote       ::= ' | "
-///
-/// Examples
-/// ────────
-///   //Button[@AutomationId='num7Button']
-///   //Window[@Name='Calculator']//Button[@Name='7']
-///   //*[@Name='Cancel']
-///   //Edit
-///   //Button[3]
-///   //Button[@Name='OK']/..
-///   ./Button                                              (self / child)
-///   .//Button                                             (self / descendant)
-///   //Button/./.../Button                                 (self in mid-path)
-/// </summary>
 public sealed class XPathEngine
 {
-    // Matches:  @AutomationId='value'  or  @Name="value"  or  @Name=('v1','v2')
-    private static readonly Regex PredicateRx = new(
-        @"@(?<attr>\w+)=(?:['""](?<val>[^'""]*)['""]|\((?<list>[^)]+)\))",
-        RegexOptions.Compiled | RegexOptions.CultureInvariant);
-
     // Extracts individual quoted values from a list like  'v1','v2','v3'
     private static readonly Regex ListItemRx = new(
         @"['""](?<item>[^'""]*)['""]",
@@ -110,7 +95,8 @@ public sealed class XPathEngine
 
             foreach (var el in candidates)
             {
-                if (Matches(el, step) && MatchesFunctionPredicates(el, step))
+                Func<string, string?> getProp = k => ElementProperties.Resolve(el, k);
+                if (MatchesStep(step, getProp) && MatchesFunctionPredicates(el, step))
                     results.Add(el);
             }
         }
@@ -125,39 +111,39 @@ public sealed class XPathEngine
         return results;
     }
 
-    private static bool Matches(AutomationElement element, XPathStep step) =>
-        MatchesStep(step, k => ElementProperties.Resolve(element, k));
-
     private static bool MatchesFunctionPredicates(AutomationElement element, XPathStep step)
     {
         if (step.FunctionPredicates is not { Count: > 0 }) return true;
 
+        Func<string, string?> getProp = k => ElementProperties.Resolve(element, k);
+
+        int position = 1;
+        int lastCount = 1;
+
         var parent = element.Parent;
-        if (parent is null) return false;
-        var siblings = parent.FindAllChildren();
-
-        int position = 0;
-        int lastCount = 0;
-
-        // Count same-type siblings and find this element's position
-        foreach (var sibling in siblings)
+        if (parent is not null)
         {
-            if (step.Type == "*" || string.Equals(
-                    sibling.Properties.ControlType.ValueOrDefault.ToString(),
-                    element.Properties.ControlType.ValueOrDefault.ToString(),
-                    StringComparison.Ordinal))
+            var siblings = parent.FindAllChildren();
+            position = 0;
+            lastCount = 0;
+            foreach (var sibling in siblings)
             {
-                lastCount++;
-                if (sibling.Equals(element))
-                    position = lastCount;
+                if (step.Type == "*" || string.Equals(
+                        sibling.Properties.ControlType.ValueOrDefault.ToString(),
+                        element.Properties.ControlType.ValueOrDefault.ToString(),
+                        StringComparison.Ordinal))
+                {
+                    lastCount++;
+                    if (sibling.Equals(element))
+                        position = lastCount;
+                }
             }
+            if (position == 0) return false;
         }
-
-        if (position == 0) return false;
 
         foreach (var expr in step.FunctionPredicates)
         {
-            if (!XPathExprEvaluator.Evaluate(expr, position, lastCount))
+            if (!XPathExprEvaluator.Evaluate(expr, position, lastCount, getProp))
                 return false;
         }
 
@@ -176,16 +162,53 @@ public sealed class XPathEngine
                 return false;
         }
 
-        // Predicate checks (all must pass)
+        // AND predicates (all must pass)
         foreach (var pred in step.Predicates)
         {
-            string? actual = getProperty(pred.Attribute.ToLowerInvariant());
-            if (!pred.Values.Any(v => string.Equals(actual, v, StringComparison.OrdinalIgnoreCase)))
+            if (!MatchesPredicate(pred, getProperty))
                 return false;
+        }
+
+        // OR predicate groups (for each group, at least one must pass)
+        if (step.OrPredicateGroups is { Count: > 0 })
+        {
+            foreach (var group in step.OrPredicateGroups)
+            {
+                if (!group.Any(pred => MatchesPredicate(pred, getProperty)))
+                    return false;
+            }
         }
 
         return true;
     }
+
+    private static bool MatchesPredicate(XPathPredicate pred, Func<string, string?> getProperty)
+    {
+        string? actual = getProperty(pred.Attribute.ToLowerInvariant());
+
+        if (pred.ConcatArgs is { Count: > 0 })
+        {
+            string concatValue = string.Concat(pred.ConcatArgs.Select(a => a switch
+            {
+                StringConcatArg s => s.Value,
+                AttrConcatArg attr => getProperty(attr.Attribute.ToLowerInvariant()) ?? "",
+                _ => ""
+            }));
+            return MatchesValue(actual, concatValue, pred.MatchMode);
+        }
+
+        return pred.Values.Any(v => MatchesValue(actual, v, pred.MatchMode));
+    }
+
+    private static bool MatchesValue(string? actual, string expected, AttributeMatchMode mode) =>
+        mode switch
+        {
+            AttributeMatchMode.Exact => string.Equals(actual, expected, StringComparison.OrdinalIgnoreCase),
+            AttributeMatchMode.StartsWith => actual?.StartsWith(expected, StringComparison.OrdinalIgnoreCase) == true,
+            AttributeMatchMode.Contains => actual?.Contains(expected, StringComparison.OrdinalIgnoreCase) == true,
+            AttributeMatchMode.EndsWith => actual?.EndsWith(expected, StringComparison.OrdinalIgnoreCase) == true,
+            _ => false
+        };
 
     // ── XPath parser ─────────────────────────────────────────────────────────
 
@@ -216,7 +239,6 @@ public sealed class XPathEngine
 
             if (pos >= len)
             {
-                // Bare '/' (the entire expression) selects the root.
                 if (axisStart == 0 && pos == 1)
                     steps.Add(new XPathStep(XPathAxis.Self, ".", []));
                 break;
@@ -231,7 +253,6 @@ public sealed class XPathEngine
 
             if (string.IsNullOrEmpty(type))
             {
-                // Type is required — e.g. "//[attr=x]" is invalid (missing type before predicate)
                 if (pos < len && xpath[pos] == '[')
                     throw new ArgumentException(
                         $"XPath is missing an element type before predicate at position {typeStart}: '{xpath}'",
@@ -239,14 +260,12 @@ public sealed class XPathEngine
                 continue;
             }
 
-            // ── Self axis (.) ────────────────────────────────────────────────
             if (type == ".")
             {
                 steps.Add(new XPathStep(XPathAxis.Self, ".", []));
                 continue;
             }
 
-            // ── Parent axis (..) ─────────────────────────────────────────────
             if (type == "..")
             {
                 steps.Add(new XPathStep(XPathAxis.Parent, "..", []));
@@ -257,10 +276,11 @@ public sealed class XPathEngine
             var predicates = new List<XPathPredicate>();
             int? index = null;
             List<string>? functionPredicates = null;
+            List<IReadOnlyList<XPathPredicate>>? orGroups = null;
 
             while (pos < len && xpath[pos] == '[')
             {
-                pos++; // consume '['
+                pos++;
                 int predStart = pos;
                 int depth = 1;
 
@@ -276,7 +296,6 @@ public sealed class XPathEngine
                         $"Unclosed predicate bracket in XPath expression: '{xpath}'",
                         nameof(xpath));
 
-                // predStart..pos-1 is the predicate content (excludes surrounding brackets)
                 string predContent = xpath[predStart..(pos - 1)];
 
                 if (string.IsNullOrWhiteSpace(predContent))
@@ -295,37 +314,81 @@ public sealed class XPathEngine
                     continue;
                 }
 
-                // Function expression predicate: contains position() or last()
-                if (XPathExprEvaluator.IsFunctionExpression(predContent))
+                // Try to split on 'and'/'or' for compound predicates
+                var (parts, logicOp) = SplitOnLogicalOperator(predContent);
+
+                if (logicOp is not null && parts.Count > 1)
                 {
-                    XPathExprEvaluator.Validate(predContent);
-                    functionPredicates ??= [];
-                    functionPredicates.Add(predContent.Trim());
+                    // Classify parts
+                    var attrParts = new List<XPathPredicate>();
+                    var funcParts = new List<string>();
+
+                    foreach (var part in parts)
+                    {
+                        if (XPathExprEvaluator.IsFunctionExpression(part))
+                            funcParts.Add(part);
+                        else if (part.TrimStart().StartsWith('@'))
+                            attrParts.Add(ParseAttributePredicate(part, xpath));
+                        else
+                            throw new ArgumentException(
+                                $"Invalid predicate syntax '{part}' in XPath expression: '{xpath}'",
+                                nameof(xpath));
+                    }
+
+                    if (logicOp == "and")
+                    {
+                        predicates.AddRange(attrParts);
+                        foreach (var fp in funcParts)
+                        {
+                            XPathExprEvaluator.Validate(fp);
+                            functionPredicates ??= [];
+                            functionPredicates.Add(fp.Trim());
+                        }
+                    }
+                    else // "or"
+                    {
+                        if (funcParts.Count > 0 && attrParts.Count > 0)
+                            throw new ArgumentException(
+                                $"Mixed attribute and function predicates with 'or' is not supported: '{predContent}'",
+                                nameof(xpath));
+
+                        if (funcParts.Count > 0)
+                        {
+                            string joined = string.Join(" or ", funcParts);
+                            XPathExprEvaluator.Validate(joined);
+                            functionPredicates ??= [];
+                            functionPredicates.Add(joined);
+                        }
+                        else
+                        {
+                            orGroups ??= [];
+                            orGroups.Add(attrParts);
+                        }
+                    }
                     continue;
                 }
 
-                var m = PredicateRx.Match(predContent);
-                if (!m.Success)
-                    throw new ArgumentException(
-                        $"Invalid predicate syntax '{predContent}' in XPath expression: '{xpath}'. " +
-                        "Expected format: @Attribute='value' or @Attribute=('v1','v2') or positional index",
-                        nameof(xpath));
+                // Single predicate (no and/or split)
+                string trimmed = predContent.Trim();
 
-                var attr = m.Groups["attr"].Value;
-                IReadOnlyList<string> values;
-
-                if (m.Groups["list"].Success)
+                if (XPathExprEvaluator.IsFunctionExpression(trimmed))
                 {
-                    values = ListItemRx.Matches(m.Groups["list"].Value)
-                        .Select(li => li.Groups["item"].Value)
-                        .ToList();
-                }
-                else
-                {
-                    values = new[] { m.Groups["val"].Value };
+                    XPathExprEvaluator.Validate(trimmed);
+                    functionPredicates ??= [];
+                    functionPredicates.Add(trimmed);
+                    continue;
                 }
 
-                predicates.Add(new XPathPredicate(attr, values));
+                if (trimmed.StartsWith('@'))
+                {
+                    predicates.Add(ParseAttributePredicate(trimmed, xpath));
+                    continue;
+                }
+
+                throw new ArgumentException(
+                    $"Invalid predicate syntax '{predContent}' in XPath expression: '{xpath}'. " +
+                    "Expected format: @Attribute='value' or @Attribute=('v1','v2') or positional index",
+                    nameof(xpath));
             }
 
             steps.Add(new XPathStep(
@@ -333,7 +396,8 @@ public sealed class XPathEngine
                 type,
                 predicates,
                 index,
-                functionPredicates));
+                functionPredicates,
+                orGroups));
         }
 
         if (steps.Count == 0)
@@ -342,5 +406,156 @@ public sealed class XPathEngine
                 nameof(xpath));
 
         return steps;
+    }
+
+    // ── Attribute predicate parser ───────────────────────────────────────────
+
+    private static XPathPredicate ParseAttributePredicate(string content, string xpath)
+    {
+        content = content.Trim();
+        if (!content.StartsWith('@'))
+            throw new ArgumentException(
+                $"Invalid predicate syntax '{content}' in XPath expression: '{xpath}'. Predicates must start with '@'.",
+                nameof(xpath));
+
+        // Find the operator position
+        int i = 1;
+        while (i < content.Length && content[i] != '=' && content[i] != '^' && content[i] != '*' && content[i] != '$')
+            i++;
+
+        if (i >= content.Length)
+            throw new ArgumentException(
+                $"Invalid predicate syntax '{content}' in XPath expression: '{xpath}'.",
+                nameof(xpath));
+
+        string attr = content[1..i].Trim();
+        AttributeMatchMode mode;
+        int valStart;
+
+        if (content[i] == '^' && i + 1 < content.Length && content[i + 1] == '=')
+        { mode = AttributeMatchMode.StartsWith; valStart = i + 2; }
+        else if (content[i] == '*' && i + 1 < content.Length && content[i + 1] == '=')
+        { mode = AttributeMatchMode.Contains; valStart = i + 2; }
+        else if (content[i] == '$' && i + 1 < content.Length && content[i + 1] == '=')
+        { mode = AttributeMatchMode.EndsWith; valStart = i + 2; }
+        else if (content[i] == '=')
+        { mode = AttributeMatchMode.Exact; valStart = i + 1; }
+        else
+            throw new ArgumentException(
+                $"Invalid operator in predicate '{content}' in XPath expression: '{xpath}'.",
+                nameof(xpath));
+
+        string valueStr = content[valStart..].Trim();
+
+        // concat() function
+        if (valueStr.StartsWith("concat(", StringComparison.Ordinal) && valueStr.EndsWith(')'))
+        {
+            string argsStr = valueStr[7..^1];
+            var concatArgs = ParseConcatArgs(argsStr, xpath);
+            return new XPathPredicate(attr, [], mode, concatArgs);
+        }
+
+        // Multi-value list: ('v1','v2')
+        if (valueStr.StartsWith('(') && valueStr.EndsWith(')'))
+        {
+            var values = ListItemRx.Matches(valueStr)
+                .Select(m => m.Groups["item"].Value)
+                .ToList();
+            return new XPathPredicate(attr, values, mode);
+        }
+
+        // Single quoted value: 'value' or "value"
+        if ((valueStr.StartsWith('\'') && valueStr.EndsWith('\'')) ||
+            (valueStr.StartsWith('"') && valueStr.EndsWith('"')))
+        {
+            return new XPathPredicate(attr, [valueStr[1..^1]], mode);
+        }
+
+        throw new ArgumentException(
+            $"Invalid value syntax in predicate '{content}' in XPath expression: '{xpath}'.",
+            nameof(xpath));
+    }
+
+    private static List<ConcatArg> ParseConcatArgs(string argsStr, string xpath)
+    {
+        var args = new List<ConcatArg>();
+        int i = 0;
+        int len = argsStr.Length;
+
+        while (i < len)
+        {
+            while (i < len && (argsStr[i] == ' ' || argsStr[i] == ',')) i++;
+            if (i >= len) break;
+
+            if (argsStr[i] == '\'' || argsStr[i] == '"')
+            {
+                char quote = argsStr[i];
+                i++;
+                int start = i;
+                while (i < len && argsStr[i] != quote) i++;
+                args.Add(new StringConcatArg(argsStr[start..i]));
+                if (i < len) i++; // skip closing quote
+            }
+            else if (argsStr[i] == '@')
+            {
+                i++;
+                int start = i;
+                while (i < len && char.IsLetterOrDigit(argsStr[i])) i++;
+                args.Add(new AttrConcatArg(argsStr[start..i]));
+            }
+            else
+            {
+                throw new ArgumentException(
+                    $"Invalid concat argument at position {i} in XPath expression: '{xpath}'",
+                    nameof(xpath));
+            }
+        }
+
+        return args;
+    }
+
+    // ── Logical operator splitter ────────────────────────────────────────────
+
+    private static (List<string> parts, string? op) SplitOnLogicalOperator(string content)
+    {
+        var parts = new List<string>();
+        string? foundOp = null;
+        int start = 0;
+        bool inSingleQuote = false, inDoubleQuote = false;
+        int parenDepth = 0;
+
+        for (int i = 0; i < content.Length; i++)
+        {
+            char c = content[i];
+            if (c == '\'' && !inDoubleQuote) inSingleQuote = !inSingleQuote;
+            else if (c == '"' && !inSingleQuote) inDoubleQuote = !inDoubleQuote;
+            else if (c == '(' && !inSingleQuote && !inDoubleQuote) parenDepth++;
+            else if (c == ')' && !inSingleQuote && !inDoubleQuote) parenDepth--;
+
+            if (inSingleQuote || inDoubleQuote || parenDepth > 0) continue;
+
+            if (i + 4 < content.Length && content[i] == ' '
+                && content[i + 1] == 'a' && content[i + 2] == 'n' && content[i + 3] == 'd'
+                && content[i + 4] == ' ')
+            {
+                parts.Add(content[start..i].Trim());
+                foundOp = "and";
+                start = i + 5;
+                i += 4;
+            }
+            else if (i + 3 < content.Length && content[i] == ' '
+                && content[i + 1] == 'o' && content[i + 2] == 'r'
+                && content[i + 3] == ' ')
+            {
+                parts.Add(content[start..i].Trim());
+                foundOp = "or";
+                start = i + 4;
+                i += 3;
+            }
+        }
+
+        parts.Add(content[start..].Trim());
+
+        return parts.Count > 1 ? (parts, foundOp) : (parts, null);
     }
 }

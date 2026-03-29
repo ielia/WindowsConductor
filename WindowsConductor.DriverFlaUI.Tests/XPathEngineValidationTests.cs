@@ -122,7 +122,7 @@ public class XPathEngineValidationTests
     [TestCase("//Button[position() = last() - 1]")]
     [TestCase("//Button[position() != last()]")]
     [TestCase("//Button[last() / 2 = position()]")]
-    [TestCase("//Button[position() => 2]")]
+    [TestCase("//Button[position() >= 2]")]
     public void ParseXPath_ValidExpression_DoesNotThrow(string xpath)
     {
         Assert.DoesNotThrow(() => XPathEngine.Validate(xpath));
@@ -413,8 +413,150 @@ public class XPathEngineValidationTests
     [TestCase("//Button[position() <= last() - 2]")]
     [TestCase("//Button[last() * 2 > position()]")]
     [TestCase("//Button[last() / 2 = position()]")]
-    [TestCase("//Button[position() => 2]")]
+    [TestCase("//Button[position() >= 2]")]
+    [TestCase("//Button[position() mod 2 = 1]")]
+    [TestCase("//Button[position() div 3 > 1.5]")]
+    [TestCase("//Button[position() > 2 and position() < last()]")]
+    [TestCase("//Button[position() = 1 or position() = last()]")]
+    [TestCase("//Button[string-length(@Name) > 5]")]
     public void ParseXPath_FunctionExpression_DoesNotThrow(string xpath)
+    {
+        Assert.DoesNotThrow(() => XPathEngine.Validate(xpath));
+    }
+
+    // ── String comparison operators ──────────────────────────────────────────
+
+    [TestCase("//Button[@Name^='Start']")]
+    [TestCase("//Button[@Name*='thing']")]
+    [TestCase("//Button[@Name$='End']")]
+    public void ParseXPath_StringOperator_DoesNotThrow(string xpath)
+    {
+        Assert.DoesNotThrow(() => XPathEngine.Validate(xpath));
+    }
+
+    [Test]
+    public void ParseXPath_StartsWithOperator_ParsesCorrectly()
+    {
+        var steps = XPathEngine.ParseXPath("//Button[@Name^='Start']");
+        Assert.That(steps[0].Predicates, Has.Count.EqualTo(1));
+        Assert.That(steps[0].Predicates[0].Attribute, Is.EqualTo("Name"));
+        Assert.That(steps[0].Predicates[0].Values, Is.EqualTo(new[] { "Start" }));
+        Assert.That(steps[0].Predicates[0].MatchMode, Is.EqualTo(AttributeMatchMode.StartsWith));
+    }
+
+    [Test]
+    public void ParseXPath_ContainsOperator_ParsesCorrectly()
+    {
+        var steps = XPathEngine.ParseXPath("//Button[@Name*='thing']");
+        Assert.That(steps[0].Predicates[0].MatchMode, Is.EqualTo(AttributeMatchMode.Contains));
+    }
+
+    [Test]
+    public void ParseXPath_EndsWithOperator_ParsesCorrectly()
+    {
+        var steps = XPathEngine.ParseXPath("//Button[@Name$='End']");
+        Assert.That(steps[0].Predicates[0].MatchMode, Is.EqualTo(AttributeMatchMode.EndsWith));
+    }
+
+    [Test]
+    public void ParseXPath_ExactOperator_DefaultMatchMode()
+    {
+        var steps = XPathEngine.ParseXPath("//Button[@Name='OK']");
+        Assert.That(steps[0].Predicates[0].MatchMode, Is.EqualTo(AttributeMatchMode.Exact));
+    }
+
+    // ── and/or in attribute predicates ───────────────────────────────────────
+
+    [TestCase("//Button[@Name='foo' and @AutomationId='bar']")]
+    [TestCase("//Button[@Name='foo' or @Name='bar']")]
+    [TestCase("//Button[@Name^='Start' and @ClassName='Panel']")]
+    public void ParseXPath_CompoundAttributePredicate_DoesNotThrow(string xpath)
+    {
+        Assert.DoesNotThrow(() => XPathEngine.Validate(xpath));
+    }
+
+    [Test]
+    public void ParseXPath_AndAttributePredicate_AddsToBothPredicates()
+    {
+        var steps = XPathEngine.ParseXPath("//Button[@Name='foo' and @AutomationId='bar']");
+        Assert.That(steps[0].Predicates, Has.Count.EqualTo(2));
+        Assert.That(steps[0].Predicates[0].Attribute, Is.EqualTo("Name"));
+        Assert.That(steps[0].Predicates[1].Attribute, Is.EqualTo("AutomationId"));
+    }
+
+    [Test]
+    public void ParseXPath_OrAttributePredicate_CreatesOrGroup()
+    {
+        var steps = XPathEngine.ParseXPath("//Button[@Name='foo' or @Name='bar']");
+        Assert.That(steps[0].Predicates, Is.Empty);
+        Assert.That(steps[0].OrPredicateGroups, Has.Count.EqualTo(1));
+        Assert.That(steps[0].OrPredicateGroups![0], Has.Count.EqualTo(2));
+    }
+
+    // ── concat() function ────────────────────────────────────────────────────
+
+    [TestCase("//Button[@Name=concat('foo', 'bar')]")]
+    [TestCase("//Button[@Name=concat('prefix-', @AutomationId)]")]
+    [TestCase("//Button[@Name=concat('a', @Name, 'b')]")]
+    public void ParseXPath_Concat_DoesNotThrow(string xpath)
+    {
+        Assert.DoesNotThrow(() => XPathEngine.Validate(xpath));
+    }
+
+    [Test]
+    public void ParseXPath_Concat_ParsesStringArgs()
+    {
+        var steps = XPathEngine.ParseXPath("//Button[@Name=concat('foo', 'bar')]");
+        var pred = steps[0].Predicates[0];
+        Assert.That(pred.ConcatArgs, Has.Count.EqualTo(2));
+        Assert.That(pred.ConcatArgs![0], Is.InstanceOf<StringConcatArg>());
+        Assert.That(((StringConcatArg)pred.ConcatArgs[0]).Value, Is.EqualTo("foo"));
+        Assert.That(((StringConcatArg)pred.ConcatArgs[1]).Value, Is.EqualTo("bar"));
+    }
+
+    [Test]
+    public void ParseXPath_Concat_ParsesAttrArgs()
+    {
+        var steps = XPathEngine.ParseXPath("//Button[@Name=concat('prefix-', @AutomationId)]");
+        var pred = steps[0].Predicates[0];
+        Assert.That(pred.ConcatArgs, Has.Count.EqualTo(2));
+        Assert.That(pred.ConcatArgs![0], Is.InstanceOf<StringConcatArg>());
+        Assert.That(pred.ConcatArgs[1], Is.InstanceOf<AttrConcatArg>());
+        Assert.That(((AttrConcatArg)pred.ConcatArgs[1]).Attribute, Is.EqualTo("AutomationId"));
+    }
+
+    // ── string-length() ──────────────────────────────────────────────────────
+
+    [TestCase("//Button[string-length(@Name) > 5]")]
+    [TestCase("//Button[string-length('hello') = 5]")]
+    public void ParseXPath_StringLength_DoesNotThrow(string xpath)
+    {
+        Assert.DoesNotThrow(() => XPathEngine.Validate(xpath));
+    }
+
+    // ── mod/div ──────────────────────────────────────────────────────────────
+
+    [TestCase("//Button[position() mod 2 = 1]")]
+    [TestCase("//Button[position() div 3 > 1.5]")]
+    public void ParseXPath_ModDiv_DoesNotThrow(string xpath)
+    {
+        Assert.DoesNotThrow(() => XPathEngine.Validate(xpath));
+    }
+
+    // ── Valid expressions list (extended) ─────────────────────────────────────
+
+    [TestCase("//Button[@Name^='Start']")]
+    [TestCase("//Button[@Name*='thing']")]
+    [TestCase("//Button[@Name$='End']")]
+    [TestCase("//Button[@Name='foo' and @AutomationId='bar']")]
+    [TestCase("//Button[@Name='a' or @Name='b']")]
+    [TestCase("//Button[@Name=concat('foo', 'bar')]")]
+    [TestCase("//Button[string-length(@Name) > 5]")]
+    [TestCase("//Button[position() mod 2 = 1]")]
+    [TestCase("//Button[position() div 3 > 1.5]")]
+    [TestCase("//Button[position() > 2 and position() < last()]")]
+    [TestCase("//Button[position() = 1 or position() = last()]")]
+    public void ParseXPath_ExtendedValidExpression_DoesNotThrow(string xpath)
     {
         Assert.DoesNotThrow(() => XPathEngine.Validate(xpath));
     }

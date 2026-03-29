@@ -1,38 +1,42 @@
+using System.Globalization;
+
 namespace WindowsConductor.DriverFlaUI;
 
 /// <summary>
 /// Evaluates XPath predicate expressions containing <c>position()</c>, <c>last()</c>,
-/// integer literals, arithmetic (<c>+</c>, <c>-</c>, <c>*</c>), comparisons
-/// (<c>=</c>, <c>!=</c>, <c>&lt;</c>, <c>&gt;</c>, <c>&lt;=</c>, <c>&gt;=</c>),
-/// and parenthesized sub-expressions.
+/// <c>string-length()</c>, integer/decimal literals, arithmetic (<c>+</c>, <c>-</c>,
+/// <c>*</c>, <c>/</c>, <c>mod</c>, <c>div</c>), comparisons (<c>=</c>, <c>!=</c>,
+/// <c>&lt;</c>, <c>&gt;</c>, <c>&lt;=</c>, <c>&gt;=</c>),
+/// and logical operators (<c>and</c>, <c>or</c>).
 /// </summary>
 public static class XPathExprEvaluator
 {
     internal enum TokenKind
     {
-        Number, Position, Last,
-        Plus, Minus, Star, Slash,
+        Number, Position, Last, StringLength,
+        Plus, Minus, Star, Slash, Mod, Div,
         Eq, NotEq, Lt, Gt, LtEq, GtEq,
+        And, Or,
         LParen, RParen, End
     }
 
-    internal readonly record struct Token(TokenKind Kind, int Value = 0);
+    internal readonly record struct Token(TokenKind Kind, double Value = 0, string? StringArg = null);
 
     /// <summary>
-    /// Returns <c>true</c> when <paramref name="expr"/> contains <c>position()</c> or <c>last()</c>.
+    /// Returns <c>true</c> when <paramref name="expr"/> contains a function call
+    /// that requires the expression evaluator rather than simple attribute matching.
     /// </summary>
     public static bool IsFunctionExpression(string expr) =>
-        expr.Contains("position(") || expr.Contains("last(");
+        expr.Contains("position(") || expr.Contains("last(") || expr.Contains("string-length(");
 
     /// <summary>
-    /// Evaluates the expression with the given <paramref name="position"/> (1-based) and <paramref name="last"/> values.
-    /// Returns <c>true</c> when the result is non-zero (truthy).
+    /// Evaluates the expression. Returns <c>true</c> when the result is non-zero (truthy).
     /// </summary>
-    public static bool Evaluate(string expr, int position, int last)
+    public static bool Evaluate(string expr, int position, int last, Func<string, string?>? getProperty = null)
     {
         var tokens = Tokenize(expr);
         int pos = 0;
-        int result = ParseComparison(tokens, ref pos, position, last);
+        double result = ParseOr(tokens, ref pos, position, last, getProperty);
         if (pos < tokens.Count && tokens[pos].Kind != TokenKind.End)
             throw new ArgumentException($"Unexpected token at end of expression: '{expr}'");
         return result != 0;
@@ -45,7 +49,7 @@ public static class XPathExprEvaluator
     {
         var tokens = Tokenize(expr);
         int pos = 0;
-        ParseComparison(tokens, ref pos, 1, 1);
+        ParseOr(tokens, ref pos, 1, 1, null);
         if (pos < tokens.Count && tokens[pos].Kind != TokenKind.End)
             throw new ArgumentException($"Unexpected token at end of expression: '{expr}'");
     }
@@ -68,13 +72,18 @@ public static class XPathExprEvaluator
             {
                 int start = i;
                 while (i < len && char.IsDigit(expr[i])) i++;
-                tokens.Add(new Token(TokenKind.Number, int.Parse(expr[start..i])));
+                if (i < len && expr[i] == '.' && i + 1 < len && char.IsDigit(expr[i + 1]))
+                {
+                    i++;
+                    while (i < len && char.IsDigit(expr[i])) i++;
+                }
+                tokens.Add(new Token(TokenKind.Number, double.Parse(expr[start..i], CultureInfo.InvariantCulture)));
                 continue;
             }
 
-            if (c == 'p' && Match(expr, i, "position"))
+            if (c == 'p' && MatchKeyword(expr, i, "position"))
             {
-                i += 8; // "position"
+                i += 8;
                 i = SkipWhitespace(expr, i);
                 if (i < len && expr[i] == '(') i++;
                 i = SkipWhitespace(expr, i);
@@ -83,14 +92,64 @@ public static class XPathExprEvaluator
                 continue;
             }
 
-            if (c == 'l' && Match(expr, i, "last"))
+            if (c == 'l' && MatchKeyword(expr, i, "last"))
             {
-                i += 4; // "last"
+                i += 4;
                 i = SkipWhitespace(expr, i);
                 if (i < len && expr[i] == '(') i++;
                 i = SkipWhitespace(expr, i);
                 if (i < len && expr[i] == ')') i++;
                 tokens.Add(new Token(TokenKind.Last));
+                continue;
+            }
+
+            if (c == 's' && Match(expr, i, "string-length"))
+            {
+                i += 13;
+                i = SkipWhitespace(expr, i);
+                if (i < len && expr[i] == '(')
+                {
+                    i++;
+                    int argStart = i;
+                    int depth = 1;
+                    while (i < len && depth > 0)
+                    {
+                        if (expr[i] == '(') depth++;
+                        else if (expr[i] == ')') depth--;
+                        if (depth > 0) i++;
+                    }
+                    string arg = expr[argStart..i].Trim();
+                    if (i < len && expr[i] == ')') i++;
+                    tokens.Add(new Token(TokenKind.StringLength, StringArg: arg));
+                }
+                continue;
+            }
+
+            if (c == 'm' && MatchKeyword(expr, i, "mod"))
+            {
+                i += 3;
+                tokens.Add(new Token(TokenKind.Mod));
+                continue;
+            }
+
+            if (c == 'd' && MatchKeyword(expr, i, "div"))
+            {
+                i += 3;
+                tokens.Add(new Token(TokenKind.Div));
+                continue;
+            }
+
+            if (c == 'a' && MatchKeyword(expr, i, "and"))
+            {
+                i += 3;
+                tokens.Add(new Token(TokenKind.And));
+                continue;
+            }
+
+            if (c == 'o' && MatchKeyword(expr, i, "or"))
+            {
+                i += 2;
+                tokens.Add(new Token(TokenKind.Or));
                 continue;
             }
 
@@ -102,8 +161,6 @@ public static class XPathExprEvaluator
                 case '/': tokens.Add(new Token(TokenKind.Slash)); i++; continue;
                 case '(': tokens.Add(new Token(TokenKind.LParen)); i++; continue;
                 case ')': tokens.Add(new Token(TokenKind.RParen)); i++; continue;
-                case '=' when i + 1 < len && expr[i + 1] == '>':
-                    tokens.Add(new Token(TokenKind.GtEq)); i += 2; continue;
                 case '=': tokens.Add(new Token(TokenKind.Eq)); i++; continue;
                 case '!' when i + 1 < len && expr[i + 1] == '=':
                     tokens.Add(new Token(TokenKind.NotEq)); i += 2; continue;
@@ -125,6 +182,9 @@ public static class XPathExprEvaluator
     private static bool Match(string expr, int i, string word) =>
         i + word.Length <= expr.Length && expr.AsSpan(i, word.Length).SequenceEqual(word);
 
+    private static bool MatchKeyword(string expr, int i, string word) =>
+        Match(expr, i, word) && (i + word.Length >= expr.Length || !char.IsLetterOrDigit(expr[i + word.Length]));
+
     private static int SkipWhitespace(string expr, int i)
     {
         while (i < expr.Length && char.IsWhiteSpace(expr[i])) i++;
@@ -132,11 +192,35 @@ public static class XPathExprEvaluator
     }
 
     // ── Recursive-descent parser/evaluator ───────────────────────────────────
-    // Precedence (low → high): comparison → additive → multiplicative → unary → primary
+    // Precedence (low → high): or → and → comparison → additive → multiplicative → unary → primary
 
-    private static int ParseComparison(List<Token> tokens, ref int pos, int position, int last)
+    private static double ParseOr(List<Token> tokens, ref int pos, int position, int last, Func<string, string?>? getProperty)
     {
-        int left = ParseAdditive(tokens, ref pos, position, last);
+        double left = ParseAnd(tokens, ref pos, position, last, getProperty);
+        while (pos < tokens.Count && tokens[pos].Kind == TokenKind.Or)
+        {
+            pos++;
+            double right = ParseAnd(tokens, ref pos, position, last, getProperty);
+            left = (left != 0 || right != 0) ? 1 : 0;
+        }
+        return left;
+    }
+
+    private static double ParseAnd(List<Token> tokens, ref int pos, int position, int last, Func<string, string?>? getProperty)
+    {
+        double left = ParseComparison(tokens, ref pos, position, last, getProperty);
+        while (pos < tokens.Count && tokens[pos].Kind == TokenKind.And)
+        {
+            pos++;
+            double right = ParseComparison(tokens, ref pos, position, last, getProperty);
+            left = (left != 0 && right != 0) ? 1 : 0;
+        }
+        return left;
+    }
+
+    private static double ParseComparison(List<Token> tokens, ref int pos, int position, int last, Func<string, string?>? getProperty)
+    {
+        double left = ParseAdditive(tokens, ref pos, position, last, getProperty);
 
         while (pos < tokens.Count)
         {
@@ -144,7 +228,7 @@ public static class XPathExprEvaluator
             if (kind is not (TokenKind.Eq or TokenKind.NotEq or TokenKind.Lt or TokenKind.Gt or TokenKind.LtEq or TokenKind.GtEq))
                 break;
             pos++;
-            int right = ParseAdditive(tokens, ref pos, position, last);
+            double right = ParseAdditive(tokens, ref pos, position, last, getProperty);
             left = kind switch
             {
                 TokenKind.Eq => left == right ? 1 : 0,
@@ -160,49 +244,56 @@ public static class XPathExprEvaluator
         return left;
     }
 
-    private static int ParseAdditive(List<Token> tokens, ref int pos, int position, int last)
+    private static double ParseAdditive(List<Token> tokens, ref int pos, int position, int last, Func<string, string?>? getProperty)
     {
-        int left = ParseMultiplicative(tokens, ref pos, position, last);
+        double left = ParseMultiplicative(tokens, ref pos, position, last, getProperty);
 
         while (pos < tokens.Count)
         {
             var kind = tokens[pos].Kind;
             if (kind is not (TokenKind.Plus or TokenKind.Minus)) break;
             pos++;
-            int right = ParseMultiplicative(tokens, ref pos, position, last);
+            double right = ParseMultiplicative(tokens, ref pos, position, last, getProperty);
             left = kind == TokenKind.Plus ? left + right : left - right;
         }
 
         return left;
     }
 
-    private static int ParseMultiplicative(List<Token> tokens, ref int pos, int position, int last)
+    private static double ParseMultiplicative(List<Token> tokens, ref int pos, int position, int last, Func<string, string?>? getProperty)
     {
-        int left = ParseUnary(tokens, ref pos, position, last);
+        double left = ParseUnary(tokens, ref pos, position, last, getProperty);
 
-        while (pos < tokens.Count && tokens[pos].Kind is TokenKind.Star or TokenKind.Slash)
+        while (pos < tokens.Count && tokens[pos].Kind is TokenKind.Star or TokenKind.Slash or TokenKind.Mod or TokenKind.Div)
         {
             var kind = tokens[pos].Kind;
             pos++;
-            int right = ParseUnary(tokens, ref pos, position, last);
-            left = kind == TokenKind.Star ? left * right : left / right;
+            double right = ParseUnary(tokens, ref pos, position, last, getProperty);
+            left = kind switch
+            {
+                TokenKind.Star => left * right,
+                TokenKind.Slash => (int)left / (int)right,
+                TokenKind.Div => left / right,
+                TokenKind.Mod => (int)left % (int)right,
+                _ => throw new InvalidOperationException()
+            };
         }
 
         return left;
     }
 
-    private static int ParseUnary(List<Token> tokens, ref int pos, int position, int last)
+    private static double ParseUnary(List<Token> tokens, ref int pos, int position, int last, Func<string, string?>? getProperty)
     {
         if (pos < tokens.Count && tokens[pos].Kind == TokenKind.Minus)
         {
             pos++;
-            return -ParseUnary(tokens, ref pos, position, last);
+            return -ParseUnary(tokens, ref pos, position, last, getProperty);
         }
 
-        return ParsePrimary(tokens, ref pos, position, last);
+        return ParsePrimary(tokens, ref pos, position, last, getProperty);
     }
 
-    private static int ParsePrimary(List<Token> tokens, ref int pos, int position, int last)
+    private static double ParsePrimary(List<Token> tokens, ref int pos, int position, int last, Func<string, string?>? getProperty)
     {
         if (pos >= tokens.Count || tokens[pos].Kind == TokenKind.End)
             throw new ArgumentException("Unexpected end of expression");
@@ -223,9 +314,13 @@ public static class XPathExprEvaluator
                 pos++;
                 return last;
 
+            case TokenKind.StringLength:
+                pos++;
+                return EvalStringLength(token.StringArg!, getProperty);
+
             case TokenKind.LParen:
                 pos++;
-                int result = ParseComparison(tokens, ref pos, position, last);
+                double result = ParseOr(tokens, ref pos, position, last, getProperty);
                 if (pos >= tokens.Count || tokens[pos].Kind != TokenKind.RParen)
                     throw new ArgumentException("Missing closing parenthesis in expression");
                 pos++;
@@ -234,5 +329,17 @@ public static class XPathExprEvaluator
             default:
                 throw new ArgumentException($"Unexpected token '{token.Kind}' in expression");
         }
+    }
+
+    private static double EvalStringLength(string arg, Func<string, string?>? getProperty)
+    {
+        if (arg.StartsWith('@'))
+        {
+            var value = getProperty?.Invoke(arg[1..].ToLowerInvariant()) ?? "";
+            return value.Length;
+        }
+        if ((arg.StartsWith('\'') && arg.EndsWith('\'')) || (arg.StartsWith('"') && arg.EndsWith('"')))
+            return arg[1..^1].Length;
+        return arg.Length;
     }
 }

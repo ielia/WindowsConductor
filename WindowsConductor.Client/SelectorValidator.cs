@@ -81,8 +81,11 @@ public static class SelectorValidator
                         nameof(fullSelector));
                 continue;
             }
-            // Allow function expressions containing position() or last()
-            if (content.Contains("position(") || content.Contains("last("))
+            // Allow function expressions and compound predicates with and/or
+            if (content.Contains("position(") || content.Contains("last(") || content.Contains("string-length("))
+                continue;
+            // Allow compound attribute predicates: @a='x' and @b='y', @a='x' or @b='y'
+            if (content.Contains(" and ") || content.Contains(" or "))
                 continue;
             if (!content.StartsWith('@'))
                 throw new ArgumentException(

@@ -153,11 +153,135 @@ public class XPathExprEvaluatorTests
     // ── => operator (alias for >=) ───────────────────────────────────────────
 
     [Test]
-    public void Evaluate_FatArrowOperator_Works()
+    public void Evaluate_GreaterThanOrEqual_DoubleForm_Works()
     {
-        Assert.That(XPathExprEvaluator.Evaluate("position() => 3", 3, 10), Is.True);
-        Assert.That(XPathExprEvaluator.Evaluate("position() => 3", 4, 10), Is.True);
-        Assert.That(XPathExprEvaluator.Evaluate("position() => 3", 2, 10), Is.False);
+        Assert.That(XPathExprEvaluator.Evaluate("position() >= 3", 3, 10), Is.True);
+        Assert.That(XPathExprEvaluator.Evaluate("position() >= 3", 4, 10), Is.True);
+        Assert.That(XPathExprEvaluator.Evaluate("position() >= 3", 2, 10), Is.False);
+    }
+
+    // ── mod operator ─────────────────────────────────────────────────────────
+
+    [Test]
+    public void Evaluate_Mod_Works()
+    {
+        // position() mod 2 = 1 → odd positions
+        Assert.That(XPathExprEvaluator.Evaluate("position() mod 2 = 1", 1, 10), Is.True);
+        Assert.That(XPathExprEvaluator.Evaluate("position() mod 2 = 1", 3, 10), Is.True);
+        Assert.That(XPathExprEvaluator.Evaluate("position() mod 2 = 1", 2, 10), Is.False);
+    }
+
+    [Test]
+    public void Evaluate_Mod_ThreeMod2IsOne()
+    {
+        Assert.That(XPathExprEvaluator.Evaluate("3 mod 2 = 1", 1, 1), Is.True);
+    }
+
+    // ── div operator (IEEE 754 float division) ───────────────────────────────
+
+    [Test]
+    public void Evaluate_Div_FloatingPoint()
+    {
+        // 10 div 3 ≈ 3.333...  so > 3 is true
+        Assert.That(XPathExprEvaluator.Evaluate("10 div 3 > 3", 1, 1), Is.True);
+        // 10 div 3 < 4 is true
+        Assert.That(XPathExprEvaluator.Evaluate("10 div 3 < 4", 1, 1), Is.True);
+    }
+
+    [Test]
+    public void Evaluate_Div_ExactHalf()
+    {
+        // 7 div 2 = 3.5
+        Assert.That(XPathExprEvaluator.Evaluate("7 div 2 > 3", 1, 1), Is.True);
+        Assert.That(XPathExprEvaluator.Evaluate("7 div 2 < 4", 1, 1), Is.True);
+    }
+
+    [Test]
+    public void Evaluate_DecimalLiteral()
+    {
+        Assert.That(XPathExprEvaluator.Evaluate("position() div 3 > 1.5", 5, 10), Is.True);
+        Assert.That(XPathExprEvaluator.Evaluate("position() div 3 > 1.5", 4, 10), Is.False);
+    }
+
+    // ── and operator ─────────────────────────────────────────────────────────
+
+    [Test]
+    public void Evaluate_And_BothTrue()
+    {
+        Assert.That(XPathExprEvaluator.Evaluate("position() > 2 and position() < 5", 3, 10), Is.True);
+    }
+
+    [Test]
+    public void Evaluate_And_OneFalse()
+    {
+        Assert.That(XPathExprEvaluator.Evaluate("position() > 2 and position() < 5", 6, 10), Is.False);
+    }
+
+    [Test]
+    public void Evaluate_And_BothFalse()
+    {
+        Assert.That(XPathExprEvaluator.Evaluate("position() > 5 and position() < 3", 4, 10), Is.False);
+    }
+
+    // ── or operator ──────────────────────────────────────────────────────────
+
+    [Test]
+    public void Evaluate_Or_FirstTrue()
+    {
+        Assert.That(XPathExprEvaluator.Evaluate("position() = 1 or position() = last()", 1, 10), Is.True);
+    }
+
+    [Test]
+    public void Evaluate_Or_SecondTrue()
+    {
+        Assert.That(XPathExprEvaluator.Evaluate("position() = 1 or position() = last()", 10, 10), Is.True);
+    }
+
+    [Test]
+    public void Evaluate_Or_NoneTrue()
+    {
+        Assert.That(XPathExprEvaluator.Evaluate("position() = 1 or position() = last()", 5, 10), Is.False);
+    }
+
+    // ── and/or precedence (and binds tighter) ────────────────────────────────
+
+    [Test]
+    public void Evaluate_AndOrPrecedence()
+    {
+        // position()=1 or position()>3 and position()<6 → 1 or (>3 and <6)
+        Assert.That(XPathExprEvaluator.Evaluate("position() = 1 or position() > 3 and position() < 6", 1, 10), Is.True);
+        Assert.That(XPathExprEvaluator.Evaluate("position() = 1 or position() > 3 and position() < 6", 4, 10), Is.True);
+        Assert.That(XPathExprEvaluator.Evaluate("position() = 1 or position() > 3 and position() < 6", 7, 10), Is.False);
+    }
+
+    // ── string-length() ──────────────────────────────────────────────────────
+
+    [Test]
+    public void Evaluate_StringLength_StringLiteral()
+    {
+        Assert.That(XPathExprEvaluator.Evaluate("string-length('hello') = 5", 1, 1), Is.True);
+        Assert.That(XPathExprEvaluator.Evaluate("string-length('hello') = 4", 1, 1), Is.False);
+    }
+
+    [Test]
+    public void Evaluate_StringLength_AttributeRef()
+    {
+        Func<string, string?> props = k => k == "name" ? "Calculator" : null;
+        Assert.That(XPathExprEvaluator.Evaluate("string-length(@Name) > 5", 1, 1, props), Is.True);
+        Assert.That(XPathExprEvaluator.Evaluate("string-length(@Name) = 10", 1, 1, props), Is.True);
+    }
+
+    [Test]
+    public void Evaluate_StringLength_NullAttribute_ReturnsZero()
+    {
+        Func<string, string?> props = _ => null;
+        Assert.That(XPathExprEvaluator.Evaluate("string-length(@Name) = 0", 1, 1, props), Is.True);
+    }
+
+    [Test]
+    public void IsFunctionExpression_StringLength_Detected()
+    {
+        Assert.That(XPathExprEvaluator.IsFunctionExpression("string-length(@Name) > 5"), Is.True);
     }
 
     // ── Validation errors ────────────────────────────────────────────────────
