@@ -249,6 +249,60 @@ public class CommandExecutorTests
     }
 
     [Test]
+    public async Task Execute_Locate_DescendantXPathOnXPath_CombinesWithoutSlash()
+    {
+        _session.IsConnected = true;
+        _session.HasApp = true;
+        await _executor.ExecuteAsync("locate //button[@automationid=num3Button]");
+        _output.AttributesSets.Clear();
+
+        await _executor.ExecuteAsync("locate //button[@automationid=num2Button]");
+        Assert.That(_output.AttributesSets[0].LocatorChain,
+            Is.EqualTo("//button[@automationid=num3Button]//button[@automationid=num2Button]"));
+        Assert.That(_session.Calls.Any(c => c.Method == "LocateFromElement"), Is.True);
+    }
+
+    [Test]
+    public async Task Execute_Locate_XPathRelativeOnXPath_CombinesWithSlash()
+    {
+        _session.IsConnected = true;
+        _session.HasApp = true;
+        await _executor.ExecuteAsync("locate //button[@automationid=num3Button]");
+        _output.AttributesSets.Clear();
+
+        await _executor.ExecuteAsync("locate ../Window");
+        Assert.That(_output.AttributesSets[0].LocatorChain,
+            Is.EqualTo("//button[@automationid=num3Button]/../Window"));
+    }
+
+    [Test]
+    public async Task Execute_Parent_OnXPathElement_AppendsSlashDotDot()
+    {
+        _session.IsConnected = true;
+        _session.HasApp = true;
+        _session.HasSelectedElement = true;
+        await _executor.ExecuteAsync("locate //button[@automationid=num3Button]");
+        _output.AttributesSets.Clear();
+
+        await _executor.ExecuteAsync("parent");
+        Assert.That(_output.AttributesSets[0].LocatorChain,
+            Is.EqualTo("//button[@automationid=num3Button]/.."));
+    }
+
+    [Test]
+    public async Task Execute_Parent_OnNonXPathElement_AppendsWithArrows()
+    {
+        _session.IsConnected = true;
+        _session.HasApp = true;
+        _session.HasSelectedElement = true;
+        await _executor.ExecuteAsync("locate type=Panel");
+        _output.AttributesSets.Clear();
+
+        await _executor.ExecuteAsync("parent");
+        Assert.That(_output.AttributesSets[0].LocatorChain, Is.EqualTo("type=Panel >> .."));
+    }
+
+    [Test]
     public async Task Execute_Locate_WithoutElementSelected_UsesLocate()
     {
         _session.IsConnected = true;

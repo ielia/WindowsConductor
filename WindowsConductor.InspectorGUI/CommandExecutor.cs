@@ -86,12 +86,13 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
             case LocateCommand cmd:
                 RequireApp();
                 string elementId;
+                var firstTrimmed = cmd.Selectors[0].TrimStart();
                 bool isRelative = session.HasSelectedElement
-                    && cmd.Selectors[0].TrimStart().StartsWith('.');
+                    && (firstTrimmed.StartsWith('.') || firstTrimmed.StartsWith("//"));
                 if (isRelative)
                 {
                     elementId = await session.LocateFromElementAsync(cmd.Selectors, ct);
-                    _currentSelectors = [.. _currentSelectors ?? [], .. cmd.Selectors];
+                    _currentSelectors = CombineSelectors(_currentSelectors, cmd.Selectors);
                 }
                 else
                 {
@@ -157,7 +158,7 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
                     output.WriteInfo("Already at application root.");
                     break;
                 }
-                _currentSelectors = [.. _currentSelectors ?? [], ".."];
+                _currentSelectors = CombineSelectors(_currentSelectors, [".."]);
                 output.WriteInfo($"Navigated to parent: {parentId}");
                 await ShowWindowScreenshotWithHighlightAsync(ct);
                 await ShowAttributesAsync(ct);
@@ -257,5 +258,22 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
         RequireApp();
         if (!session.HasSelectedElement)
             throw new InvalidOperationException("No element selected. Use 'locate' first.");
+    }
+
+    private static bool IsXPath(string selector)
+    {
+        var s = selector.TrimStart();
+        return s.StartsWith('/') || s.StartsWith('.');
+    }
+
+    private static string[] CombineSelectors(string[]? current, string[] incoming)
+    {
+        if (current is { Length: > 0 } && IsXPath(current[^1]) && IsXPath(incoming[0]))
+        {
+            var needsSlash = !current[^1].EndsWith('/') && !incoming[0].TrimStart().StartsWith('/');
+            var combined = current[^1] + (needsSlash ? "/" : "") + incoming[0];
+            return [.. current[..^1], combined, .. incoming[1..]];
+        }
+        return [.. current ?? [], .. incoming];
     }
 }
