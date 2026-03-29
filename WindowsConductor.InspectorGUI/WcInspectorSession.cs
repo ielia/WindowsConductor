@@ -11,6 +11,7 @@ internal sealed class WcInspectorSession : IInspectorSession, IAsyncDisposable
     private WcSession? _session;
     private WcApp? _app;
     private WcElement? _selectedElement;
+    private IReadOnlyList<WcElement>? _matchedElements;
 
     public bool IsConnected => _session is not null;
     public bool HasApp => _app is not null;
@@ -92,7 +93,45 @@ internal sealed class WcInspectorSession : IInspectorSession, IAsyncDisposable
         return element.ElementId;
     }
 
-    public void Unselect() => _selectedElement = null;
+    public async Task<int> LocateAllAsync(string[] selectors, CancellationToken ct = default)
+    {
+        WcLocator locator = _app!.Locator(selectors[0]);
+        for (int i = 1; i < selectors.Length; i++)
+            locator = locator.Locator(selectors[i]);
+
+        var elements = await locator.GetAllElementsAsync(ct);
+        _matchedElements = elements;
+        if (elements.Count > 0)
+            _selectedElement = elements[0];
+        return elements.Count;
+    }
+
+    public async Task<int> LocateAllFromElementAsync(string[] selectors, CancellationToken ct = default)
+    {
+        WcLocator locator = _selectedElement!.Locator(selectors[0]);
+        for (int i = 1; i < selectors.Length; i++)
+            locator = locator.Locator(selectors[i]);
+
+        var elements = await locator.GetAllElementsAsync(ct);
+        _matchedElements = elements;
+        if (elements.Count > 0)
+            _selectedElement = elements[0];
+        return elements.Count;
+    }
+
+    public Task<string> SelectMatchAsync(int index, CancellationToken ct = default)
+    {
+        if (_matchedElements is null || index < 0 || index >= _matchedElements.Count)
+            throw new InvalidOperationException("No matches to select from.");
+        _selectedElement = _matchedElements[index];
+        return Task.FromResult(_selectedElement.ElementId);
+    }
+
+    public void Unselect()
+    {
+        _selectedElement = null;
+        _matchedElements = null;
+    }
 
     public async Task<string?> ParentAsync(CancellationToken ct = default)
     {

@@ -25,6 +25,10 @@ internal sealed class FakeCommandOutput : ICommandOutput
         AttributesSets.Add((locatorChain, attributes));
     public void ClearAttributes() => ClearAttributesCount++;
 
+    public List<(int CurrentIndex, int TotalCount)> MatchNavigationUpdates { get; } = new();
+    public void UpdateMatchNavigation(int currentIndex, int totalCount) =>
+        MatchNavigationUpdates.Add((currentIndex, totalCount));
+
     public int RequestExitCount { get; private set; }
     public void RequestExit() => RequestExitCount++;
 }

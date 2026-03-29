@@ -9,6 +9,7 @@ internal interface ICommandOutput
     void ClearHighlight();
     void ShowAttributes(string locatorChain, Dictionary<string, object?> attributes);
     void ClearAttributes();
+    void UpdateMatchNavigation(int currentIndex, int totalCount);
     void RequestExit();
 }
 

@@ -195,7 +195,7 @@ public class CommandExecutorTests
         _session.IsConnected = true;
         _session.HasApp = true;
         await _executor.ExecuteAsync("locate [name=OK]");
-        Assert.That(_session.Calls.Any(c => c.Method == "Locate"), Is.True);
+        Assert.That(_session.Calls.Any(c => c.Method == "LocateAll"), Is.True);
         Assert.That(_output.InfoMessages[0], Does.Contain("Located"));
         // Should show screenshot with highlight
         Assert.That(_output.Screenshots, Has.Count.EqualTo(1));
@@ -209,7 +209,7 @@ public class CommandExecutorTests
         _session.IsConnected = true;
         _session.HasApp = true;
         await _executor.ExecuteAsync("locate type=Panel >> [name=OK]");
-        var locateCall = _session.Calls.First(c => c.Method == "Locate");
+        var locateCall = _session.Calls.First(c => c.Method == "LocateAll");
         var selectors = locateCall.Args[0] as string[];
         Assert.That(selectors, Is.Not.Null);
         Assert.That(selectors!, Has.Length.EqualTo(2));
@@ -222,7 +222,7 @@ public class CommandExecutorTests
         _session.HasApp = true;
         _session.HasSelectedElement = true;
         await _executor.ExecuteAsync("locate ./type=Button");
-        Assert.That(_session.Calls.Any(c => c.Method == "LocateFromElement"), Is.True);
+        Assert.That(_session.Calls.Any(c => c.Method == "LocateAllFromElement"), Is.True);
     }
 
     [Test]
@@ -232,8 +232,8 @@ public class CommandExecutorTests
         _session.HasApp = true;
         _session.HasSelectedElement = true;
         await _executor.ExecuteAsync("locate type=Button");
-        Assert.That(_session.Calls.Any(c => c.Method == "Locate"), Is.True);
-        Assert.That(_session.Calls.All(c => c.Method != "LocateFromElement"), Is.True);
+        Assert.That(_session.Calls.Any(c => c.Method == "LocateAll"), Is.True);
+        Assert.That(_session.Calls.All(c => c.Method != "LocateAllFromElement"), Is.True);
     }
 
     [Test]
@@ -274,7 +274,7 @@ public class CommandExecutorTests
         await _executor.ExecuteAsync("locate //button[@automationid=num2Button]");
         Assert.That(_output.AttributesSets[0].LocatorChain,
             Is.EqualTo("//button[@automationid=num3Button]//button[@automationid=num2Button]"));
-        Assert.That(_session.Calls.Any(c => c.Method == "LocateFromElement"), Is.True);
+        Assert.That(_session.Calls.Any(c => c.Method == "LocateAllFromElement"), Is.True);
     }
 
     [Test]
@@ -324,8 +324,117 @@ public class CommandExecutorTests
         _session.HasApp = true;
         _session.HasSelectedElement = false;
         await _executor.ExecuteAsync("locate type=Button");
-        Assert.That(_session.Calls.Any(c => c.Method == "Locate"), Is.True);
-        Assert.That(_session.Calls.All(c => c.Method != "LocateFromElement"), Is.True);
+        Assert.That(_session.Calls.Any(c => c.Method == "LocateAll"), Is.True);
+        Assert.That(_session.Calls.All(c => c.Method != "LocateAllFromElement"), Is.True);
+    }
+
+    // ── match navigation ──────────────────────────────────────────────────
+
+    [Test]
+    public async Task Locate_MultipleMatches_ShowsCount()
+    {
+        _session.IsConnected = true;
+        _session.HasApp = true;
+        _session.LocateAllResult = 5;
+        await _executor.ExecuteAsync("locate //Button");
+        Assert.That(_output.InfoMessages[0], Does.Contain("5 elements"));
+        Assert.That(_output.MatchNavigationUpdates.Last(), Is.EqualTo((0, 5)));
+    }
+
+    [Test]
+    public async Task Locate_SingleMatch_NoNavigation()
+    {
+        _session.IsConnected = true;
+        _session.HasApp = true;
+        _session.LocateAllResult = 1;
+        await _executor.ExecuteAsync("locate //Button");
+        Assert.That(_output.InfoMessages[0], Does.Contain("1 element"));
+        Assert.That(_output.MatchNavigationUpdates.Last(), Is.EqualTo((0, 1)));
+    }
+
+    [Test]
+    public async Task NavigateMatch_Forward_CyclesIndex()
+    {
+        _session.IsConnected = true;
+        _session.HasApp = true;
+        _session.LocateAllResult = 3;
+        await _executor.ExecuteAsync("locate //Button");
+        _output.AttributesSets.Clear();
+
+        await _executor.NavigateMatchAsync(1);
+        Assert.That(_session.Calls.Any(c => c.Method == "SelectMatch"), Is.True);
+        var selectCall = _session.Calls.Last(c => c.Method == "SelectMatch");
+        Assert.That(selectCall.Args[0], Is.EqualTo(1));
+        Assert.That(_output.MatchNavigationUpdates.Last(), Is.EqualTo((1, 3)));
+        Assert.That(_output.AttributesSets[0].LocatorChain, Does.EndWith("[2]"));
+    }
+
+    [Test]
+    public async Task NavigateMatch_Backward_WrapsAround()
+    {
+        _session.IsConnected = true;
+        _session.HasApp = true;
+        _session.LocateAllResult = 3;
+        await _executor.ExecuteAsync("locate //Button");
+
+        await _executor.NavigateMatchAsync(-1);
+        var selectCall = _session.Calls.Last(c => c.Method == "SelectMatch");
+        Assert.That(selectCall.Args[0], Is.EqualTo(2));
+        Assert.That(_output.MatchNavigationUpdates.Last(), Is.EqualTo((2, 3)));
+    }
+
+    [Test]
+    public async Task Locate_MultipleMatches_FirstMatch_NoIndexInChain()
+    {
+        _session.IsConnected = true;
+        _session.HasApp = true;
+        _session.LocateAllResult = 4;
+        await _executor.ExecuteAsync("locate //Button");
+        Assert.That(_output.AttributesSets[0].LocatorChain, Is.EqualTo("//Button"));
+    }
+
+    [Test]
+    public async Task Locate_MultipleMatches_NavigatedMatch_ShowsIndexInChain()
+    {
+        _session.IsConnected = true;
+        _session.HasApp = true;
+        _session.LocateAllResult = 4;
+        await _executor.ExecuteAsync("locate //Button");
+        _output.AttributesSets.Clear();
+
+        await _executor.NavigateMatchAsync(1);
+        Assert.That(_output.AttributesSets[0].LocatorChain, Is.EqualTo("//Button[2]"));
+    }
+
+    [Test]
+    public async Task Locate_NavigatedMatch_ThenParent_BakesIndexIntoChain()
+    {
+        _session.IsConnected = true;
+        _session.HasApp = true;
+        _session.HasSelectedElement = true;
+        _session.LocateAllResult = 5;
+        await _executor.ExecuteAsync("locate //Button");
+        await _executor.NavigateMatchAsync(1);
+        await _executor.NavigateMatchAsync(1);
+        await _executor.NavigateMatchAsync(1);
+        await _executor.NavigateMatchAsync(1);
+        _output.AttributesSets.Clear();
+
+        await _executor.ExecuteAsync("locate ..");
+        Assert.That(_output.AttributesSets[0].LocatorChain, Is.EqualTo("//Button[5]/.."));
+    }
+
+    [Test]
+    public async Task Parent_ResetsMatchNavigation()
+    {
+        _session.IsConnected = true;
+        _session.HasApp = true;
+        _session.HasSelectedElement = true;
+        _session.LocateAllResult = 3;
+        await _executor.ExecuteAsync("locate //Button");
+
+        await _executor.ExecuteAsync("parent");
+        Assert.That(_output.MatchNavigationUpdates.Last(), Is.EqualTo((0, 0)));
     }
 
     // ── parent ─────────────────────────────────────────────────────────────

@@ -5,6 +5,8 @@ namespace WindowsConductor.InspectorGUI;
 internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput output)
 {
     private string[]? _currentSelectors;
+    private int _matchCount;
+    private int _matchIndex;
     internal async Task ExecuteAsync(string input, CancellationToken ct = default)
     {
         ParsedCommand command;
@@ -55,6 +57,7 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
                 RequireApp();
                 await session.CloseAppAsync(ct);
                 _currentSelectors = null;
+                ResetMatchState();
                 output.ClearScreenshot();
                 output.ClearAttributes();
                 output.WriteInfo("Application closed.");
@@ -64,6 +67,7 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
                 RequireApp();
                 await session.DetachAppAsync();
                 _currentSelectors = null;
+                ResetMatchState();
                 output.ClearScreenshot();
                 output.ClearAttributes();
                 output.WriteInfo("Detached from application.");
@@ -73,6 +77,7 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
                 RequireConnected();
                 await session.DisconnectAsync();
                 _currentSelectors = null;
+                ResetMatchState();
                 output.ClearScreenshot();
                 output.ClearAttributes();
                 output.WriteInfo("Disconnected.");
@@ -85,21 +90,30 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
 
             case LocateCommand cmd:
                 RequireApp();
-                string elementId;
                 var firstTrimmed = cmd.Selectors[0].TrimStart();
                 bool isRelative = session.HasSelectedElement
-                    && (firstTrimmed.StartsWith('.') || firstTrimmed.StartsWith("//"));
+                    && IsXPath(firstTrimmed) && firstTrimmed != "/";
+                int count;
                 if (isRelative)
                 {
-                    elementId = await session.LocateFromElementAsync(cmd.Selectors, ct);
+                    BakeMatchIndex();
+                    count = await session.LocateAllFromElementAsync(cmd.Selectors, ct);
                     _currentSelectors = CombineSelectors(_currentSelectors, cmd.Selectors);
                 }
                 else
                 {
-                    elementId = await session.LocateAsync(cmd.Selectors, ct);
+                    count = await session.LocateAllAsync(cmd.Selectors, ct);
                     _currentSelectors = cmd.Selectors;
                 }
-                output.WriteInfo($"Located element: {elementId}");
+                if (count == 0)
+                    throw new InvalidOperationException(
+                        $"No element found for selector '{string.Join(" >> ", cmd.Selectors)}'.");
+                _matchCount = count;
+                _matchIndex = 0;
+                output.WriteInfo(count == 1
+                    ? "Located 1 element."
+                    : $"Located {count} elements (showing 1 of {count}).");
+                output.UpdateMatchNavigation(_matchIndex, _matchCount);
                 await ShowWindowScreenshotWithHighlightAsync(ct);
                 await ShowAttributesAsync(ct);
                 break;
@@ -107,6 +121,7 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
             case UnselectCommand:
                 session.Unselect();
                 _currentSelectors = null;
+                ResetMatchState();
                 output.ClearHighlight();
                 output.ClearAttributes();
                 output.WriteInfo("Element unselected.");
@@ -152,6 +167,8 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
 
             case ParentCommand:
                 RequireElement();
+                BakeMatchIndex();
+                ResetMatchState();
                 var parentId = await session.ParentAsync(ct);
                 if (parentId is null)
                 {
@@ -197,6 +214,16 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
         output.ShowScreenshot(imgData);
     }
 
+    internal async Task NavigateMatchAsync(int direction, CancellationToken ct = default)
+    {
+        if (_matchCount <= 1) return;
+        _matchIndex = (_matchIndex + direction + _matchCount) % _matchCount;
+        await session.SelectMatchAsync(_matchIndex, ct);
+        output.UpdateMatchNavigation(_matchIndex, _matchCount);
+        await ShowWindowScreenshotWithHighlightAsync(ct);
+        await ShowAttributesAsync(ct);
+    }
+
     internal async Task RefreshAsync(CancellationToken ct = default)
     {
         if (!session.HasApp) return;
@@ -210,6 +237,8 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
         var chain = _currentSelectors is not null
             ? string.Join(" >> ", _currentSelectors)
             : "";
+        if (_matchCount > 1 && _matchIndex > 0)
+            chain += $"[{_matchIndex + 1}]";
         var attrs = await session.GetAttributesAsync(ct);
         output.ShowAttributes(chain, attrs);
     }
@@ -258,6 +287,19 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
         RequireApp();
         if (!session.HasSelectedElement)
             throw new InvalidOperationException("No element selected. Use 'locate' first.");
+    }
+
+    private void BakeMatchIndex()
+    {
+        if (_matchCount > 1 && _matchIndex > 0 && _currentSelectors is { Length: > 0 })
+            _currentSelectors = [.. _currentSelectors[..^1], _currentSelectors[^1] + $"[{_matchIndex + 1}]"];
+    }
+
+    private void ResetMatchState()
+    {
+        _matchCount = 0;
+        _matchIndex = 0;
+        output.UpdateMatchNavigation(0, 0);
     }
 
     private static bool IsXPath(string selector)

@@ -170,6 +170,15 @@ public partial class MainWindow : Window, ICommandOutput
             AttributesGrid.ItemsSource = null;
         });
 
+    void ICommandOutput.UpdateMatchNavigation(int currentIndex, int totalCount) =>
+        Dispatcher.Invoke(() =>
+        {
+            bool hasMultiple = totalCount > 1;
+            PrevMatchButton.IsEnabled = hasMultiple;
+            NextMatchButton.IsEnabled = hasMultiple;
+            MatchCountLabel.Text = hasMultiple ? $"({currentIndex + 1}/{totalCount})" : "";
+        });
+
     void ICommandOutput.RequestExit() =>
         Dispatcher.Invoke(Close);
 
@@ -183,6 +192,26 @@ public partial class MainWindow : Window, ICommandOutput
         var text = string.Join(Environment.NewLine, lines);
         if (!string.IsNullOrEmpty(text))
             Clipboard.SetText(text);
+    }
+
+    private async void PrevMatchButton_Click(object sender, RoutedEventArgs e) =>
+        await NavigateMatchAsync(-1);
+
+    private async void NextMatchButton_Click(object sender, RoutedEventArgs e) =>
+        await NavigateMatchAsync(1);
+
+    private async Task NavigateMatchAsync(int direction)
+    {
+        PrevMatchButton.IsEnabled = false;
+        NextMatchButton.IsEnabled = false;
+        try
+        {
+            await _executor.NavigateMatchAsync(direction);
+        }
+        catch (Exception ex)
+        {
+            AppendLog($"ERROR: {ex.Message}");
+        }
     }
 
     private async void RefreshButton_Click(object sender, RoutedEventArgs e)

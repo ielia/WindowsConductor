@@ -94,6 +94,28 @@ internal sealed class FakeInspectorSession : IInspectorSession
         return Task.FromResult(LocateResult);
     }
 
+    public int LocateAllResult { get; set; } = 1;
+    public Task<int> LocateAllAsync(string[] selectors, CancellationToken ct = default)
+    {
+        Record("LocateAll", (object)selectors);
+        HasSelectedElement = LocateAllResult > 0;
+        return Task.FromResult(LocateAllResult);
+    }
+
+    public Task<int> LocateAllFromElementAsync(string[] selectors, CancellationToken ct = default)
+    {
+        Record("LocateAllFromElement", (object)selectors);
+        HasSelectedElement = LocateAllResult > 0;
+        return Task.FromResult(LocateAllResult);
+    }
+
+    public string SelectMatchResult { get; set; } = "el-match";
+    public Task<string> SelectMatchAsync(int index, CancellationToken ct = default)
+    {
+        Record("SelectMatch", index);
+        return Task.FromResult(SelectMatchResult);
+    }
+
     public void Unselect()
     {
         Record("Unselect");

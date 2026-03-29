@@ -19,6 +19,9 @@ internal interface IInspectorSession
 
     Task<string> LocateAsync(string[] selectors, CancellationToken ct = default);
     Task<string> LocateFromElementAsync(string[] selectors, CancellationToken ct = default);
+    Task<int> LocateAllAsync(string[] selectors, CancellationToken ct = default);
+    Task<int> LocateAllFromElementAsync(string[] selectors, CancellationToken ct = default);
+    Task<string> SelectMatchAsync(int index, CancellationToken ct = default);
     void Unselect();
 
     Task<string> GetAttributeAsync(string attributeName, CancellationToken ct = default);
