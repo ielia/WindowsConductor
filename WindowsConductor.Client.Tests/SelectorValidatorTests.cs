@@ -149,6 +149,16 @@ public class SelectorValidatorTests
     [TestCase("./Panel/Button")]                          // XPath self multi-step
     [TestCase("../Button")]                               // XPath parent at start
     [TestCase("../../Button")]                            // XPath double parent at start
+    [TestCase("//Button[position()=5]")]                   // XPath position() function
+    [TestCase("//Button[@Name='OK'][position()=2]")]       // XPath position() with attribute
+    [TestCase("//Button[3 < position()]")]                   // XPath comparison
+    [TestCase("//Button[position()-1 = 3]")]                 // XPath arithmetic
+    [TestCase("//Button[position() = last() - 1]")]          // XPath last() function
+    [TestCase("//Button[position() != last()]")]             // XPath not-equal
+    [TestCase("//Button[position() >= 2]")]                  // XPath >=
+    [TestCase("//Button[position() <= last() - 2]")]         // XPath <=
+    [TestCase("//Button[last() / 2 = position()]")]          // XPath division
+    [TestCase("//Button[position() => 2]")]                  // XPath => (alias for >=)
     public void Validate_ValidSelector_DoesNotThrow(string selector)
     {
         Assert.DoesNotThrow(() => SelectorValidator.Validate(selector));

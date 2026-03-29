@@ -116,6 +116,13 @@ public class XPathEngineValidationTests
     [TestCase("../Button")]
     [TestCase("..//Button")]
     [TestCase("../../Button")]
+    [TestCase("//Button[position()=5]")]
+    [TestCase("//Button[3 < position()]")]
+    [TestCase("//Button[position()-1 = 3]")]
+    [TestCase("//Button[position() = last() - 1]")]
+    [TestCase("//Button[position() != last()]")]
+    [TestCase("//Button[last() / 2 = position()]")]
+    [TestCase("//Button[position() => 2]")]
     public void ParseXPath_ValidExpression_DoesNotThrow(string xpath)
     {
         Assert.DoesNotThrow(() => XPathEngine.Validate(xpath));
@@ -332,5 +339,83 @@ public class XPathEngineValidationTests
         Assert.That(steps[1].Axis, Is.EqualTo(XPathAxis.Parent));
         Assert.That(steps[2].Axis, Is.EqualTo(XPathAxis.Child));
         Assert.That(steps[2].Type, Is.EqualTo("Button"));
+    }
+
+    // ── Function predicates: position() and last() ─────────────────────────
+
+    [Test]
+    public void ParseXPath_PositionPredicate_ParsesCorrectly()
+    {
+        var steps = XPathEngine.ParseXPath("//Button[position()=5]");
+        Assert.That(steps, Has.Count.EqualTo(1));
+        Assert.That(steps[0].Type, Is.EqualTo("Button"));
+        Assert.That(steps[0].FunctionPredicates, Has.Count.EqualTo(1));
+        Assert.That(steps[0].FunctionPredicates![0], Is.EqualTo("position()=5"));
+        Assert.That(steps[0].Index, Is.Null);
+        Assert.That(steps[0].Predicates, Is.Empty);
+    }
+
+    [Test]
+    public void ParseXPath_PositionWithWhitespace_ParsesCorrectly()
+    {
+        var steps = XPathEngine.ParseXPath("//Button[ position() = 3 ]");
+        Assert.That(steps[0].FunctionPredicates, Has.Count.EqualTo(1));
+        Assert.That(steps[0].FunctionPredicates![0], Is.EqualTo("position() = 3"));
+    }
+
+    [Test]
+    public void ParseXPath_PositionWithAttributePredicate_ParsesBoth()
+    {
+        var steps = XPathEngine.ParseXPath("//Button[@Name='OK'][position()=2]");
+        Assert.That(steps[0].Predicates, Has.Count.EqualTo(1));
+        Assert.That(steps[0].Predicates[0].Attribute, Is.EqualTo("Name"));
+        Assert.That(steps[0].FunctionPredicates, Has.Count.EqualTo(1));
+    }
+
+    [Test]
+    public void ParseXPath_PositionAndIndex_ParsesBoth()
+    {
+        var steps = XPathEngine.ParseXPath("//Button[position()=2][3]");
+        Assert.That(steps[0].FunctionPredicates, Has.Count.EqualTo(1));
+        Assert.That(steps[0].Index, Is.EqualTo(3));
+    }
+
+    [Test]
+    public void ParseXPath_ArithmeticExpression_ParsesCorrectly()
+    {
+        var steps = XPathEngine.ParseXPath("//Button[position()-1=3]");
+        Assert.That(steps[0].FunctionPredicates, Has.Count.EqualTo(1));
+        Assert.That(steps[0].FunctionPredicates![0], Is.EqualTo("position()-1=3"));
+    }
+
+    [Test]
+    public void ParseXPath_ComparisonWithPositionOnRight_ParsesCorrectly()
+    {
+        var steps = XPathEngine.ParseXPath("//Button[3 < position()]");
+        Assert.That(steps[0].FunctionPredicates, Has.Count.EqualTo(1));
+    }
+
+    [Test]
+    public void ParseXPath_LastFunction_ParsesCorrectly()
+    {
+        var steps = XPathEngine.ParseXPath("//Button[position() = last() - 1]");
+        Assert.That(steps[0].FunctionPredicates, Has.Count.EqualTo(1));
+    }
+
+    [TestCase("//Button[position()=5]")]
+    [TestCase("//Button[ position() = 3 ]")]
+    [TestCase("//Button[@Name='OK'][position()=2]")]
+    [TestCase("//Button[3 < position()]")]
+    [TestCase("//Button[position()-1 = 3]")]
+    [TestCase("//Button[position() = last() - 1]")]
+    [TestCase("//Button[position() != last()]")]
+    [TestCase("//Button[position() >= 2]")]
+    [TestCase("//Button[position() <= last() - 2]")]
+    [TestCase("//Button[last() * 2 > position()]")]
+    [TestCase("//Button[last() / 2 = position()]")]
+    [TestCase("//Button[position() => 2]")]
+    public void ParseXPath_FunctionExpression_DoesNotThrow(string xpath)
+    {
+        Assert.DoesNotThrow(() => XPathEngine.Validate(xpath));
     }
 }

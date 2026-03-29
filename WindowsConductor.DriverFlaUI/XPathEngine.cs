@@ -12,7 +12,9 @@ public enum XPathAxis { Child, Descendant, Parent, Self }
 public sealed record XPathPredicate(string Attribute, IReadOnlyList<string> Values);
 
 /// <summary>One step of an XPath expression: axis + element type + predicates + optional 1-based positional index.</summary>
-public sealed record XPathStep(XPathAxis Axis, string Type, IReadOnlyList<XPathPredicate> Predicates, int? Index = null);
+/// <param name="Index">Result-set index from <c>[N]</c> — selects the Nth overall match.</param>
+/// <param name="FunctionPredicates">Expressions containing <c>position()</c> and/or <c>last()</c> that must all evaluate to truthy.</param>
+public sealed record XPathStep(XPathAxis Axis, string Type, IReadOnlyList<XPathPredicate> Predicates, int? Index = null, IReadOnlyList<string>? FunctionPredicates = null);
 
 // ── Engine ───────────────────────────────────────────────────────────────────
 
@@ -108,7 +110,7 @@ public sealed class XPathEngine
 
             foreach (var el in candidates)
             {
-                if (Matches(el, step))
+                if (Matches(el, step) && MatchesFunctionPredicates(el, step))
                     results.Add(el);
             }
         }
@@ -125,6 +127,42 @@ public sealed class XPathEngine
 
     private static bool Matches(AutomationElement element, XPathStep step) =>
         MatchesStep(step, k => ElementProperties.Resolve(element, k));
+
+    private static bool MatchesFunctionPredicates(AutomationElement element, XPathStep step)
+    {
+        if (step.FunctionPredicates is not { Count: > 0 }) return true;
+
+        var parent = element.Parent;
+        if (parent is null) return false;
+        var siblings = parent.FindAllChildren();
+
+        int position = 0;
+        int lastCount = 0;
+
+        // Count same-type siblings and find this element's position
+        foreach (var sibling in siblings)
+        {
+            if (step.Type == "*" || string.Equals(
+                    sibling.Properties.ControlType.ValueOrDefault.ToString(),
+                    element.Properties.ControlType.ValueOrDefault.ToString(),
+                    StringComparison.Ordinal))
+            {
+                lastCount++;
+                if (sibling.Equals(element))
+                    position = lastCount;
+            }
+        }
+
+        if (position == 0) return false;
+
+        foreach (var expr in step.FunctionPredicates)
+        {
+            if (!XPathExprEvaluator.Evaluate(expr, position, lastCount))
+                return false;
+        }
+
+        return true;
+    }
 
     internal static bool MatchesStep(XPathStep step, Func<string, string?> getProperty)
     {
@@ -218,6 +256,7 @@ public sealed class XPathEngine
             // ── Predicates ───────────────────────────────────────────────────
             var predicates = new List<XPathPredicate>();
             int? index = null;
+            List<string>? functionPredicates = null;
 
             while (pos < len && xpath[pos] == '[')
             {
@@ -256,6 +295,15 @@ public sealed class XPathEngine
                     continue;
                 }
 
+                // Function expression predicate: contains position() or last()
+                if (XPathExprEvaluator.IsFunctionExpression(predContent))
+                {
+                    XPathExprEvaluator.Validate(predContent);
+                    functionPredicates ??= [];
+                    functionPredicates.Add(predContent.Trim());
+                    continue;
+                }
+
                 var m = PredicateRx.Match(predContent);
                 if (!m.Success)
                     throw new ArgumentException(
@@ -284,7 +332,8 @@ public sealed class XPathEngine
                 isDescendant ? XPathAxis.Descendant : XPathAxis.Child,
                 type,
                 predicates,
-                index));
+                index,
+                functionPredicates));
         }
 
         if (steps.Count == 0)

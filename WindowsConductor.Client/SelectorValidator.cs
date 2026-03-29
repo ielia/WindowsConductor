@@ -81,6 +81,9 @@ public static class SelectorValidator
                         nameof(fullSelector));
                 continue;
             }
+            // Allow function expressions containing position() or last()
+            if (content.Contains("position(") || content.Contains("last("))
+                continue;
             if (!content.StartsWith('@'))
                 throw new ArgumentException(
                     $"Invalid predicate syntax '{content}' in XPath expression: '{fullSelector}'. " +
