@@ -21,12 +21,15 @@ public sealed class AppManager : IAppOperations, IDisposable
     private readonly UIA3Automation _automation = new();
     private readonly Dictionary<string, Application> _apps = new();
     private readonly HashSet<string> _attachedApps = new();
+    private readonly Dictionary<string, int[]> _appRootRuntimeIds = new();
     private readonly Dictionary<string, AutomationElement> _elements = new();
     private readonly SelectorEngine _selector;
+    private readonly bool _confineToApp;
     private bool _disposed;
 
-    public AppManager()
+    public AppManager(bool confineToApp = false)
     {
+        _confineToApp = confineToApp;
         _selector = new SelectorEngine(new XPathEngine());
     }
 
@@ -64,6 +67,7 @@ public sealed class AppManager : IAppOperations, IDisposable
 
         var id = NewId();
         _apps[id] = app;
+        if (_confineToApp) CacheAppRootId(id);
         return id;
     }
 
@@ -84,6 +88,7 @@ public sealed class AppManager : IAppOperations, IDisposable
         var id = NewId();
         _apps[id] = app;
         _attachedApps.Add(id);
+        if (_confineToApp) CacheAppRootId(id);
         return id;
     }
 
@@ -95,6 +100,7 @@ public sealed class AppManager : IAppOperations, IDisposable
             try { app.Close(); } catch { /* already closed */ }
         _apps.Remove(appId);
         _attachedApps.Remove(appId);
+        _appRootRuntimeIds.Remove(appId);
     }
 
     // ── Element discovery ───────────────────────────────────────────────────
@@ -103,7 +109,8 @@ public sealed class AppManager : IAppOperations, IDisposable
     public string FindElement(string appId, string selector, string? rootElementId = null)
     {
         var root = rootElementId != null ? GetElement(rootElementId) : GetAppRoot(appId);
-        var element = _selector.FindElement(root, selector)
+        var boundary = GetBoundaryCheck(appId);
+        var element = _selector.FindElement(root, selector, boundary)
             ?? throw new InvalidOperationException(
                 $"No element found for selector '{selector}'.");
 
@@ -114,7 +121,8 @@ public sealed class AppManager : IAppOperations, IDisposable
     public string[] FindElements(string appId, string selector, string? rootElementId = null)
     {
         var root = rootElementId != null ? GetElement(rootElementId) : GetAppRoot(appId);
-        return _selector.FindElements(root, selector)
+        var boundary = GetBoundaryCheck(appId);
+        return _selector.FindElements(root, selector, boundary)
             .Select(CacheElement)
             .ToArray();
     }
@@ -170,9 +178,11 @@ public sealed class AppManager : IAppOperations, IDisposable
     public Dictionary<string, object?> GetAttributes(string elementId) =>
         ElementProperties.ResolveAll(GetElement(elementId));
 
-    public string GetParent(string elementId)
+    public string? GetParent(string elementId)
     {
         var el = GetElement(elementId);
+        if (_confineToApp && IsAnyAppRoot(el))
+            return null;
         var parent = el.Parent
             ?? throw new InvalidOperationException($"Element '{elementId}' has no parent.");
         return CacheElement(parent);
@@ -323,6 +333,33 @@ public sealed class AppManager : IAppOperations, IDisposable
 
     [DllImport("user32.dll")]
     static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
+
+    private void CacheAppRootId(string appId)
+    {
+        var root = GetAppRoot(appId);
+        _appRootRuntimeIds[appId] = root.Properties.RuntimeId.Value;
+    }
+
+    private Func<AutomationElement, bool>? GetBoundaryCheck(string appId) =>
+        _confineToApp && _appRootRuntimeIds.TryGetValue(appId, out var rid)
+            ? el => MatchesRuntimeId(el, rid)
+            : null;
+
+    private bool IsAnyAppRoot(AutomationElement el)
+    {
+        try
+        {
+            var rid = el.Properties.RuntimeId.Value;
+            return _appRootRuntimeIds.Values.Any(rootRid => rootRid.SequenceEqual(rid));
+        }
+        catch { return false; }
+    }
+
+    private static bool MatchesRuntimeId(AutomationElement el, int[] targetRid)
+    {
+        try { return el.Properties.RuntimeId.Value.SequenceEqual(targetRid); }
+        catch { return false; }
+    }
 
     private AutomationElement GetAppRoot(string appId)
     {

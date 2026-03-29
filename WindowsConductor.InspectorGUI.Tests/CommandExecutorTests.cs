@@ -216,25 +216,36 @@ public class CommandExecutorTests
     }
 
     [Test]
-    public async Task Execute_Locate_WithElementSelected_UsesLocateFromElement()
+    public async Task Execute_Locate_WithElementSelected_RelativeSelector_UsesLocateFromElement()
+    {
+        _session.IsConnected = true;
+        _session.HasApp = true;
+        _session.HasSelectedElement = true;
+        await _executor.ExecuteAsync("locate ./type=Button");
+        Assert.That(_session.Calls.Any(c => c.Method == "LocateFromElement"), Is.True);
+    }
+
+    [Test]
+    public async Task Execute_Locate_WithElementSelected_AbsoluteSelector_UsesLocate()
     {
         _session.IsConnected = true;
         _session.HasApp = true;
         _session.HasSelectedElement = true;
         await _executor.ExecuteAsync("locate type=Button");
-        Assert.That(_session.Calls.Any(c => c.Method == "LocateFromElement"), Is.True);
+        Assert.That(_session.Calls.Any(c => c.Method == "Locate"), Is.True);
+        Assert.That(_session.Calls.All(c => c.Method != "LocateFromElement"), Is.True);
     }
 
     [Test]
-    public async Task Execute_Locate_WithElementSelected_AppendsSelectorChain()
+    public async Task Execute_Locate_WithElementSelected_RelativeSelector_AppendsSelectorChain()
     {
         _session.IsConnected = true;
         _session.HasApp = true;
         await _executor.ExecuteAsync("locate type=Panel");
         _output.AttributesSets.Clear();
 
-        await _executor.ExecuteAsync("locate [name=OK]");
-        Assert.That(_output.AttributesSets[0].LocatorChain, Is.EqualTo("type=Panel >> [name=OK]"));
+        await _executor.ExecuteAsync("locate ./[name=OK]");
+        Assert.That(_output.AttributesSets[0].LocatorChain, Is.EqualTo("type=Panel >> ./[name=OK]"));
     }
 
     [Test]

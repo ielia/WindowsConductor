@@ -102,6 +102,10 @@ public class XPathEngineValidationTests
     [TestCase(".//Button[@Name='OK']")]
     [TestCase("./Button/Panel")]
     [TestCase(".//Panel/Button[@Name='OK']/..")]
+    [TestCase("//Button[@AutomationId='num3Button']/./.././Button[@AutomationId='num3Button']")]
+    [TestCase("../Button")]
+    [TestCase("..//Button")]
+    [TestCase("../../Button")]
     public void ParseXPath_ValidExpression_DoesNotThrow(string xpath)
     {
         Assert.DoesNotThrow(() => XPathEngine.Validate(xpath));
@@ -215,45 +219,66 @@ public class XPathEngineValidationTests
         Assert.That(steps[1].Predicates, Is.Empty);
     }
 
-    // ── Self axis (./) parsing ──────────────────────────────────────────────
+    // ── Self axis (.) parsing ───────────────────────────────────────────────
 
     [Test]
-    public void ParseXPath_SelfChildAxis_ParsesAsChild()
+    public void ParseXPath_SelfChildAxis_ParsesSelfThenChild()
     {
         var steps = XPathEngine.ParseXPath("./Button");
-        Assert.That(steps, Has.Count.EqualTo(1));
-        Assert.That(steps[0].Axis, Is.EqualTo(XPathAxis.Child));
-        Assert.That(steps[0].Type, Is.EqualTo("Button"));
+        Assert.That(steps, Has.Count.EqualTo(2));
+        Assert.That(steps[0].Axis, Is.EqualTo(XPathAxis.Self));
+        Assert.That(steps[0].Type, Is.EqualTo("."));
+        Assert.That(steps[1].Axis, Is.EqualTo(XPathAxis.Child));
+        Assert.That(steps[1].Type, Is.EqualTo("Button"));
     }
 
     [Test]
-    public void ParseXPath_SelfDescendantAxis_ParsesAsDescendant()
+    public void ParseXPath_SelfDescendantAxis_ParsesSelfThenDescendant()
     {
         var steps = XPathEngine.ParseXPath(".//Button");
-        Assert.That(steps, Has.Count.EqualTo(1));
-        Assert.That(steps[0].Axis, Is.EqualTo(XPathAxis.Descendant));
-        Assert.That(steps[0].Type, Is.EqualTo("Button"));
+        Assert.That(steps, Has.Count.EqualTo(2));
+        Assert.That(steps[0].Axis, Is.EqualTo(XPathAxis.Self));
+        Assert.That(steps[0].Type, Is.EqualTo("."));
+        Assert.That(steps[1].Axis, Is.EqualTo(XPathAxis.Descendant));
+        Assert.That(steps[1].Type, Is.EqualTo("Button"));
     }
 
     [Test]
     public void ParseXPath_SelfWithPredicates_ParsesCorrectly()
     {
         var steps = XPathEngine.ParseXPath(".//Button[@Name='OK']");
-        Assert.That(steps, Has.Count.EqualTo(1));
-        Assert.That(steps[0].Predicates, Has.Count.EqualTo(1));
-        Assert.That(steps[0].Predicates[0].Attribute, Is.EqualTo("Name"));
-        Assert.That(steps[0].Predicates[0].Values, Is.EqualTo(new[] { "OK" }));
+        Assert.That(steps, Has.Count.EqualTo(2));
+        Assert.That(steps[0].Axis, Is.EqualTo(XPathAxis.Self));
+        Assert.That(steps[1].Predicates, Has.Count.EqualTo(1));
+        Assert.That(steps[1].Predicates[0].Attribute, Is.EqualTo("Name"));
+        Assert.That(steps[1].Predicates[0].Values, Is.EqualTo(new[] { "OK" }));
     }
 
     [Test]
     public void ParseXPath_SelfMultiStep_ParsesAll()
     {
         var steps = XPathEngine.ParseXPath("./Panel/Button");
-        Assert.That(steps, Has.Count.EqualTo(2));
-        Assert.That(steps[0].Axis, Is.EqualTo(XPathAxis.Child));
-        Assert.That(steps[0].Type, Is.EqualTo("Panel"));
+        Assert.That(steps, Has.Count.EqualTo(3));
+        Assert.That(steps[0].Axis, Is.EqualTo(XPathAxis.Self));
         Assert.That(steps[1].Axis, Is.EqualTo(XPathAxis.Child));
-        Assert.That(steps[1].Type, Is.EqualTo("Button"));
+        Assert.That(steps[1].Type, Is.EqualTo("Panel"));
+        Assert.That(steps[2].Axis, Is.EqualTo(XPathAxis.Child));
+        Assert.That(steps[2].Type, Is.EqualTo("Button"));
+    }
+
+    [Test]
+    public void ParseXPath_SelfInMiddleOfPath_ParsesCorrectly()
+    {
+        // //Button[..] / . / .. / . / Button[..]
+        var steps = XPathEngine.ParseXPath("//Button[@AutomationId='num3Button']/./.././Button[@AutomationId='num3Button']");
+        Assert.That(steps, Has.Count.EqualTo(5));
+        Assert.That(steps[0].Axis, Is.EqualTo(XPathAxis.Descendant));
+        Assert.That(steps[0].Type, Is.EqualTo("Button"));
+        Assert.That(steps[1].Axis, Is.EqualTo(XPathAxis.Self));
+        Assert.That(steps[2].Axis, Is.EqualTo(XPathAxis.Parent));
+        Assert.That(steps[3].Axis, Is.EqualTo(XPathAxis.Self));
+        Assert.That(steps[4].Axis, Is.EqualTo(XPathAxis.Child));
+        Assert.That(steps[4].Type, Is.EqualTo("Button"));
     }
 
     [Test]
@@ -275,5 +300,27 @@ public class XPathEngineValidationTests
         Assert.That(steps[2].Axis, Is.EqualTo(XPathAxis.Parent));
         Assert.That(steps[3].Type, Is.EqualTo("Edit"));
         Assert.That(steps[3].Axis, Is.EqualTo(XPathAxis.Child));
+    }
+
+    [Test]
+    public void ParseXPath_ParentAtStart_ParsesCorrectly()
+    {
+        var steps = XPathEngine.ParseXPath("../Button");
+        Assert.That(steps, Has.Count.EqualTo(2));
+        Assert.That(steps[0].Axis, Is.EqualTo(XPathAxis.Parent));
+        Assert.That(steps[0].Type, Is.EqualTo(".."));
+        Assert.That(steps[1].Axis, Is.EqualTo(XPathAxis.Child));
+        Assert.That(steps[1].Type, Is.EqualTo("Button"));
+    }
+
+    [Test]
+    public void ParseXPath_DoubleParentAtStart_ParsesCorrectly()
+    {
+        var steps = XPathEngine.ParseXPath("../../Button");
+        Assert.That(steps, Has.Count.EqualTo(3));
+        Assert.That(steps[0].Axis, Is.EqualTo(XPathAxis.Parent));
+        Assert.That(steps[1].Axis, Is.EqualTo(XPathAxis.Parent));
+        Assert.That(steps[2].Axis, Is.EqualTo(XPathAxis.Child));
+        Assert.That(steps[2].Type, Is.EqualTo("Button"));
     }
 }

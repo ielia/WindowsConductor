@@ -6,7 +6,7 @@ namespace WindowsConductor.DriverFlaUI;
 
 // ── Data model ───────────────────────────────────────────────────────────────
 
-public enum XPathAxis { Child, Descendant, Parent }
+public enum XPathAxis { Child, Descendant, Parent, Self }
 
 /// <summary>A single <c>@Attr='value'</c> or <c>@Attr=('v1','v2')</c> predicate.</summary>
 public sealed record XPathPredicate(string Attribute, IReadOnlyList<string> Values);
@@ -22,9 +22,9 @@ public sealed record XPathStep(XPathAxis Axis, string Type, IReadOnlyList<XPathP
 /// Supported grammar
 /// ─────────────────
 ///   xpath       ::= step+
-///   step        ::= axis type predicate* | axis '..'
+///   step        ::= axis type predicate* | axis '..' | '.'
 ///   axis        ::= '//' (descendant) | '/' (child)
-///   type        ::= '*' | '..' | ControlTypeName   e.g. Button, Edit, Window
+///   type        ::= '*' | '.' | '..' | ControlTypeName   e.g. Button, Edit, Window
 ///   predicate   ::= '[' '@' attr '=' value_expr ']' | '[' index ']'
 ///   value_expr  ::= quote value quote | '(' quote value quote (',' quote value quote)* ')'
 ///   index       ::= positive integer (1-based)
@@ -39,6 +39,9 @@ public sealed record XPathStep(XPathAxis Axis, string Type, IReadOnlyList<XPathP
 ///   //Edit
 ///   //Button[3]
 ///   //Button[@Name='OK']/..
+///   ./Button                                              (self / child)
+///   .//Button                                             (self / descendant)
+///   //Button/./.../Button                                 (self in mid-path)
 /// </summary>
 public sealed class XPathEngine
 {
@@ -52,13 +55,15 @@ public sealed class XPathEngine
         @"['""](?<item>[^'""]*)['""]",
         RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
-    public IReadOnlyList<AutomationElement> Evaluate(AutomationElement root, string xpath)
+    public IReadOnlyList<AutomationElement> Evaluate(
+        AutomationElement root, string xpath,
+        Func<AutomationElement, bool>? isAtBoundary = null)
     {
         var steps = ParseXPath(xpath);
         IReadOnlyList<AutomationElement> current = new[] { root };
 
         foreach (var step in steps)
-            current = ApplyStep(current, step);
+            current = ApplyStep(current, step, isAtBoundary);
 
         return current;
     }
@@ -72,13 +77,20 @@ public sealed class XPathEngine
     // ── Step evaluation ──────────────────────────────────────────────────────
 
     private static IReadOnlyList<AutomationElement> ApplyStep(
-        IReadOnlyList<AutomationElement> roots, XPathStep step)
+        IReadOnlyList<AutomationElement> roots, XPathStep step,
+        Func<AutomationElement, bool>? isAtBoundary = null)
     {
+        if (step.Axis == XPathAxis.Self)
+            return roots;
+
         if (step.Axis == XPathAxis.Parent)
         {
             var parents = new List<AutomationElement>();
             foreach (var root in roots)
             {
+                if (isAtBoundary is not null && isAtBoundary(root))
+                    throw new InvalidOperationException(
+                        "XPath '..' cannot navigate above the application root (--confine-to-app is active).");
                 var parent = root.Parent;
                 if (parent is not null)
                     parents.Add(parent);
@@ -144,10 +156,6 @@ public sealed class XPathEngine
         if (string.IsNullOrWhiteSpace(xpath))
             throw new ArgumentException("XPath expression must not be empty.", nameof(xpath));
 
-        // Strip leading '.' (self axis) — ./Button is equivalent to /Button from the current root.
-        if (xpath.Length >= 2 && xpath[0] == '.' && xpath[1] == '/')
-            xpath = xpath[1..];
-
         var steps = new List<XPathStep>();
         int pos = 0;
         int len = xpath.Length;
@@ -184,6 +192,13 @@ public sealed class XPathEngine
                     throw new ArgumentException(
                         $"XPath is missing an element type before predicate at position {typeStart}: '{xpath}'",
                         nameof(xpath));
+                continue;
+            }
+
+            // ── Self axis (.) ────────────────────────────────────────────────
+            if (type == ".")
+            {
+                steps.Add(new XPathStep(XPathAxis.Self, ".", []));
                 continue;
             }
 

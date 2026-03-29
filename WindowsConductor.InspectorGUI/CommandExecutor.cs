@@ -86,7 +86,9 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
             case LocateCommand cmd:
                 RequireApp();
                 string elementId;
-                if (session.HasSelectedElement)
+                bool isRelative = session.HasSelectedElement
+                    && cmd.Selectors[0].TrimStart().StartsWith('.');
+                if (isRelative)
                 {
                     elementId = await session.LocateFromElementAsync(cmd.Selectors, ct);
                     _currentSelectors = [.. _currentSelectors ?? [], .. cmd.Selectors];
@@ -150,6 +152,11 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
             case ParentCommand:
                 RequireElement();
                 var parentId = await session.ParentAsync(ct);
+                if (parentId is null)
+                {
+                    output.WriteInfo("Already at application root.");
+                    break;
+                }
                 _currentSelectors = [.. _currentSelectors ?? [], ".."];
                 output.WriteInfo($"Navigated to parent: {parentId}");
                 await ShowWindowScreenshotWithHighlightAsync(ct);

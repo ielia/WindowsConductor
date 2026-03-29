@@ -29,7 +29,7 @@ public static class SelectorValidator
 
         var s = selector.Trim();
 
-        if (s.StartsWith('/') || s.StartsWith("./"))
+        if (s.StartsWith('/') || s.StartsWith('.'))
             ValidateXPath(s, selector);
         else
             ValidateSimpleSelector(s, selector);

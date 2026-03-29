@@ -107,6 +107,7 @@ public class SelectorEngineValidationTests
     [TestCase("[headinglevel=1]")]
     [TestCase("./Button")]                             // XPath self child axis
     [TestCase(".//Button[@Name='OK']")]                // XPath self descendant axis
+    [TestCase("../Button")]                             // XPath parent at start
     public void Validate_ValidSelector_DoesNotThrow(string selector)
     {
         Assert.DoesNotThrow(() => SelectorEngine.Validate(selector));

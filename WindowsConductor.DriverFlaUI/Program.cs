@@ -1,9 +1,11 @@
 using WindowsConductor.Client;
 using WindowsConductor.DriverFlaUI;
 
-// Pass a custom prefix as the first argument, e.g.:
-//   WindowsConductor.DriverFlaUI.exe "http://localhost:9000/"
-string prefix = args.Length > 0 ? args[0] : WcDefaults.HttpPrefix;
+// Usage: WindowsConductor.DriverFlaUI.exe [prefix] [--confine-to-app]
+//   prefix             e.g. "http://localhost:9000/"
+//   --confine-to-app   Prevent locators from navigating above the application root
+bool confineToApp = args.Contains("--confine-to-app");
+string prefix = args.FirstOrDefault(a => !a.StartsWith("--")) ?? WcDefaults.HttpPrefix;
 
 using var cts = new CancellationTokenSource();
 
@@ -19,7 +21,7 @@ AppDomain.CurrentDomain.UnhandledException += (_, e) =>
 
 Console.WriteLine($"WindowsConductor Driver  |  .NET {Environment.Version}");
 
-var server = new WsServer(prefix);
+var server = new WsServer(prefix, confineToApp);
 await server.StartAsync(cts.Token);
 
 Console.WriteLine("Driver stopped.");

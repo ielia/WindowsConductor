@@ -147,6 +147,8 @@ public class SelectorValidatorTests
     [TestCase(".//Button")]                               // XPath self descendant axis
     [TestCase(".//Button[@Name='OK']")]                   // XPath self with predicate
     [TestCase("./Panel/Button")]                          // XPath self multi-step
+    [TestCase("../Button")]                               // XPath parent at start
+    [TestCase("../../Button")]                            // XPath double parent at start
     public void Validate_ValidSelector_DoesNotThrow(string selector)
     {
         Assert.DoesNotThrow(() => SelectorValidator.Validate(selector));

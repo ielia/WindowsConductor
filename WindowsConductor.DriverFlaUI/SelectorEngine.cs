@@ -27,18 +27,22 @@ public sealed class SelectorEngine
 
     public SelectorEngine(XPathEngine xpath) => _xpath = xpath;
 
-    public AutomationElement? FindElement(AutomationElement root, string selector) =>
-        FindElements(root, selector).FirstOrDefault();
+    public AutomationElement? FindElement(
+        AutomationElement root, string selector,
+        Func<AutomationElement, bool>? isAtBoundary = null) =>
+        FindElements(root, selector, isAtBoundary).FirstOrDefault();
 
-    public AutomationElement[] FindElements(AutomationElement root, string selector)
+    public AutomationElement[] FindElements(
+        AutomationElement root, string selector,
+        Func<AutomationElement, bool>? isAtBoundary = null)
     {
         Validate(selector);
 
         selector = selector.Trim();
 
         // Delegate XPath to the dedicated engine
-        if (selector.StartsWith('/') || selector.StartsWith("./"))
-            return _xpath.Evaluate(root, selector).ToArray();
+        if (selector.StartsWith('/') || selector.StartsWith('.'))
+            return _xpath.Evaluate(root, selector, isAtBoundary).ToArray();
 
         // Split compound conditions on &&
         var parts = selector.Split("&&", StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
@@ -70,7 +74,7 @@ public sealed class SelectorEngine
         selector = selector.Trim();
 
         // XPath validation is handled by XPathEngine
-        if (selector.StartsWith('/') || selector.StartsWith("./"))
+        if (selector.StartsWith('/') || selector.StartsWith('.'))
         {
             XPathEngine.Validate(selector);
             return;

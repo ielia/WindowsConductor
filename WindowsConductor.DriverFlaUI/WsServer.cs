@@ -14,14 +14,16 @@ namespace WindowsConductor.DriverFlaUI;
 public sealed class WsServer
 {
     private readonly HttpListener _listener = new();
+    private readonly bool _confineToApp;
     private readonly JsonSerializerOptions _jsonOpts = new()
     {
         PropertyNameCaseInsensitive = true,
         WriteIndented = false
     };
 
-    public WsServer(string prefix = WcDefaults.HttpPrefix)
+    public WsServer(string prefix = WcDefaults.HttpPrefix, bool confineToApp = false)
     {
+        _confineToApp = confineToApp;
         _listener.Prefixes.Add(prefix);
     }
 
@@ -64,7 +66,7 @@ public sealed class WsServer
 
     private async Task HandleClientAsync(WebSocket ws, CancellationToken ct)
     {
-        using var appManager = new AppManager();
+        using var appManager = new AppManager(confineToApp: _confineToApp);
         var buffer = new byte[256 * 1024];
         Console.WriteLine($"[+] Client connected ({ws.GetHashCode()})");
 

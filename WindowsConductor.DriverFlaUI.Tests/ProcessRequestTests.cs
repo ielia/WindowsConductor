@@ -59,8 +59,8 @@ internal sealed class FakeAppOperations : IAppOperations
     public Dictionary<string, object?> GetAttributes(string elementId)
     { Record("GetAttributes", elementId); return GetAttributesResult; }
 
-    public string GetParentResult { get; set; } = "parent-el-1";
-    public string GetParent(string elementId)
+    public string? GetParentResult { get; set; } = "parent-el-1";
+    public string? GetParent(string elementId)
     { Record("GetParent", elementId); return GetParentResult; }
 
     public bool IsEnabled(string elementId) { Record("IsEnabled", elementId); return IsEnabledResult; }
