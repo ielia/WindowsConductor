@@ -33,6 +33,8 @@ internal static class CommandHelp
             sb.AppendLine($"  {cmd.Usage}");
             foreach (var line in cmd.Description.Split('\n'))
                 sb.AppendLine($"    {line}");
+            if (cmd.Examples.Length > 0)
+                sb.AppendLine($"    Example: {cmd.Examples[0]}");
             sb.AppendLine();
         }
         return sb.ToString().TrimEnd();
@@ -50,6 +52,12 @@ internal static class CommandHelp
         sb.AppendLine($"  {cmd.Usage}");
         foreach (var line in cmd.Description.Split('\n'))
             sb.AppendLine($"    {line}");
+        if (cmd.Examples.Length > 0)
+        {
+            sb.AppendLine("  Examples:");
+            foreach (var example in cmd.Examples)
+                sb.AppendLine($"    {example}");
+        }
         return sb.ToString().TrimEnd();
     }
 }

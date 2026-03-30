@@ -26,6 +26,7 @@ public partial class MainWindow : Window, ICommandOutput
         InitializeComponent();
         var session = new WcInspectorSession();
         _executor = new CommandExecutor(session, this);
+        AppendLog(string.Join("  ", CommandHelp.AllCommandNames));
         CommandInput.Focus();
     }
 
@@ -112,6 +113,9 @@ public partial class MainWindow : Window, ICommandOutput
             AppendLog(string.Join("  ", result.Matches));
         }
     }
+
+    void ICommandOutput.ClearLog() =>
+        Dispatcher.Invoke(() => OutputLog.Document.Blocks.Clear());
 
     void ICommandOutput.WriteInfo(string message) =>
         Dispatcher.Invoke(() => AppendLog(message));

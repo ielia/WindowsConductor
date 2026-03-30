@@ -34,6 +34,10 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
     {
         switch (command)
         {
+            case ClearCommand:
+                output.ClearLog();
+                break;
+
             case ConnectCommand cmd:
                 await session.ConnectAsync(cmd.Url, ct);
                 output.WriteInfo($"Connected to {cmd.Url}");

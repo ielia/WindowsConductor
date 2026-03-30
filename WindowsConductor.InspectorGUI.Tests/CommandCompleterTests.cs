@@ -26,7 +26,7 @@ public class CommandCompleterTests
     public void GetCompletions_AmbiguousPrefix_ReturnsMultipleMatches()
     {
         var matches = CommandCompleter.GetCompletions("cl");
-        Assert.That(matches, Is.EqualTo(new[] { "click", "close" }));
+        Assert.That(matches, Is.EqualTo(new[] { "clear", "click", "close" }));
     }
 
     [Test]
@@ -78,11 +78,11 @@ public class CommandCompleterTests
     [Test]
     public void Complete_AmbiguousPrefix_ExtendsToLCP()
     {
-        // "cl" -> "click", "close" -> LCP = "cl" (no extension)
+        // "cl" -> "clear", "click", "close" -> LCP = "cl" (no extension)
         var result = CommandCompleter.Complete("cl");
         Assert.That(result.Text, Is.EqualTo("cl"));
         Assert.That(result.Applied, Is.False);
-        Assert.That(result.Matches, Has.Length.EqualTo(2));
+        Assert.That(result.Matches, Has.Length.EqualTo(3));
     }
 
     [Test]
@@ -167,8 +167,8 @@ public class CommandCompleterTests
     }
 
     [Test]
-    public void Commands_ContainsAll20Commands()
+    public void Commands_ContainsAll21Commands()
     {
-        Assert.That(CommandCompleter.Commands, Has.Length.EqualTo(20));
+        Assert.That(CommandCompleter.Commands, Has.Length.EqualTo(21));
     }
 }

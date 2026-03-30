@@ -2,6 +2,7 @@ namespace WindowsConductor.InspectorGUI;
 
 internal interface ICommandOutput
 {
+    void ClearLog();
     void WriteInfo(string message);
     void WriteError(string message);
     void ShowScreenshot(byte[] imageData, HighlightInfo? highlight = null);

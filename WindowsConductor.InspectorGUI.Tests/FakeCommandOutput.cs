@@ -12,6 +12,9 @@ internal sealed class FakeCommandOutput : ICommandOutput
     public List<(string LocatorChain, Dictionary<string, object?> Attributes)> AttributesSets { get; } = new();
     public int ClearAttributesCount { get; private set; }
 
+    public int ClearLogCount { get; private set; }
+
+    public void ClearLog() => ClearLogCount++;
     public void WriteInfo(string message) => InfoMessages.Add(message);
     public void WriteError(string message) => ErrorMessages.Add(message);
 

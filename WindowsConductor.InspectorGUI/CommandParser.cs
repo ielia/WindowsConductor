@@ -17,6 +17,7 @@ internal static class CommandParser
             "connect" => ParseConnect(parts),
             "launch" => ParseLaunch(parts),
             "attach" => ParseAttach(parts),
+            "clear" => new ClearCommand(),
             "close" => new CloseCommand(),
             "detach" => new DetachCommand(),
             "disconnect" => new DisconnectCommand(),
