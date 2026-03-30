@@ -175,6 +175,14 @@ public class WcLocatorAsyncTests
     }
 
     [Test]
+    public async Task TypeAsync_WithModifiers_PassesModifiers()
+    {
+        _transport.Enqueue("el-1");
+        await MakeLocator("[name=OK]").TypeAsync("a", KeyModifiers.Alt);
+        Assert.That(_transport.Calls[1].ParamsJson, Does.Contain("\"modifiers\":4"));
+    }
+
+    [Test]
     public async Task FocusAsync_ResolvesAndFocuses()
     {
         _transport.Enqueue("el-1");

@@ -159,7 +159,7 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
 
             case TypeCommand cmd:
                 RequireElement();
-                await session.TypeAsync(cmd.Text, ct);
+                await session.TypeAsync(cmd.Text, ct: ct);
                 output.WriteInfo($"Typed: {cmd.Text}");
                 await ShowWindowScreenshotWithHighlightAsync(ct);
                 await ShowAttributesAsync(ct);

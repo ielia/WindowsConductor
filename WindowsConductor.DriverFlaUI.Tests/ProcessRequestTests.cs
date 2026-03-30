@@ -49,7 +49,7 @@ internal sealed class FakeAppOperations : IAppOperations
     public void Click(string elementId) => Record("Click", elementId);
     public void DoubleClick(string elementId) => Record("DoubleClick", elementId);
     public void RightClick(string elementId) => Record("RightClick", elementId);
-    public void TypeText(string elementId, string text) => Record("TypeText", elementId, text);
+    public void TypeText(string elementId, string text, int modifiers = 0) => Record("TypeText", elementId, text, modifiers);
     public string GetText(string elementId) { Record("GetText", elementId); return GetTextResult; }
 
     public string GetAttribute(string elementId, string attribute)
@@ -284,6 +284,18 @@ public class ProcessRequestTests
         }));
         Assert.That(_fake.Calls[0].Method, Is.EqualTo("TypeText"));
         Assert.That(_fake.Calls[0].Args[1], Is.EqualTo("hello"));
+    }
+
+    [Test]
+    public void TypeText_WithModifiers_PassesModifiers()
+    {
+        var resp = WsServer.ProcessRequest(_fake, MakeRequest("typeText", new()
+        {
+            ["elementId"] = "e1",
+            ["text"] = "a",
+            ["modifiers"] = 3
+        }));
+        Assert.That(_fake.Calls[0].Args[2], Is.EqualTo(3));
     }
 
     // ── getText ──────────────────────────────────────────────────────────────

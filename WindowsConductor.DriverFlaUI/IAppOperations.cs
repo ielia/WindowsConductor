@@ -17,7 +17,7 @@ internal interface IAppOperations
     void Click(string elementId);
     void DoubleClick(string elementId);
     void RightClick(string elementId);
-    void TypeText(string elementId, string text);
+    void TypeText(string elementId, string text, int modifiers = 0);
     string GetText(string elementId);
     string GetAttribute(string elementId, string attribute);
     Dictionary<string, object?> GetAttributes(string elementId);

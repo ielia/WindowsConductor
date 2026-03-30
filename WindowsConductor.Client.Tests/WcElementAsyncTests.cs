@@ -50,6 +50,15 @@ public class WcElementAsyncTests
         Assert.That(_transport.Calls[0].Command, Is.EqualTo("typeText"));
         Assert.That(_transport.Calls[0].ParamsJson, Does.Contain("\"text\":\"hello world\""));
         Assert.That(_transport.Calls[0].ParamsJson, Does.Contain("\"elementId\":\"el-123\""));
+        Assert.That(_transport.Calls[0].ParamsJson, Does.Contain("\"modifiers\":0"));
+    }
+
+    [Test]
+    public async Task TypeAsync_WithModifiers_SendsModifiersBitmask()
+    {
+        await _element.TypeAsync("a", KeyModifiers.Ctrl | KeyModifiers.Shift);
+        Assert.That(_transport.Calls[0].ParamsJson, Does.Contain("\"text\":\"a\""));
+        Assert.That(_transport.Calls[0].ParamsJson, Does.Contain("\"modifiers\":3"));
     }
 
     [Test]

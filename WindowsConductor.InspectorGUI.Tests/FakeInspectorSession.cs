@@ -158,9 +158,9 @@ internal sealed class FakeInspectorSession : IInspectorSession
         return Task.CompletedTask;
     }
 
-    public Task TypeAsync(string text, CancellationToken ct = default)
+    public Task TypeAsync(string text, KeyModifiers modifiers = KeyModifiers.None, CancellationToken ct = default)
     {
-        Record("Type", text);
+        Record("Type", text, modifiers);
         return Task.CompletedTask;
     }
 

@@ -44,8 +44,8 @@ public sealed class WcElement
     public Task RightClickAsync(CancellationToken ct = default) =>
         _conn.SendAsync("rightClick", new { elementId = ElementId }, ct);
 
-    public Task TypeAsync(string text, CancellationToken ct = default) =>
-        _conn.SendAsync("typeText", new { elementId = ElementId, text }, ct);
+    public Task TypeAsync(string text, KeyModifiers modifiers = KeyModifiers.None, CancellationToken ct = default) =>
+        _conn.SendAsync("typeText", new { elementId = ElementId, text, modifiers = (int)modifiers }, ct);
 
     public Task FocusAsync(CancellationToken ct = default) =>
         _conn.SendAsync("focus", new { elementId = ElementId }, ct);

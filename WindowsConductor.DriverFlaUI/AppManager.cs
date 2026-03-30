@@ -6,6 +6,7 @@ using FlaUI.Core.AutomationElements;
 using FlaUI.Core.Capturing;
 using FlaUI.Core.Definitions;
 using FlaUI.Core.Input;
+using FlaUI.Core.WindowsAPI;
 using FlaUI.UIA3;
 
 namespace WindowsConductor.DriverFlaUI;
@@ -196,11 +197,21 @@ public sealed class AppManager : IAppOperations, IDisposable
     /// For editable controls this appends to existing content; call SelectAll first
     /// or clear the field if you need to replace text.
     /// </summary>
-    public void TypeText(string elementId, string text)
+    public void TypeText(string elementId, string text, int modifiers = 0)
     {
         var el = GetElement(elementId);
         el.Focus();
+
+        var keys = (KeyModifiers)modifiers;
+        var held = new List<VirtualKeyShort>();
+        if (keys.HasFlag(KeyModifiers.Ctrl)) held.Add(VirtualKeyShort.CONTROL);
+        if (keys.HasFlag(KeyModifiers.Alt)) held.Add(VirtualKeyShort.ALT);
+        if (keys.HasFlag(KeyModifiers.Shift)) held.Add(VirtualKeyShort.SHIFT);
+        if (keys.HasFlag(KeyModifiers.Meta)) held.Add(VirtualKeyShort.LWIN);
+
+        foreach (var k in held) Keyboard.Press(k);
         Keyboard.Type(text);
+        foreach (var k in held) Keyboard.Release(k);
     }
 
     // ── Element queries ─────────────────────────────────────────────────────

@@ -204,10 +204,10 @@ public sealed class WcLocator
     /// Focuses the first matching element and types <paramref name="text"/>
     /// using keyboard simulation.
     /// </summary>
-    public async Task TypeAsync(string text, CancellationToken ct = default)
+    public async Task TypeAsync(string text, KeyModifiers modifiers = KeyModifiers.None, CancellationToken ct = default)
     {
         var el = await GetElementAsync(ct);
-        await el.TypeAsync(text, ct);
+        await el.TypeAsync(text, modifiers, ct);
     }
 
     /// <summary>Sets keyboard focus on the first matching element.</summary>
