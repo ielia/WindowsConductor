@@ -320,6 +320,31 @@ public class CommandParserTests
         Assert.That(CommandParser.Parse("quit"), Is.InstanceOf<ExitCommand>());
     }
 
+    // ── help ──────────────────────────────────────────────────────────────────
+
+    [Test]
+    public void Parse_Help_NoArg_ReturnsHelpCommandWithNull()
+    {
+        var cmd = CommandParser.Parse("help");
+        Assert.That(cmd, Is.InstanceOf<HelpCommand>());
+        Assert.That(((HelpCommand)cmd).CommandName, Is.Null);
+    }
+
+    [Test]
+    public void Parse_Help_WithArg_ReturnsHelpCommandWithName()
+    {
+        var cmd = CommandParser.Parse("help connect");
+        Assert.That(cmd, Is.InstanceOf<HelpCommand>());
+        Assert.That(((HelpCommand)cmd).CommandName, Is.EqualTo("connect"));
+    }
+
+    [Test]
+    public void Parse_Help_ArgIsLowerCased()
+    {
+        var cmd = (HelpCommand)CommandParser.Parse("help Connect");
+        Assert.That(cmd.CommandName, Is.EqualTo("connect"));
+    }
+
     // ── Tokenize ────────────────────────────────────────────────────────────
 
     [Test]

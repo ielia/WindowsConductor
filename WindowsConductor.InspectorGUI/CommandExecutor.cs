@@ -200,6 +200,13 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
                 output.WriteInfo("Element screenshot captured.");
                 break;
 
+            case HelpCommand cmd:
+                var helpText = cmd.CommandName is not null
+                    ? CommandHelp.GetFor(cmd.CommandName) ?? $"Unknown command: '{cmd.CommandName}'."
+                    : CommandHelp.GetAll();
+                output.WriteInfo(helpText);
+                break;
+
             case ExitCommand:
                 if (session.IsConnected)
                     await session.DisconnectAsync();

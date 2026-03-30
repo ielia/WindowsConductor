@@ -45,3 +45,5 @@ internal sealed record ScreenshotCommand : ParsedCommand;
 internal sealed record ParentCommand : ParsedCommand;
 
 internal sealed record ExitCommand : ParsedCommand;
+
+internal sealed record HelpCommand(string? CommandName) : ParsedCommand;

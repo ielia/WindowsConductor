@@ -33,6 +33,7 @@ internal static class CommandParser
             "text" => new TextCommand(),
             "screenshot" => new ScreenshotCommand(),
             "exit" or "quit" => new ExitCommand(),
+            "help" => new HelpCommand(parts.Length >= 2 ? parts[1].ToLowerInvariant() : null),
             _ => throw new ArgumentException($"Unknown command: '{parts[0]}'.")
         };
     }

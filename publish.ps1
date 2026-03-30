@@ -14,7 +14,7 @@ foreach ($p in $projects) {
 Write-Host 'Publishing self-contained builds...'
 foreach ($p in $projects) {
     $name = $p -replace 'WindowsConductor\.', ''
-    dotnet publish $p -c $Config --self-contained -r $Runtime -o "$OutDir\$name\self-contained"
+    dotnet publish $p -c $Config --self-contained -r $Runtime -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o "$OutDir\$name\self-contained"
 }
 
 Write-Host 'Packing NuGet packages...'

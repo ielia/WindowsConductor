@@ -17,7 +17,7 @@ done
 echo "Publishing self-contained builds..."
 for p in "${PROJECTS[@]}"; do
     name="${p#WindowsConductor.}"
-    dotnet publish "$p" -c "$CONFIG" --self-contained -r "$RUNTIME" -o "$OUTDIR/$name/self-contained"
+    dotnet publish "$p" -c "$CONFIG" --self-contained -r "$RUNTIME" -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o "$OUTDIR/$name/self-contained"
 done
 
 echo "Packing NuGet packages..."

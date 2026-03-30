@@ -748,6 +748,35 @@ public class CommandExecutorTests
         Assert.That(_output.RequestExitCount, Is.EqualTo(1));
     }
 
+    // ── help ────────────────────────────────────────────────────────────────
+
+    [Test]
+    public async Task Execute_Help_ShowsAllCommands()
+    {
+        await _executor.ExecuteAsync("help");
+        Assert.That(_output.InfoMessages, Has.Count.EqualTo(1));
+        Assert.That(_output.InfoMessages[0], Does.Contain("Available commands:"));
+        Assert.That(_output.InfoMessages[0], Does.Contain("connect"));
+        Assert.That(_output.InfoMessages[0], Does.Contain("launch"));
+        Assert.That(_output.InfoMessages[0], Does.Contain("exit"));
+    }
+
+    [Test]
+    public async Task Execute_Help_SpecificCommand_ShowsCommandHelp()
+    {
+        await _executor.ExecuteAsync("help connect");
+        Assert.That(_output.InfoMessages, Has.Count.EqualTo(1));
+        Assert.That(_output.InfoMessages[0], Does.Contain("connect"));
+        Assert.That(_output.InfoMessages[0], Does.Not.Contain("launch"));
+    }
+
+    [Test]
+    public async Task Execute_Help_UnknownCommand_ShowsError()
+    {
+        await _executor.ExecuteAsync("help bogus");
+        Assert.That(_output.InfoMessages[0], Does.Contain("Unknown command: 'bogus'"));
+    }
+
     // ── attributes panel ───────────────────────────────────────────────────
 
     [Test]
