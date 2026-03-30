@@ -282,6 +282,47 @@ public class CommandParserTests
         Assert.Throws<ArgumentException>(() => CommandParser.Parse("type"));
     }
 
+    [Test]
+    public void Parse_Type_NoModifiers_DefaultsToNone()
+    {
+        var cmd = (TypeCommand)CommandParser.Parse("type hello");
+        Assert.That(cmd.Modifiers, Is.EqualTo(KeyModifiers.None));
+    }
+
+    [Test]
+    public void Parse_Type_WithModifiers_ParsesBitmask()
+    {
+        var cmd = (TypeCommand)CommandParser.Parse("type \"a\" [ctrl alt]");
+        Assert.That(cmd.Text, Is.EqualTo("a"));
+        Assert.That(cmd.Modifiers, Is.EqualTo(KeyModifiers.Ctrl | KeyModifiers.Alt));
+    }
+
+    [Test]
+    public void Parse_Type_AllModifiers()
+    {
+        var cmd = (TypeCommand)CommandParser.Parse("type \"x\" [ctrl alt shift meta]");
+        Assert.That(cmd.Modifiers, Is.EqualTo(KeyModifiers.Ctrl | KeyModifiers.Alt | KeyModifiers.Shift | KeyModifiers.Meta));
+    }
+
+    [Test]
+    public void Parse_Type_ModifiersCaseInsensitive()
+    {
+        var cmd = (TypeCommand)CommandParser.Parse("type \"a\" [Ctrl SHIFT]");
+        Assert.That(cmd.Modifiers, Is.EqualTo(KeyModifiers.Ctrl | KeyModifiers.Shift));
+    }
+
+    [Test]
+    public void Parse_Type_UnknownModifier_Throws()
+    {
+        Assert.Throws<ArgumentException>(() => CommandParser.Parse("type \"a\" [ctrl bogus]"));
+    }
+
+    [Test]
+    public void Parse_Type_EmptyModifiers_Throws()
+    {
+        Assert.Throws<ArgumentException>(() => CommandParser.Parse("type \"a\" []"));
+    }
+
     // ── focus ───────────────────────────────────────────────────────────────
 
     [Test]

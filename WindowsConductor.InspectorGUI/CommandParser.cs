@@ -158,10 +158,41 @@ internal static class CommandParser
     private static TypeCommand ParseType(string[] parts)
     {
         if (parts.Length < 2)
-            throw new ArgumentException("Usage: type <text>");
-        // Rejoin everything after "type" to preserve spaces
-        var text = string.Join(' ', parts.Skip(1));
-        return new TypeCommand(text);
+            throw new ArgumentException("Usage: type <text> [ctrl alt shift meta]");
+
+        var modifiers = KeyModifiers.None;
+        var textParts = parts.Skip(1).ToArray();
+
+        // If last token is a bracket group like "[ctrl alt]", parse modifiers from it
+        if (textParts.Length > 1 && textParts[^1].StartsWith('[') && textParts[^1].EndsWith(']'))
+        {
+            modifiers = ParseModifiers(textParts[^1]);
+            textParts = textParts[..^1];
+        }
+
+        var text = string.Join(' ', textParts);
+        return new TypeCommand(text, modifiers);
+    }
+
+    private static KeyModifiers ParseModifiers(string token)
+    {
+        var inner = token[1..^1].Trim();
+        if (string.IsNullOrEmpty(inner))
+            throw new ArgumentException("Modifier list cannot be empty. Valid modifiers: ctrl, alt, shift, meta.");
+
+        var modifiers = KeyModifiers.None;
+        foreach (var part in inner.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+        {
+            modifiers |= part.ToLowerInvariant() switch
+            {
+                "ctrl" => KeyModifiers.Ctrl,
+                "alt" => KeyModifiers.Alt,
+                "shift" => KeyModifiers.Shift,
+                "meta" => KeyModifiers.Meta,
+                _ => throw new ArgumentException($"Unknown modifier: '{part}'. Valid modifiers: ctrl, alt, shift, meta.")
+            };
+        }
+        return modifiers;
     }
 
     /// <summary>

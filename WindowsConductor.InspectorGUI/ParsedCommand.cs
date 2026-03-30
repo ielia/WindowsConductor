@@ -1,3 +1,5 @@
+using WindowsConductor.Client;
+
 namespace WindowsConductor.InspectorGUI;
 
 internal abstract record ParsedCommand
@@ -133,11 +135,11 @@ internal sealed record TextCommand : ParsedCommand
     internal override string Description => "Returns the visible text of the currently selected element.";
 }
 
-internal sealed record TypeCommand(string Text) : ParsedCommand
+internal sealed record TypeCommand(string Text, KeyModifiers Modifiers = KeyModifiers.None) : ParsedCommand
 {
     internal override string Name => "type";
-    internal override string Usage => "type <text>";
-    internal override string Description => "Types text into the currently selected element.";
+    internal override string Usage => "type <text> [ctrl alt shift meta]";
+    internal override string Description => "Types text into the currently selected element.\nOptional modifiers: ctrl, alt, shift, meta (in any order).";
 }
 
 internal sealed record UnselectCommand : ParsedCommand
