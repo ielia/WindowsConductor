@@ -61,6 +61,16 @@ public class CommandParserTests
     }
 
     [Test]
+    public void Parse_Launch_PathAndTimeout()
+    {
+        var cmd = (LaunchCommand)CommandParser.Parse("launch \"edge.exe\" 2000");
+        Assert.That(cmd.Path, Is.EqualTo("edge.exe"));
+        Assert.That(cmd.Args, Is.Empty);
+        Assert.That(cmd.DetachedTitleRegex, Is.Null);
+        Assert.That(cmd.MainWindowTimeout, Is.EqualTo(2000u));
+    }
+
+    [Test]
     public void Parse_Launch_WithDetachedTitleRegexAndTimeout()
     {
         var cmd = (LaunchCommand)CommandParser.Parse("launch calc.exe Calculator.* 3000");
@@ -71,10 +81,31 @@ public class CommandParserTests
     }
 
     [Test]
+    public void Parse_Launch_WithArgsArray()
+    {
+        var cmd = (LaunchCommand)CommandParser.Parse("launch \"edge.exe\" [\"https://www.google.com\"]");
+        Assert.That(cmd.Path, Is.EqualTo("edge.exe"));
+        Assert.That(cmd.Args, Is.EqualTo(new[] { "https://www.google.com" }));
+        Assert.That(cmd.DetachedTitleRegex, Is.Null);
+        Assert.That(cmd.MainWindowTimeout, Is.Null);
+    }
+
+    [Test]
+    public void Parse_Launch_WithArgsAndDetachedTitleRegexAndTimeout()
+    {
+        var cmd = (LaunchCommand)CommandParser.Parse(
+            "launch \"edge.exe\" [\"https://www.google.com\", \"--new-window\"] \"Google Search\" 2000");
+        Assert.That(cmd.Path, Is.EqualTo("edge.exe"));
+        Assert.That(cmd.Args, Is.EqualTo(new[] { "https://www.google.com", "--new-window" }));
+        Assert.That(cmd.DetachedTitleRegex, Is.EqualTo("Google Search"));
+        Assert.That(cmd.MainWindowTimeout, Is.EqualTo(2000u));
+    }
+
+    [Test]
     public void Parse_Launch_WithArgsAndDetachedTitleRegex()
     {
-        // No uint at end → no timeout. Second-to-last = detachedTitleRegex.
-        var cmd = (LaunchCommand)CommandParser.Parse("launch notepad.exe --flag file.txt Title.*");
+        var cmd = (LaunchCommand)CommandParser.Parse(
+            "launch notepad.exe [\"--flag\", \"file.txt\"] Title.*");
         Assert.That(cmd.Path, Is.EqualTo("notepad.exe"));
         Assert.That(cmd.Args, Is.EqualTo(new[] { "--flag", "file.txt" }));
         Assert.That(cmd.DetachedTitleRegex, Is.EqualTo("Title.*"));

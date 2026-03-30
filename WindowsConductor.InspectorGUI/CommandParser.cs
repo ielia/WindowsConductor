@@ -46,34 +46,77 @@ internal static class CommandParser
     private static LaunchCommand ParseLaunch(string[] parts)
     {
         if (parts.Length < 2)
-            throw new ArgumentException("Usage: launch <path> [args...] [detachedTitleRegex] [mainWindowTimeout]");
+            throw new ArgumentException("Usage: launch <path> [\"arg1\", ...] [detachedTitleRegex] [mainWindowTimeout]");
 
         var path = parts[1];
+        string[] args = [];
         string? detachedTitleRegex = null;
         uint? mainWindowTimeout = null;
-        var argsList = new List<string>();
 
-        // Walk backwards from the end to find optional trailing params
+        int nextIdx = 2;
+
+        if (nextIdx < parts.Length && parts[nextIdx].StartsWith('['))
+        {
+            args = ParseArgsArray(parts[nextIdx]);
+            nextIdx++;
+        }
+
         int endIdx = parts.Length;
 
-        // Last part might be a timeout (unsigned integer)
-        if (endIdx > 2 && uint.TryParse(parts[endIdx - 1], out var timeout))
+        if (endIdx > nextIdx && uint.TryParse(parts[endIdx - 1], out var timeout))
         {
             mainWindowTimeout = timeout;
             endIdx--;
         }
 
-        // Next-to-last (now) might be the detachedTitleRegex
-        if (endIdx > 2)
+        if (endIdx > nextIdx)
         {
             detachedTitleRegex = parts[endIdx - 1];
             endIdx--;
         }
 
-        for (int i = 2; i < endIdx; i++)
-            argsList.Add(parts[i]);
+        return new LaunchCommand(path, args, detachedTitleRegex, mainWindowTimeout);
+    }
 
-        return new LaunchCommand(path, argsList.ToArray(), detachedTitleRegex, mainWindowTimeout);
+    private static string[] ParseArgsArray(string token)
+    {
+        if (token.StartsWith('[') && token.EndsWith(']'))
+            token = token[1..^1];
+
+        var args = new List<string>();
+        var sb = new System.Text.StringBuilder();
+        bool inQuote = false;
+        char quoteChar = '\0';
+
+        for (int i = 0; i < token.Length; i++)
+        {
+            char c = token[i];
+            if (inQuote)
+            {
+                if (c == quoteChar) inQuote = false;
+                else sb.Append(c);
+            }
+            else if (c is '"' or '\'')
+            {
+                inQuote = true;
+                quoteChar = c;
+            }
+            else if (c == ',')
+            {
+                var val = sb.ToString().Trim();
+                if (val.Length > 0) args.Add(val);
+                sb.Clear();
+            }
+            else
+            {
+                sb.Append(c);
+            }
+        }
+
+        var last = sb.ToString().Trim();
+        if (last.Length > 0) args.Add(last);
+
+        return args.ToArray();
     }
 
     private static AttachCommand ParseAttach(string[] parts)
@@ -149,6 +192,38 @@ internal static class CommandParser
             {
                 inQuote = true;
                 quoteChar = c;
+            }
+            else if (c == '[')
+            {
+                current.Append(c);
+                i++;
+                bool inBracketQuote = false;
+                char bracketQuoteChar = '\0';
+                while (i < input.Length)
+                {
+                    char bc = input[i];
+                    if (inBracketQuote)
+                    {
+                        current.Append(bc);
+                        if (bc == bracketQuoteChar) inBracketQuote = false;
+                    }
+                    else if (bc is '"' or '\'')
+                    {
+                        current.Append(bc);
+                        inBracketQuote = true;
+                        bracketQuoteChar = bc;
+                    }
+                    else if (bc == ']')
+                    {
+                        current.Append(bc);
+                        break;
+                    }
+                    else
+                    {
+                        current.Append(bc);
+                    }
+                    i++;
+                }
             }
             else if (char.IsWhiteSpace(c))
             {

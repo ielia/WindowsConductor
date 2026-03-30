@@ -25,15 +25,15 @@ public sealed class WcRequest
         Params.TryGetValue(key, out var v) ? v.GetString() ?? fallback : fallback;
 
     public string[] GetStringArray(string key) =>
-        Params.TryGetValue(key, out var v)
+        Params.TryGetValue(key, out var v) && v.ValueKind == JsonValueKind.Array
             ? v.EnumerateArray().Select(e => e.GetString() ?? "").ToArray()
             : Array.Empty<string>();
 
     public int GetInt(string key, int fallback = 0) =>
-        Params.TryGetValue(key, out var v) ? v.GetInt32() : fallback;
+        Params.TryGetValue(key, out var v) && v.ValueKind == JsonValueKind.Number ? v.GetInt32() : fallback;
 
     public bool GetBool(string key, bool fallback = false) =>
-        Params.TryGetValue(key, out var v) ? v.GetBoolean() : fallback;
+        Params.TryGetValue(key, out var v) && v.ValueKind is JsonValueKind.True or JsonValueKind.False ? v.GetBoolean() : fallback;
 }
 
 /// <summary>
