@@ -130,11 +130,17 @@
                       Background="#333333" />
 
         <!-- Output log -->
-        <TextBox Grid.Row="2" x:Name="OutputLog"
-                 IsReadOnly="True" VerticalScrollBarVisibility="Auto"
-                 Background="#1E1E1E" Foreground="#CCCCCC"
-                 FontFamily="Consolas" FontSize="12"
-                 Margin="4" TextWrapping="Wrap" />
+        <RichTextBox Grid.Row="2" x:Name="OutputLog"
+                     IsReadOnly="True" VerticalScrollBarVisibility="Auto"
+                     Background="#1E1E1E" Foreground="#CCCCCC"
+                     FontFamily="Consolas" FontSize="12"
+                     Margin="4">
+            <RichTextBox.Resources>
+                <Style TargetType="Paragraph">
+                    <Setter Property="Margin" Value="0" />
+                </Style>
+            </RichTextBox.Resources>
+        </RichTextBox>
 
         <!-- Command input -->
         <Grid Grid.Row="3" Margin="4">

@@ -2,6 +2,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
@@ -69,7 +70,7 @@ public partial class MainWindow : Window, ICommandOutput
         _history.Add(input);
         _history.ResetCursor();
         CommandInput.Text = "";
-        AppendLog($"> {input}");
+        AppendLog($"> {input}", bold: true);
 
         CommandInput.IsEnabled = false;
         try
@@ -311,9 +312,17 @@ public partial class MainWindow : Window, ICommandOutput
         _blinkTimer = null;
     }
 
-    private void AppendLog(string text)
+    private static readonly Brush InputBrush = new SolidColorBrush(Color.FromRgb(0xFF, 0xFF, 0xFF));
+    private static readonly Brush ResponseBrush = new SolidColorBrush(Color.FromRgb(0xCC, 0xCC, 0xCC));
+
+    private void AppendLog(string text, bool bold = false)
     {
-        OutputLog.AppendText(text + Environment.NewLine);
+        var paragraph = new Paragraph();
+        var run = new Run(text) { Foreground = bold ? InputBrush : ResponseBrush };
+        if (bold)
+            run.FontWeight = FontWeights.Bold;
+        paragraph.Inlines.Add(run);
+        OutputLog.Document.Blocks.Add(paragraph);
         OutputLog.ScrollToEnd();
     }
 }
