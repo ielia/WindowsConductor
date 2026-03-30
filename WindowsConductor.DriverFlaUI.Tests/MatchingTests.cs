@@ -467,6 +467,32 @@ public class XPathMatchingTests
             Props(automationId: "OK", name: "btn-OK", controlType: "Button")), Is.True);
     }
 
+    // ── text() function (normalized to Name) ─────────────────────────────────
+
+    [Test]
+    public void MatchesStep_TextFunction_ExactMatch()
+    {
+        var steps = XPathEngine.ParseXPath("//Window[text()='Calculator']");
+        Assert.That(XPathEngine.MatchesStep(steps[0],
+            Props(name: "Calculator", controlType: "Window")), Is.True);
+    }
+
+    [Test]
+    public void MatchesStep_TextFunction_EndsWith_Matches()
+    {
+        var steps = XPathEngine.ParseXPath("//Window[text()$='- Microsoft Edge']");
+        Assert.That(XPathEngine.MatchesStep(steps[0],
+            Props(name: "Google - Microsoft Edge", controlType: "Window")), Is.True);
+    }
+
+    [Test]
+    public void MatchesStep_TextFunction_EndsWith_Mismatch()
+    {
+        var steps = XPathEngine.ParseXPath("//Window[text()$='- Microsoft Edge']");
+        Assert.That(XPathEngine.MatchesStep(steps[0],
+            Props(name: "Calculator", controlType: "Window")), Is.False);
+    }
+
     [Test]
     public void MatchesStep_Concat_WithMatchMode_StartsWith()
     {

@@ -157,7 +157,7 @@ public partial class MainWindow : Window, ICommandOutput
             }
 
             AttributesGrid.ItemsSource = attributes
-                .OrderBy(kv => kv.Key, StringComparer.OrdinalIgnoreCase)
+                .OrderBy(kv => kv.Key, StringComparer.InvariantCultureIgnoreCase)
                 .Select(kv => new { Name = kv.Key, Value = kv.Value?.ToString() ?? "" })
                 .ToList();
         });

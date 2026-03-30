@@ -8,7 +8,7 @@ namespace WindowsConductor.Client;
 /// </summary>
 public static class SelectorValidator
 {
-    private static readonly HashSet<string> ValidSimpleKeys = new(StringComparer.OrdinalIgnoreCase)
+    private static readonly HashSet<string> ValidSimpleKeys = new(StringComparer.InvariantCultureIgnoreCase)
     {
         "automationid", "name", "text", "classname", "class", "type", "controltype"
     };
@@ -86,6 +86,9 @@ public static class SelectorValidator
                 continue;
             // Allow compound attribute predicates: @a='x' and @b='y', @a='x' or @b='y'
             if (content.Contains(" and ") || content.Contains(" or "))
+                continue;
+            // Allow text() function as attribute accessor
+            if (content.StartsWith("text()"))
                 continue;
             if (!content.StartsWith('@'))
                 throw new ArgumentException(

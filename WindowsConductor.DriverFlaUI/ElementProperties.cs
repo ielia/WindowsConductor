@@ -12,7 +12,7 @@ namespace WindowsConductor.DriverFlaUI;
 /// </summary>
 internal static class ElementProperties
 {
-    private static readonly Dictionary<string, string> Aliases = new(StringComparer.OrdinalIgnoreCase)
+    private static readonly Dictionary<string, string> Aliases = new(StringComparer.InvariantCultureIgnoreCase)
     {
         ["text"] = "name",
         ["class"] = "classname",
@@ -43,7 +43,7 @@ internal static class ElementProperties
 
     internal static Dictionary<string, object?> ResolveAll(AutomationElement el)
     {
-        var result = new Dictionary<string, object?>(PropertyMap.Count, StringComparer.OrdinalIgnoreCase);
+        var result = new Dictionary<string, object?>(PropertyMap.Count, StringComparer.InvariantCultureIgnoreCase);
         foreach (var (name, propInfo) in PropertyMap)
         {
             try

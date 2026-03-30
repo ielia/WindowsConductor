@@ -419,9 +419,59 @@ public class XPathEngineValidationTests
     [TestCase("//Button[position() > 2 and position() < last()]")]
     [TestCase("//Button[position() = 1 or position() = last()]")]
     [TestCase("//Button[string-length(@Name) > 5]")]
+    [TestCase("//Window[text()='Calculator']")]
+    [TestCase("//Window[text()$='- Microsoft Edge']")]
+    [TestCase("//Window[text()^='Calculator']")]
+    [TestCase("//Window[text()*='Edge']")]
+    [TestCase("//Window[text()='foo' and @ClassName='bar']")]
     public void ParseXPath_FunctionExpression_DoesNotThrow(string xpath)
     {
         Assert.DoesNotThrow(() => XPathEngine.Validate(xpath));
+    }
+
+    // ── text() function ──────────────────────────────────────────────────────
+
+    [Test]
+    public void ParseXPath_TextFunction_ExactMatch_ParsesAsNamePredicate()
+    {
+        var steps = XPathEngine.ParseXPath("//Window[text()='Calculator']");
+        Assert.That(steps[0].Predicates, Has.Count.EqualTo(1));
+        Assert.That(steps[0].Predicates[0].Attribute, Is.EqualTo("name"));
+        Assert.That(steps[0].Predicates[0].Values, Is.EqualTo(new[] { "Calculator" }));
+        Assert.That(steps[0].Predicates[0].MatchMode, Is.EqualTo(AttributeMatchMode.Exact));
+    }
+
+    [Test]
+    public void ParseXPath_TextFunction_EndsWith_ParsesCorrectly()
+    {
+        var steps = XPathEngine.ParseXPath("//Window[text()$='- Microsoft Edge']");
+        Assert.That(steps[0].Predicates, Has.Count.EqualTo(1));
+        Assert.That(steps[0].Predicates[0].Attribute, Is.EqualTo("name"));
+        Assert.That(steps[0].Predicates[0].MatchMode, Is.EqualTo(AttributeMatchMode.EndsWith));
+        Assert.That(steps[0].Predicates[0].Values, Is.EqualTo(new[] { "- Microsoft Edge" }));
+    }
+
+    [Test]
+    public void ParseXPath_TextFunction_StartsWith_ParsesCorrectly()
+    {
+        var steps = XPathEngine.ParseXPath("//Window[text()^='Calc']");
+        Assert.That(steps[0].Predicates[0].MatchMode, Is.EqualTo(AttributeMatchMode.StartsWith));
+    }
+
+    [Test]
+    public void ParseXPath_TextFunction_Contains_ParsesCorrectly()
+    {
+        var steps = XPathEngine.ParseXPath("//Window[text()*='Edge']");
+        Assert.That(steps[0].Predicates[0].MatchMode, Is.EqualTo(AttributeMatchMode.Contains));
+    }
+
+    [Test]
+    public void ParseXPath_TextFunction_WithAndAttribute_ParsesBoth()
+    {
+        var steps = XPathEngine.ParseXPath("//Window[text()='foo' and @ClassName='bar']");
+        Assert.That(steps[0].Predicates, Has.Count.EqualTo(2));
+        Assert.That(steps[0].Predicates[0].Attribute, Is.EqualTo("name"));
+        Assert.That(steps[0].Predicates[1].Attribute, Is.EqualTo("ClassName"));
     }
 
     // ── String comparison operators ──────────────────────────────────────────
@@ -556,6 +606,8 @@ public class XPathEngineValidationTests
     [TestCase("//Button[position() div 3 > 1.5]")]
     [TestCase("//Button[position() > 2 and position() < last()]")]
     [TestCase("//Button[position() = 1 or position() = last()]")]
+    [TestCase("//Window[text()='Calculator']")]
+    [TestCase("//Window[text()$='- Microsoft Edge']")]
     public void ParseXPath_ExtendedValidExpression_DoesNotThrow(string xpath)
     {
         Assert.DoesNotThrow(() => XPathEngine.Validate(xpath));

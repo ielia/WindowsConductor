@@ -76,7 +76,7 @@ public sealed class WcElement
     {
         var r = await _conn.SendAsync("getAttributes",
             new { elementId = ElementId }, ct);
-        var dict = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
+        var dict = new Dictionary<string, object?>(StringComparer.InvariantCultureIgnoreCase);
         foreach (var prop in r.EnumerateObject())
             dict[prop.Name] = prop.Value.ValueKind == JsonValueKind.Null ? null : prop.Value.ToString();
         return dict;

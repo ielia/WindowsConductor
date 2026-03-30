@@ -153,6 +153,6 @@ public sealed class SelectorEngine
     internal static bool MatchesProperty(string key, string value, Func<string, string?> getProperty)
     {
         string? actual = getProperty(key);
-        return string.Equals(actual, value, StringComparison.OrdinalIgnoreCase);
+        return string.Equals(actual, value, StringComparison.InvariantCultureIgnoreCase);
     }
 }

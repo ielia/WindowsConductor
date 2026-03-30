@@ -170,6 +170,10 @@ public class SelectorValidatorTests
     [TestCase("//Button[position() div 3 > 1.5]")]           // div
     [TestCase("//Button[position() > 2 and position() < last()]")] // and in function expr
     [TestCase("//Button[position() = 1 or position() = last()]")] // or in function expr
+    [TestCase("//Window[text()='Calculator']")]                    // text() exact
+    [TestCase("//Window[text()$='- Microsoft Edge']")]             // text() ends with
+    [TestCase("//Window[text()^='Calc']")]                         // text() starts with
+    [TestCase("//Window[text()*='Edge']")]                         // text() contains
     public void Validate_ValidSelector_DoesNotThrow(string selector)
     {
         Assert.DoesNotThrow(() => SelectorValidator.Validate(selector));

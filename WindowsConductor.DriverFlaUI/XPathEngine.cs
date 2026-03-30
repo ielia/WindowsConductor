@@ -203,10 +203,10 @@ public sealed class XPathEngine
     private static bool MatchesValue(string? actual, string expected, AttributeMatchMode mode) =>
         mode switch
         {
-            AttributeMatchMode.Exact => string.Equals(actual, expected, StringComparison.OrdinalIgnoreCase),
-            AttributeMatchMode.StartsWith => actual?.StartsWith(expected, StringComparison.OrdinalIgnoreCase) == true,
-            AttributeMatchMode.Contains => actual?.Contains(expected, StringComparison.OrdinalIgnoreCase) == true,
-            AttributeMatchMode.EndsWith => actual?.EndsWith(expected, StringComparison.OrdinalIgnoreCase) == true,
+            AttributeMatchMode.Exact => string.Equals(actual, expected, StringComparison.InvariantCultureIgnoreCase),
+            AttributeMatchMode.StartsWith => actual?.StartsWith(expected, StringComparison.InvariantCultureIgnoreCase) == true,
+            AttributeMatchMode.Contains => actual?.Contains(expected, StringComparison.InvariantCultureIgnoreCase) == true,
+            AttributeMatchMode.EndsWith => actual?.EndsWith(expected, StringComparison.InvariantCultureIgnoreCase) == true,
             _ => false
         };
 
@@ -323,15 +323,16 @@ public sealed class XPathEngine
                     var attrParts = new List<XPathPredicate>();
                     var funcParts = new List<string>();
 
-                    foreach (var part in parts)
+                    foreach (var rawPart in parts)
                     {
+                        var part = NormalizeTextFunction(rawPart);
                         if (XPathExprEvaluator.IsFunctionExpression(part))
                             funcParts.Add(part);
                         else if (part.TrimStart().StartsWith('@'))
                             attrParts.Add(ParseAttributePredicate(part, xpath));
                         else
                             throw new ArgumentException(
-                                $"Invalid predicate syntax '{part}' in XPath expression: '{xpath}'",
+                                $"Invalid predicate syntax '{rawPart}' in XPath expression: '{xpath}'",
                                 nameof(xpath));
                     }
 
@@ -369,7 +370,7 @@ public sealed class XPathEngine
                 }
 
                 // Single predicate (no and/or split)
-                string trimmed = predContent.Trim();
+                string trimmed = NormalizeTextFunction(predContent.Trim());
 
                 if (XPathExprEvaluator.IsFunctionExpression(trimmed))
                 {
@@ -512,6 +513,18 @@ public sealed class XPathEngine
         }
 
         return args;
+    }
+
+    /// <summary>
+    /// Rewrites <c>text()</c> at the start of a predicate part to <c>@name</c>
+    /// so the existing attribute-predicate pipeline handles it transparently.
+    /// </summary>
+    private static string NormalizeTextFunction(string part)
+    {
+        var trimmed = part.TrimStart();
+        return trimmed.StartsWith("text()", StringComparison.Ordinal)
+            ? "@name" + trimmed[6..]
+            : part;
     }
 
     // ── Logical operator splitter ────────────────────────────────────────────
