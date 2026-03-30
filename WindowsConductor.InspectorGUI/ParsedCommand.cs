@@ -1,49 +1,155 @@
 namespace WindowsConductor.InspectorGUI;
 
-internal abstract record ParsedCommand;
+internal abstract record ParsedCommand
+{
+    internal abstract string Name { get; }
+    internal abstract string Usage { get; }
+    internal abstract string Description { get; }
+}
 
-internal sealed record ConnectCommand(string Url) : ParsedCommand;
+internal sealed record AttachCommand(
+    string MainWindowTitleRegex,
+    uint? MainWindowTimeout) : ParsedCommand
+{
+    internal override string Name => "attach";
+    internal override string Usage => "attach <mainWindowTitleRegex> [mainWindowTimeout]";
+    internal override string Description => "Attaches to an already-running application by matching its window title.";
+}
+
+internal sealed record AttributeCommand(string AttributeName) : ParsedCommand
+{
+    internal override string Name => "attribute";
+    internal override string Usage => "attribute <name>";
+    internal override string Description => "Returns a named UIAutomation property of the currently selected element.";
+}
+
+internal sealed record ClickCommand : ParsedCommand
+{
+    internal override string Name => "click";
+    internal override string Usage => "click";
+    internal override string Description => "Clicks the currently selected element.";
+}
+
+internal sealed record CloseCommand : ParsedCommand
+{
+    internal override string Name => "close";
+    internal override string Usage => "close";
+    internal override string Description => "Closes the current application.";
+}
+
+internal sealed record ConnectCommand(string Url) : ParsedCommand
+{
+    internal override string Name => "connect";
+    internal override string Usage => "connect [url]";
+    internal override string Description => "Connects to a WindowsConductor driver.\nDefaults to ws://localhost:8765/.";
+}
+
+internal sealed record DetachCommand : ParsedCommand
+{
+    internal override string Name => "detach";
+    internal override string Usage => "detach";
+    internal override string Description => "Detaches from the current application without closing it.";
+}
+
+internal sealed record DisconnectCommand : ParsedCommand
+{
+    internal override string Name => "disconnect";
+    internal override string Usage => "disconnect";
+    internal override string Description => "Disconnects from the driver.";
+}
+
+internal sealed record DoubleClickCommand : ParsedCommand
+{
+    internal override string Name => "doubleclick";
+    internal override string Usage => "doubleclick";
+    internal override string Description => "Double-clicks the currently selected element.";
+}
+
+internal sealed record ExitCommand : ParsedCommand
+{
+    internal override string Name => "exit";
+    internal override string Usage => "exit | quit";
+    internal override string Description => "Disconnects and exits the inspector.";
+}
+
+internal sealed record FocusCommand : ParsedCommand
+{
+    internal override string Name => "focus";
+    internal override string Usage => "focus";
+    internal override string Description => "Sets keyboard focus on the currently selected element.";
+}
+
+internal sealed record HelpCommand(string? CommandName) : ParsedCommand
+{
+    internal override string Name => "help";
+    internal override string Usage => "help [command]";
+    internal override string Description => "Shows help for all commands or a specific command.";
+}
 
 internal sealed record LaunchCommand(
     string Path,
     string[] Args,
     string? DetachedTitleRegex,
-    uint? MainWindowTimeout) : ParsedCommand;
+    uint? MainWindowTimeout) : ParsedCommand
+{
+    internal override string Name => "launch";
+    internal override string Usage => "launch <path> [\"arg1\", ...] [detachedTitleRegex] [mainWindowTimeout]";
+    internal override string Description => "Launches an application and attaches to it.";
+}
 
-internal sealed record AttachCommand(
-    string MainWindowTitleRegex,
-    uint? MainWindowTimeout) : ParsedCommand;
+internal sealed record LocateCommand(string[] Selectors) : ParsedCommand
+{
+    internal override string Name => "locate";
+    internal override string Usage => "locate <selector> [>> <selector> ...]";
+    internal override string Description =>
+        "Finds elements matching the selector chain.\nSelectors are separated by >> for scoped searches.\nXPath selectors relative to the current element are supported.";
+}
 
-internal sealed record CloseCommand : ParsedCommand;
+internal sealed record ParentCommand : ParsedCommand
+{
+    internal override string Name => "parent";
+    internal override string Usage => "parent";
+    internal override string Description => "Navigates to the parent of the currently selected element.";
+}
 
-internal sealed record DetachCommand : ParsedCommand;
+internal sealed record RightClickCommand : ParsedCommand
+{
+    internal override string Name => "rightclick";
+    internal override string Usage => "rightclick";
+    internal override string Description => "Right-clicks the currently selected element.";
+}
 
-internal sealed record DisconnectCommand : ParsedCommand;
+internal sealed record ScreenshotCommand : ParsedCommand
+{
+    internal override string Name => "screenshot";
+    internal override string Usage => "screenshot";
+    internal override string Description => "Captures a screenshot of the currently selected element.";
+}
 
-internal sealed record WindowScreenshotCommand : ParsedCommand;
+internal sealed record TextCommand : ParsedCommand
+{
+    internal override string Name => "text";
+    internal override string Usage => "text";
+    internal override string Description => "Returns the visible text of the currently selected element.";
+}
 
-internal sealed record LocateCommand(string[] Selectors) : ParsedCommand;
+internal sealed record TypeCommand(string Text) : ParsedCommand
+{
+    internal override string Name => "type";
+    internal override string Usage => "type <text>";
+    internal override string Description => "Types text into the currently selected element.";
+}
 
-internal sealed record UnselectCommand : ParsedCommand;
+internal sealed record UnselectCommand : ParsedCommand
+{
+    internal override string Name => "unselect";
+    internal override string Usage => "unselect";
+    internal override string Description => "Clears the current element selection.";
+}
 
-internal sealed record AttributeCommand(string AttributeName) : ParsedCommand;
-
-internal sealed record ClickCommand : ParsedCommand;
-
-internal sealed record DoubleClickCommand : ParsedCommand;
-
-internal sealed record RightClickCommand : ParsedCommand;
-
-internal sealed record TypeCommand(string Text) : ParsedCommand;
-
-internal sealed record FocusCommand : ParsedCommand;
-
-internal sealed record TextCommand : ParsedCommand;
-
-internal sealed record ScreenshotCommand : ParsedCommand;
-
-internal sealed record ParentCommand : ParsedCommand;
-
-internal sealed record ExitCommand : ParsedCommand;
-
-internal sealed record HelpCommand(string? CommandName) : ParsedCommand;
+internal sealed record WindowScreenshotCommand : ParsedCommand
+{
+    internal override string Name => "wscreenshot";
+    internal override string Usage => "wscreenshot";
+    internal override string Description => "Captures a screenshot of the application window.";
+}

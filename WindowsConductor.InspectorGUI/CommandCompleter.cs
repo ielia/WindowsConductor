@@ -2,28 +2,7 @@ namespace WindowsConductor.InspectorGUI;
 
 internal static class CommandCompleter
 {
-    internal static readonly string[] Commands =
-    [
-        "attach",
-        "attribute",
-        "click",
-        "close",
-        "connect",
-        "detach",
-        "disconnect",
-        "doubleclick",
-        "exit",
-        "focus",
-        "launch",
-        "locate",
-        "parent",
-        "rightclick",
-        "screenshot",
-        "text",
-        "type",
-        "unselect",
-        "wscreenshot",
-    ];
+    internal static readonly string[] Commands = CommandHelp.AllCommandNames;
 
     /// <summary>
     /// Returns completions for the current input prefix.
