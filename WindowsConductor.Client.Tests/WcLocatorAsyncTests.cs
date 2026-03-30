@@ -268,4 +268,84 @@ public class WcLocatorAsyncTests
         Assert.That(_transport.Calls[2].ParamsJson, Does.Contain("\"rootElementId\":\"panel-el\""));
         Assert.That(_transport.Calls[3].Command, Is.EqualTo("click"));
     }
+
+    // ── WaitForVisible ──────────────────────────────────────────────────────
+
+    [Test]
+    public async Task WaitForVisible_ReturnsElement()
+    {
+        _transport.Enqueue("el-wait-1");
+        var el = await MakeLocator("[name=OK]").WaitForElementAsync(5000);
+        Assert.That(el.ElementId, Is.EqualTo("el-wait-1"));
+        Assert.That(_transport.Calls[0].Command, Is.EqualTo("waitForElement"));
+        Assert.That(_transport.Calls[0].ParamsJson, Does.Contain("\"timeout\":5000"));
+    }
+
+    [Test]
+    public async Task WaitForVisible_WithParent_ResolvesParentFirst()
+    {
+        _transport.Enqueue("parent-el");
+        _transport.Enqueue("child-el");
+        var parent = MakeLocator("type=Window");
+        var el = await MakeLocator("[name=OK]", parent).WaitForElementAsync(3000);
+        Assert.That(_transport.Calls, Has.Count.EqualTo(2));
+        Assert.That(_transport.Calls[0].Command, Is.EqualTo("findElement"));
+        Assert.That(_transport.Calls[1].Command, Is.EqualTo("waitForElement"));
+        Assert.That(_transport.Calls[1].ParamsJson, Does.Contain("\"rootElementId\":\"parent-el\""));
+        Assert.That(el.ElementId, Is.EqualTo("child-el"));
+    }
+
+    [Test]
+    public void WaitForVisible_NullResult_ThrowsElementNotFoundException()
+    {
+        _transport.Enqueue(null);
+        Assert.ThrowsAsync<ElementNotFoundException>(async () =>
+            await MakeLocator("[name=OK]").WaitForElementAsync(1000));
+    }
+
+    // ── WaitForAllVisible ───────────────────────────────────────────────────
+
+    [Test]
+    public async Task WaitForAllVisible_ReturnsElements()
+    {
+        _transport.Enqueue(new[] { "el-1", "el-2" });
+        var elements = await MakeLocator("type=Button").WaitForAllElementsAsync(5000);
+        Assert.That(elements, Has.Count.EqualTo(2));
+        Assert.That(elements[0].ElementId, Is.EqualTo("el-1"));
+        Assert.That(_transport.Calls[0].Command, Is.EqualTo("waitForElements"));
+        Assert.That(_transport.Calls[0].ParamsJson, Does.Contain("\"timeout\":5000"));
+    }
+
+    [Test]
+    public async Task WaitForAllVisible_WithParent_ResolvesParentFirst()
+    {
+        _transport.Enqueue("parent-el");
+        _transport.Enqueue(new[] { "c1", "c2" });
+        var elements = await MakeLocator("type=Button", MakeLocator("type=Window")).WaitForAllElementsAsync(3000);
+        Assert.That(_transport.Calls, Has.Count.EqualTo(2));
+        Assert.That(_transport.Calls[0].Command, Is.EqualTo("findElement"));
+        Assert.That(_transport.Calls[1].Command, Is.EqualTo("waitForElements"));
+        Assert.That(elements, Has.Count.EqualTo(2));
+    }
+
+    // ── WaitForVanish ───────────────────────────────────────────────────────
+
+    [Test]
+    public async Task WaitForVanish_SendsCommand()
+    {
+        await MakeLocator("[name=Spinner]").WaitForVanishAsync(2000);
+        Assert.That(_transport.Calls[0].Command, Is.EqualTo("waitForVanish"));
+        Assert.That(_transport.Calls[0].ParamsJson, Does.Contain("\"timeout\":2000"));
+    }
+
+    [Test]
+    public async Task WaitForVanish_WithParent_ResolvesParentFirst()
+    {
+        _transport.Enqueue("parent-el");
+        await MakeLocator("[name=Loading]", MakeLocator("type=Window")).WaitForVanishAsync(5000);
+        Assert.That(_transport.Calls, Has.Count.EqualTo(2));
+        Assert.That(_transport.Calls[0].Command, Is.EqualTo("findElement"));
+        Assert.That(_transport.Calls[1].Command, Is.EqualTo("waitForVanish"));
+        Assert.That(_transport.Calls[1].ParamsJson, Does.Contain("\"rootElementId\":\"parent-el\""));
+    }
 }

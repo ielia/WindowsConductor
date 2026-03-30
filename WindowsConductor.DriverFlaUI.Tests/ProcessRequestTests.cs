@@ -81,6 +81,18 @@ internal sealed class FakeAppOperations : IAppOperations
     { Record("StartRecording", appId, path, ffmpegPath); return StartRecordingResult; }
 
     public string StopRecording(string appId) { Record("StopRecording", appId); return StopRecordingResult; }
+
+    public string WaitForElementResult { get; set; } = "el-wait-1";
+    public string[] WaitForElementsResult { get; set; } = { "el-w1", "el-w2" };
+
+    public string WaitForElement(string appId, string selector, string? rootElementId, uint timeout)
+    { Record("WaitForElement", appId, selector, rootElementId, timeout); return WaitForElementResult; }
+
+    public string[] WaitForElements(string appId, string selector, string? rootElementId, uint timeout)
+    { Record("WaitForElements", appId, selector, rootElementId, timeout); return WaitForElementsResult; }
+
+    public void WaitForVanish(string appId, string selector, string? rootElementId, uint timeout)
+    { Record("WaitForVanish", appId, selector, rootElementId, timeout); }
 }
 
 [TestFixture]
@@ -431,6 +443,98 @@ public class ProcessRequestTests
     {
         var resp = WsServer.ProcessRequest(_fake, MakeRequest("stopRecording", new() { ["appId"] = "a1" }));
         Assert.That(resp.Result, Is.EqualTo("/tmp/video.mp4"));
+    }
+
+    // ── waitForElement ────────────────────────────────────────────────────────
+
+    [Test]
+    public void WaitForElement_CallsWaitForElement_ReturnsElementId()
+    {
+        var resp = WsServer.ProcessRequest(_fake, MakeRequest("waitForElement", new()
+        {
+            ["appId"] = "a1",
+            ["selector"] = "[name=OK]",
+            ["rootElementId"] = "",
+            ["timeout"] = 5000
+        }));
+        Assert.That(resp.Success, Is.True);
+        Assert.That(resp.Result, Is.EqualTo("el-wait-1"));
+        Assert.That(_fake.Calls[0].Method, Is.EqualTo("WaitForElement"));
+        Assert.That(_fake.Calls[0].Args[3], Is.EqualTo(5000u));
+    }
+
+    // ── waitForElements ──────────────────────────────────────────────────────
+
+    [Test]
+    public void WaitForElements_CallsWaitForElements_ReturnsIds()
+    {
+        var resp = WsServer.ProcessRequest(_fake, MakeRequest("waitForElements", new()
+        {
+            ["appId"] = "a1",
+            ["selector"] = "type=Button",
+            ["rootElementId"] = "",
+            ["timeout"] = 3000
+        }));
+        Assert.That(resp.Success, Is.True);
+        Assert.That(resp.Result, Is.EqualTo(new[] { "el-w1", "el-w2" }));
+        Assert.That(_fake.Calls[0].Method, Is.EqualTo("WaitForElements"));
+    }
+
+    // ── waitForVanish ────────────────────────────────────────────────────────
+
+    [Test]
+    public void WaitForVanish_CallsWaitForVanish_ReturnsOk()
+    {
+        var resp = WsServer.ProcessRequest(_fake, MakeRequest("waitForVanish", new()
+        {
+            ["appId"] = "a1",
+            ["selector"] = "[name=Spinner]",
+            ["rootElementId"] = "",
+            ["timeout"] = 2000
+        }));
+        Assert.That(resp.Success, Is.True);
+        Assert.That(_fake.Calls[0].Method, Is.EqualTo("WaitForVanish"));
+    }
+
+    // ── errorType propagation ────────────────────────────────────────────────
+
+    [Test]
+    public void ElementNotFoundException_SetsErrorType()
+    {
+        _fake.ThrowOnNext = new ElementNotFoundException("Not found within 5000ms.");
+        var resp = WsServer.ProcessRequest(_fake, MakeRequest("waitForElement", new()
+        {
+            ["appId"] = "a1",
+            ["selector"] = "[name=X]",
+            ["rootElementId"] = "",
+            ["timeout"] = 5000
+        }));
+        Assert.That(resp.Success, Is.False);
+        Assert.That(resp.ErrorType, Is.EqualTo("ElementNotFoundException"));
+    }
+
+    [Test]
+    public void UnwantedElementFoundException_SetsErrorType()
+    {
+        _fake.ThrowOnNext = new UnwantedElementFoundException("Still present after 2000ms.");
+        var resp = WsServer.ProcessRequest(_fake, MakeRequest("waitForVanish", new()
+        {
+            ["appId"] = "a1",
+            ["selector"] = "[name=X]",
+            ["rootElementId"] = "",
+            ["timeout"] = 2000
+        }));
+        Assert.That(resp.Success, Is.False);
+        Assert.That(resp.ErrorType, Is.EqualTo("UnwantedElementFoundException"));
+    }
+
+    [Test]
+    public void GenericException_HasNullErrorType()
+    {
+        _fake.ThrowOnNext = new InvalidOperationException("boom");
+        var resp = WsServer.ProcessRequest(_fake, MakeRequest("click", new() { ["elementId"] = "e1" }));
+        Assert.That(resp.Success, Is.False);
+        Assert.That(resp.ErrorType, Is.Null);
     }
 
     // ── unknown command ──────────────────────────────────────────────────────

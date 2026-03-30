@@ -11,6 +11,9 @@ internal interface IAppOperations
     void CloseApp(string appId);
     string FindElement(string appId, string selector, string? rootElementId = null);
     string[] FindElements(string appId, string selector, string? rootElementId = null);
+    string WaitForElement(string appId, string selector, string? rootElementId, uint timeout);
+    string[] WaitForElements(string appId, string selector, string? rootElementId, uint timeout);
+    void WaitForVanish(string appId, string selector, string? rootElementId, uint timeout);
     void Click(string elementId);
     void DoubleClick(string elementId);
     void RightClick(string elementId);

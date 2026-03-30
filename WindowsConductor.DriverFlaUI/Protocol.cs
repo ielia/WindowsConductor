@@ -53,9 +53,12 @@ public sealed class WcResponse
     [JsonPropertyName("error")]
     public string? Error { get; set; }
 
+    [JsonPropertyName("errorType")]
+    public string? ErrorType { get; set; }
+
     public static WcResponse Ok(string id, object? result = null) =>
         new() { Id = id, Success = true, Result = result };
 
-    public static WcResponse Fail(string id, string error) =>
-        new() { Id = id, Success = false, Error = error };
+    public static WcResponse Fail(string id, string error, string? errorType = null) =>
+        new() { Id = id, Success = false, Error = error, ErrorType = errorType };
 }

@@ -127,6 +127,59 @@ public sealed class AppManager : IAppOperations, IDisposable
             .ToArray();
     }
 
+    // ── Wait operations ──────────────────────────────────────────────────────
+
+    public string WaitForElement(string appId, string selector, string? rootElementId, uint timeout)
+    {
+        var deadline = Environment.TickCount64 + timeout;
+        while (true)
+        {
+            var root = rootElementId != null ? GetElement(rootElementId) : GetAppRoot(appId);
+            var boundary = GetBoundaryCheck(appId);
+            var element = _selector.FindElement(root, selector, boundary);
+            if (element is not null)
+                return CacheElement(element);
+            if (Environment.TickCount64 >= deadline)
+                throw new ElementNotFoundException(
+                    $"No element found for selector '{selector}' within {timeout}ms.");
+            Thread.Sleep(100);
+        }
+    }
+
+    public string[] WaitForElements(string appId, string selector, string? rootElementId, uint timeout)
+    {
+        var deadline = Environment.TickCount64 + timeout;
+        while (true)
+        {
+            var root = rootElementId != null ? GetElement(rootElementId) : GetAppRoot(appId);
+            var boundary = GetBoundaryCheck(appId);
+            var results = _selector.FindElements(root, selector, boundary);
+            if (results.Length > 0)
+                return results.Select(CacheElement).ToArray();
+            if (Environment.TickCount64 >= deadline)
+                throw new ElementNotFoundException(
+                    $"No elements found for selector '{selector}' within {timeout}ms.");
+            Thread.Sleep(100);
+        }
+    }
+
+    public void WaitForVanish(string appId, string selector, string? rootElementId, uint timeout)
+    {
+        var deadline = Environment.TickCount64 + timeout;
+        while (true)
+        {
+            var root = rootElementId != null ? GetElement(rootElementId) : GetAppRoot(appId);
+            var boundary = GetBoundaryCheck(appId);
+            var element = _selector.FindElement(root, selector, boundary);
+            if (element is null)
+                return;
+            if (Environment.TickCount64 >= deadline)
+                throw new UnwantedElementFoundException(
+                    $"Element matching selector '{selector}' still present after {timeout}ms.");
+            Thread.Sleep(100);
+        }
+    }
+
     // ── Element actions ─────────────────────────────────────────────────────
 
     public void Click(string elementId) =>

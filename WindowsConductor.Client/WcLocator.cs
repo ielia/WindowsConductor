@@ -107,6 +107,76 @@ public sealed class WcLocator
             .ToList();
     }
 
+    // ── Wait operations ───────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Waits up to <paramref name="timeout"/> milliseconds for a matching element to appear.
+    /// Throws <see cref="ElementNotFoundException"/> if the timeout elapses without a match.
+    /// </summary>
+    public async Task<WcElement> WaitForElementAsync(uint timeout, CancellationToken ct = default)
+    {
+        string? rootElementId = _rootElementId;
+        if (rootElementId is null && _parent != null)
+        {
+            var parentElement = await _parent.GetElementAsync(ct);
+            rootElementId = parentElement.ElementId;
+        }
+
+        var result = await _conn.SendAsync(
+            "waitForElement",
+            new { appId = _appId, selector = _selector, rootElementId, timeout },
+            ct);
+
+        string? elementId = result.GetString();
+        if (elementId is null)
+            throw new ElementNotFoundException($"No element found for selector: '{_selector}'");
+
+        return new WcElement(elementId, _conn, _appId);
+    }
+
+    /// <summary>
+    /// Waits up to <paramref name="timeout"/> milliseconds for at least one matching element to appear.
+    /// Returns the full list of matches as soon as one is found.
+    /// Throws <see cref="ElementNotFoundException"/> if the timeout elapses without a match.
+    /// </summary>
+    public async Task<IReadOnlyList<WcElement>> WaitForAllElementsAsync(uint timeout, CancellationToken ct = default)
+    {
+        string? rootElementId = _rootElementId;
+        if (rootElementId is null && _parent != null)
+        {
+            var parentElement = await _parent.GetElementAsync(ct);
+            rootElementId = parentElement.ElementId;
+        }
+
+        var result = await _conn.SendAsync(
+            "waitForElements",
+            new { appId = _appId, selector = _selector, rootElementId, timeout },
+            ct);
+
+        return result.EnumerateArray()
+            .Select(e => new WcElement(e.GetString()!, _conn, _appId))
+            .ToList();
+    }
+
+    /// <summary>
+    /// Waits up to <paramref name="timeout"/> milliseconds for the locator to stop matching any element.
+    /// Throws <see cref="UnwantedElementFoundException"/> if the timeout elapses and elements still match.
+    /// </summary>
+    public async Task WaitForVanishAsync(uint timeout, CancellationToken ct = default)
+    {
+        string? rootElementId = _rootElementId;
+        if (rootElementId is null && _parent != null)
+        {
+            var parentElement = await _parent.GetElementAsync(ct);
+            rootElementId = parentElement.ElementId;
+        }
+
+        await _conn.SendAsync(
+            "waitForVanish",
+            new { appId = _appId, selector = _selector, rootElementId, timeout },
+            ct);
+    }
+
     // ── Actions ──────────────────────────────────────────────────────────────
 
     /// <summary>Clicks the first matching element.</summary>

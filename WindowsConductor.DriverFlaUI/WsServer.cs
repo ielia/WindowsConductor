@@ -173,6 +173,39 @@ public sealed class WsServer
                         return WcResponse.Ok(req.Id, ids);
                     }
 
+                case "waitForElement":
+                    {
+                        var rootElId = req.GetString("rootElementId");
+                        var elementId = mgr.WaitForElement(
+                            req.GetString("appId"),
+                            req.GetString("selector"),
+                            string.IsNullOrEmpty(rootElId) ? null : rootElId,
+                            (uint)req.GetInt("timeout"));
+                        return WcResponse.Ok(req.Id, elementId);
+                    }
+
+                case "waitForElements":
+                    {
+                        var rootElId = req.GetString("rootElementId");
+                        var ids = mgr.WaitForElements(
+                            req.GetString("appId"),
+                            req.GetString("selector"),
+                            string.IsNullOrEmpty(rootElId) ? null : rootElId,
+                            (uint)req.GetInt("timeout"));
+                        return WcResponse.Ok(req.Id, ids);
+                    }
+
+                case "waitForVanish":
+                    {
+                        var rootElId = req.GetString("rootElementId");
+                        mgr.WaitForVanish(
+                            req.GetString("appId"),
+                            req.GetString("selector"),
+                            string.IsNullOrEmpty(rootElId) ? null : rootElId,
+                            (uint)req.GetInt("timeout"));
+                        return WcResponse.Ok(req.Id);
+                    }
+
                 case "click":
                     mgr.Click(req.GetString("elementId"));
                     return WcResponse.Ok(req.Id);
@@ -245,7 +278,10 @@ public sealed class WsServer
         }
         catch (Exception ex)
         {
-            return WcResponse.Fail(req.Id, ex.Message);
+            var errorType = ex is ElementNotFoundException or UnwantedElementFoundException
+                ? ex.GetType().Name
+                : null;
+            return WcResponse.Fail(req.Id, ex.Message, errorType);
         }
     }
 }

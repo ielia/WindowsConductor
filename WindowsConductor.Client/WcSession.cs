@@ -135,7 +135,15 @@ public sealed class WcSession : IWcTransport, IAsyncDisposable
         var response = await tcs.Task;
 
         if (!response.Success)
-            throw new WcException(response.Error ?? "Driver returned an unknown error.");
+        {
+            var msg = response.Error ?? "Driver returned an unknown error.";
+            throw response.ErrorType switch
+            {
+                nameof(ElementNotFoundException) => new ElementNotFoundException(msg),
+                nameof(UnwantedElementFoundException) => new UnwantedElementFoundException(msg),
+                _ => new WcException(msg)
+            };
+        }
 
         return response.Result ?? default;
     }
@@ -206,3 +214,9 @@ public sealed class WcSession : IWcTransport, IAsyncDisposable
 
 /// <summary>Thrown when the WcApp Driver returns an error response.</summary>
 public sealed class WcException(string message) : Exception(message);
+
+/// <summary>Thrown when a wait-for-visible operation times out without finding a matching element.</summary>
+public sealed class ElementNotFoundException(string message) : Exception(message);
+
+/// <summary>Thrown when a wait-for-vanish operation times out and the locator still matches.</summary>
+public sealed class UnwantedElementFoundException(string message) : Exception(message);

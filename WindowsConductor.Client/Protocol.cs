@@ -42,4 +42,7 @@ internal sealed class WcResponse
 
     [JsonPropertyName("error")]
     public string? Error { get; set; }
+
+    [JsonPropertyName("errorType")]
+    public string? ErrorType { get; set; }
 }
