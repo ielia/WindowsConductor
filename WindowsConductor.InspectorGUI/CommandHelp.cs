@@ -37,8 +37,21 @@ internal static class CommandHelp
                 sb.AppendLine($"    Example: {cmd.Examples[0]}");
             sb.AppendLine();
         }
+        sb.Append(KeyBindingsText);
         return sb.ToString().TrimEnd();
     }
+
+    internal const string KeyBindingsText =
+        """
+        Key bindings:
+          Shift+PgUp / Shift+PgDown   Scroll log
+          Up Arrow / Down Arrow       Previous / next command in history
+          Tab                         Autocomplete command
+          Ctrl+Tab / Shift+Ctrl+Tab   Cycle panels
+          Alt+Left / Alt+Right        Previous / next match
+          Alt+C                       Copy attributes
+          Alt+R                       Refresh
+        """;
 
     internal static string? GetFor(string commandName)
     {

@@ -36,6 +36,8 @@ public partial class MainWindow : Window, ICommandOutput
             [AttributesGrid] = AttributesBorder,
         };
         AppendLog(string.Join("  ", CommandHelp.AllCommandNames));
+        AppendLog("");
+        AppendLog(CommandHelp.KeyBindingsText);
         CommandInput.Focus();
     }
 
