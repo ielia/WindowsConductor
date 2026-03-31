@@ -61,6 +61,16 @@ public partial class MainWindow : Window, ICommandOutput
             }
         }
 
+        if (Keyboard.Modifiers == ModifierKeys.Shift && e.Key is Key.PageUp or Key.PageDown)
+        {
+            e.Handled = true;
+            if (e.Key == Key.PageUp)
+                OutputLog.PageUp();
+            else
+                OutputLog.PageDown();
+            return;
+        }
+
         if (e.Key != Key.Tab || !Keyboard.Modifiers.HasFlag(ModifierKeys.Control))
             return;
 
