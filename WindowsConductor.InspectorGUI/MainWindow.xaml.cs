@@ -388,6 +388,7 @@ public partial class MainWindow : Window, ICommandOutput
     {
         StopBlinking();
         _blinkVisible = true;
+        HighlightRect.Stroke = Brushes.Red;
         _blinkTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
         _blinkTimer.Tick += (_, _) =>
         {
