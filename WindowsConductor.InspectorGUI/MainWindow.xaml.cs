@@ -20,20 +20,109 @@ public partial class MainWindow : Window, ICommandOutput
     private DateTime _lastTabTime = DateTime.MinValue;
     private BitmapImage? _currentBitmap;
     private HighlightInfo? _currentHighlight;
+    private Border? _lastFocusedBorder;
 
     public MainWindow()
     {
         InitializeComponent();
         var session = new WcInspectorSession();
         _executor = new CommandExecutor(session, this);
+        _focusablePanels = [CommandInput, OutputLog, ScreenshotImage, AttributesGrid];
+        _panelBorders = new Dictionary<UIElement, Border>
+        {
+            [CommandInput] = CommandInputBorder,
+            [OutputLog] = OutputLogBorder,
+            [ScreenshotImage] = ScreenshotBorder,
+            [AttributesGrid] = AttributesBorder,
+        };
         AppendLog(string.Join("  ", CommandHelp.AllCommandNames));
         CommandInput.Focus();
+    }
+
+    private readonly UIElement[] _focusablePanels;
+    private readonly Dictionary<UIElement, Border> _panelBorders;
+
+    private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.System && Keyboard.Modifiers == ModifierKeys.Alt)
+        {
+            if (e.SystemKey == Key.Left && PrevMatchButton.IsEnabled)
+            {
+                e.Handled = true;
+                PrevMatchButton_Click(PrevMatchButton, new RoutedEventArgs());
+                return;
+            }
+
+            if (e.SystemKey == Key.Right && NextMatchButton.IsEnabled)
+            {
+                e.Handled = true;
+                NextMatchButton_Click(NextMatchButton, new RoutedEventArgs());
+                return;
+            }
+        }
+
+        if (e.Key != Key.Tab || !Keyboard.Modifiers.HasFlag(ModifierKeys.Control))
+            return;
+
+        e.Handled = true;
+        var panels = _focusablePanels;
+        int current = Array.IndexOf(panels, Keyboard.FocusedElement);
+        if (current < 0)
+        {
+            // Find the panel that contains the focused element
+            for (int i = 0; i < panels.Length; i++)
+            {
+                if (panels[i] is FrameworkElement fe && Keyboard.FocusedElement is DependencyObject focused && fe.IsAncestorOf(focused))
+                {
+                    current = i;
+                    break;
+                }
+            }
+        }
+
+        int direction = Keyboard.Modifiers.HasFlag(ModifierKeys.Shift) ? -1 : 1;
+        int next = ((current < 0 ? 0 : current) + direction + panels.Length) % panels.Length;
+        panels[next].Focus();
+    }
+
+    private void Window_PreviewGotKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
+    {
+        var focused = e.NewFocus as DependencyObject;
+        if (focused is null) return;
+
+        Border? border = null;
+        foreach (var (panel, b) in _panelBorders)
+        {
+            if (focused == panel || (panel is FrameworkElement fe && fe.IsAncestorOf(focused)))
+            {
+                border = b;
+                break;
+            }
+
+            if (b.IsAncestorOf(focused))
+            {
+                border = b;
+                break;
+            }
+        }
+
+        if (border == _lastFocusedBorder) return;
+
+        if (_lastFocusedBorder is not null)
+            _lastFocusedBorder.BorderBrush = DefaultBorderBrush;
+
+        if (border is not null)
+            border.BorderBrush = FocusBorderBrush;
+
+        _lastFocusedBorder = border;
     }
 
     private async void CommandInput_PreviewKeyDown(object sender, KeyEventArgs e)
     {
         if (e.Key == Key.Tab)
         {
+            if (Keyboard.Modifiers.HasFlag(ModifierKeys.Control))
+                return; // Let window-level handler deal with Ctrl+Tab
             e.Handled = true;
             HandleTab();
             return;
@@ -316,8 +405,12 @@ public partial class MainWindow : Window, ICommandOutput
         _blinkTimer = null;
     }
 
-    private static readonly Brush InputBrush = new SolidColorBrush(Color.FromRgb(0xFF, 0xFF, 0xFF));
-    private static readonly Brush ResponseBrush = new SolidColorBrush(Color.FromRgb(0xCC, 0xCC, 0xCC));
+    private static readonly SolidColorBrush InputBrush = Frozen(new(Color.FromRgb(0xFF, 0xFF, 0xFF)));
+    private static readonly SolidColorBrush ResponseBrush = Frozen(new(Color.FromRgb(0xCC, 0xCC, 0xCC)));
+    private static readonly SolidColorBrush FocusBorderBrush = Frozen(new(Color.FromRgb(0x00, 0x78, 0xD4)));
+    private static readonly SolidColorBrush DefaultBorderBrush = Frozen(new(Color.FromRgb(0x33, 0x33, 0x33)));
+
+    private static SolidColorBrush Frozen(SolidColorBrush brush) { brush.Freeze(); return brush; }
 
     private void AppendLog(string text, bool bold = false)
     {
