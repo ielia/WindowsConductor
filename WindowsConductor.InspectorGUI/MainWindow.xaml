@@ -25,7 +25,8 @@
             <Border x:Name="ScreenshotBorder" Grid.Column="0" Background="#1E1E1E" Margin="4"
                     BorderThickness="2" BorderBrush="#333333">
                 <Grid x:Name="ScreenshotContainer" SizeChanged="ScreenshotContainer_SizeChanged">
-                    <Image x:Name="ScreenshotImage" Stretch="Uniform" Focusable="True" />
+                    <Image x:Name="ScreenshotImage" Stretch="Uniform" Focusable="True"
+                           MouseLeftButtonDown="ScreenshotImage_MouseLeftButtonDown" />
                     <Canvas x:Name="HighlightCanvas" IsHitTestVisible="False">
                         <Rectangle x:Name="HighlightRect"
                                    Stroke="Red" StrokeThickness="2"

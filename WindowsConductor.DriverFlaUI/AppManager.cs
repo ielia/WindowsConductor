@@ -144,9 +144,8 @@ public sealed class AppManager : IAppOperations, IDisposable
         var point = new System.Drawing.Point((int)x, (int)y);
         var candidates = root.FindAllDescendants()
             .Where(el => el.BoundingRectangle.Contains(point))
-            .ToHashSet();
-        var element = candidates
-            .FirstOrDefault(el => !el.FindAllChildren().Any(candidates.Contains))
+            .ToList();
+        var element = ElementFilter.Frontmost(candidates).FirstOrDefault()
             ?? throw new InvalidOperationException(
                 $"No element found at point ({x}, {y}).");
         return CacheElement(element);

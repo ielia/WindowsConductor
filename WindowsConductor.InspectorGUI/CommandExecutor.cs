@@ -97,6 +97,7 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
                 var firstTrimmed = cmd.Selectors[0].TrimStart();
                 bool isRelative = session.HasSelectedElement
                     && IsXPath(firstTrimmed) && firstTrimmed != "/";
+                var previousSelectors = _currentSelectors;
                 int count;
                 if (isRelative)
                 {
@@ -110,8 +111,11 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
                     _currentSelectors = cmd.Selectors;
                 }
                 if (count == 0)
+                {
+                    _currentSelectors = previousSelectors;
                     throw new InvalidOperationException(
                         $"No element found for selector '{string.Join(" >> ", cmd.Selectors)}'.");
+                }
                 _matchCount = count;
                 _matchIndex = 0;
                 output.WriteInfo(count == 1
@@ -224,7 +228,8 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
     private async Task ShowWindowScreenshotAsync(CancellationToken ct)
     {
         var imgData = await session.WindowScreenshotAsync(ct);
-        output.ShowScreenshot(imgData);
+        var winRect = await session.GetWindowBoundingRectAsync(ct);
+        output.ShowScreenshot(imgData, windowDimensions: new WindowDimensions(winRect.X, winRect.Y, winRect.Width, winRect.Height));
     }
 
     internal async Task NavigateMatchAsync(int direction, CancellationToken ct = default)
@@ -279,7 +284,7 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
             winRect.Width,
             winRect.Height);
 
-        output.ShowScreenshot(imgData, highlight);
+        output.ShowScreenshot(imgData, highlight, new WindowDimensions(winRect.X, winRect.Y, winRect.Width, winRect.Height));
     }
 
     private void RequireConnected()

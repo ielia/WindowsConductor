@@ -18,7 +18,7 @@ internal sealed class FakeCommandOutput : ICommandOutput
     public void WriteInfo(string message) => InfoMessages.Add(message);
     public void WriteError(string message) => ErrorMessages.Add(message);
 
-    public void ShowScreenshot(byte[] imageData, HighlightInfo? highlight = null) =>
+    public void ShowScreenshot(byte[] imageData, HighlightInfo? highlight = null, WindowDimensions? windowDimensions = null) =>
         Screenshots.Add((imageData, highlight));
 
     public void ClearScreenshot() => ClearScreenshotCount++;

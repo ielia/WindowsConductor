@@ -5,7 +5,7 @@ internal interface ICommandOutput
     void ClearLog();
     void WriteInfo(string message);
     void WriteError(string message);
-    void ShowScreenshot(byte[] imageData, HighlightInfo? highlight = null);
+    void ShowScreenshot(byte[] imageData, HighlightInfo? highlight = null, WindowDimensions? windowDimensions = null);
     void ClearScreenshot();
     void ClearHighlight();
     void ShowAttributes(string locatorChain, Dictionary<string, object?> attributes);
@@ -23,3 +23,5 @@ internal interface ICommandOutput
 internal sealed record HighlightInfo(
     double X, double Y, double Width, double Height,
     double WindowWidth, double WindowHeight);
+
+internal sealed record WindowDimensions(double X, double Y, double Width, double Height);

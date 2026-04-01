@@ -6,7 +6,7 @@ namespace WindowsConductor.DriverFlaUI;
 
 // ── Data model ───────────────────────────────────────────────────────────────
 
-public enum XPathAxis { Child, Descendant, Parent, Self }
+public enum XPathAxis { Child, Descendant, Parent, Self, Frontmost }
 
 public enum AttributeMatchMode { Exact, StartsWith, Contains, EndsWith }
 
@@ -100,7 +100,7 @@ public sealed class XPathEngine
 
         foreach (var root in roots)
         {
-            var candidates = step.Axis == XPathAxis.Descendant
+            var candidates = step.Axis is XPathAxis.Descendant or XPathAxis.Frontmost
                 ? root.FindAllDescendants()
                 : root.FindAllChildren();
 
@@ -111,6 +111,9 @@ public sealed class XPathEngine
                     results.Add(el);
             }
         }
+
+        if (step.Axis == XPathAxis.Frontmost)
+            results = ElementFilter.Frontmost(results);
 
         if (step.Index is { } idx)
         {
@@ -262,6 +265,7 @@ public sealed class XPathEngine
         {
             // ── Axis ─────────────────────────────────────────────────────────
             bool isDescendant = false;
+            bool isFrontmost = false;
             int axisStart = pos;
 
             if (pos < len && xpath[pos] == '/')
@@ -279,6 +283,15 @@ public sealed class XPathEngine
                 if (axisStart == 0 && pos == 1)
                     steps.Add(new XPathStep(XPathAxis.Self, ".", []));
                 break;
+            }
+
+            // ── Named axis (e.g. frontmost::) ───────────────────────────────
+            const string frontmostPrefix = "frontmost::";
+            if (pos + frontmostPrefix.Length <= len
+                && xpath[pos..(pos + frontmostPrefix.Length)].Equals(frontmostPrefix, StringComparison.OrdinalIgnoreCase))
+            {
+                isFrontmost = true;
+                pos += frontmostPrefix.Length;
             }
 
             // ── Element type ─────────────────────────────────────────────────
@@ -364,7 +377,7 @@ public sealed class XPathEngine
 
                     foreach (var rawPart in parts)
                     {
-                        var part = NormalizeTextFunction(rawPart);
+                        var part = NormalizeAtFunction(NormalizeTextFunction(rawPart));
                         if (part.TrimStart().StartsWith("contains(", StringComparison.Ordinal))
                             containsParts.Add(ParseContainsPredicate(part.Trim(), xpath));
                         else if (XPathExprEvaluator.IsFunctionExpression(part))
@@ -416,7 +429,7 @@ public sealed class XPathEngine
                 }
 
                 // Single predicate (no and/or split)
-                string trimmed = NormalizeTextFunction(predContent.Trim());
+                string trimmed = NormalizeAtFunction(NormalizeTextFunction(predContent.Trim()));
 
                 if (XPathExprEvaluator.IsFunctionExpression(trimmed))
                 {
@@ -446,7 +459,8 @@ public sealed class XPathEngine
             }
 
             steps.Add(new XPathStep(
-                isDescendant ? XPathAxis.Descendant : XPathAxis.Child,
+                isFrontmost ? XPathAxis.Frontmost
+                    : isDescendant ? XPathAxis.Descendant : XPathAxis.Child,
                 type,
                 predicates,
                 index,
@@ -647,6 +661,17 @@ public sealed class XPathEngine
         return trimmed.StartsWith("text()", StringComparison.Ordinal)
             ? "@name" + trimmed[6..]
             : part;
+    }
+
+    /// <summary>
+    /// Rewrites <c>at(x, y)</c> to <c>contains(bounds(), point(x, y))</c>.
+    /// </summary>
+    private static string NormalizeAtFunction(string part)
+    {
+        var trimmed = part.TrimStart();
+        if (trimmed.StartsWith("at(", StringComparison.Ordinal) && trimmed.EndsWith(')'))
+            return "contains(bounds(), point(" + trimmed[3..^1] + "))";
+        return part;
     }
 
     // ── Logical operator splitter ────────────────────────────────────────────

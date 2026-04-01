@@ -678,4 +678,84 @@ public class XPathEngineValidationTests
     {
         Assert.Throws<ArgumentException>(() => XPathEngine.Validate(xpath));
     }
+
+    // ── frontmost:: axis ────────────────────────────────────────────────────
+
+    [TestCase("//Window//frontmost::Button[contains(bounds(), point(10, 50))]")]
+    [TestCase("//frontmost::Button")]
+    [TestCase("//frontmost::Button[@Name='OK']")]
+    [TestCase("/frontmost::Button")]
+    [TestCase("//Window/frontmost::Button[contains(bounds(), point(5, 5))]")]
+    public void ParseXPath_FrontmostAxis_DoesNotThrow(string xpath)
+    {
+        Assert.DoesNotThrow(() => XPathEngine.Validate(xpath));
+    }
+
+    [Test]
+    public void ParseXPath_FrontmostAxis_ParsesCorrectly()
+    {
+        var steps = XPathEngine.ParseXPath("//Window//frontmost::Button[@Name='OK']");
+        Assert.That(steps, Has.Count.EqualTo(2));
+        Assert.That(steps[0].Axis, Is.EqualTo(XPathAxis.Descendant));
+        Assert.That(steps[0].Type, Is.EqualTo("Window"));
+        Assert.That(steps[1].Axis, Is.EqualTo(XPathAxis.Frontmost));
+        Assert.That(steps[1].Type, Is.EqualTo("Button"));
+        Assert.That(steps[1].Predicates, Has.Count.EqualTo(1));
+        Assert.That(steps[1].Predicates[0].Attribute, Is.EqualTo("Name"));
+    }
+
+    [Test]
+    public void ParseXPath_FrontmostWithContains_ParsesCorrectly()
+    {
+        var steps = XPathEngine.ParseXPath("//frontmost::Button[contains(bounds(), point(10, 50))]");
+        Assert.That(steps, Has.Count.EqualTo(1));
+        Assert.That(steps[0].Axis, Is.EqualTo(XPathAxis.Frontmost));
+        Assert.That(steps[0].Type, Is.EqualTo("Button"));
+        Assert.That(steps[0].ContainsPredicates, Has.Count.EqualTo(1));
+        var cp = steps[0].ContainsPredicates![0] as ContainsBoundsPoint;
+        Assert.That(cp, Is.Not.Null);
+        Assert.That(cp!.X, Is.EqualTo(10));
+        Assert.That(cp.Y, Is.EqualTo(50));
+    }
+
+    [Test]
+    public void ParseXPath_FrontmostWithChildAxis_ParsesCorrectly()
+    {
+        var steps = XPathEngine.ParseXPath("/frontmost::Button");
+        Assert.That(steps, Has.Count.EqualTo(1));
+        Assert.That(steps[0].Axis, Is.EqualTo(XPathAxis.Frontmost));
+        Assert.That(steps[0].Type, Is.EqualTo("Button"));
+    }
+
+    // ── at(x, y) shorthand ─────────────────────────────────────────────────
+
+    [TestCase("//Button[at(10, 50)]")]
+    [TestCase("//frontmost::Button[at(10, 50)]")]
+    [TestCase("//Button[at(0.5, 100.25)]")]
+    [TestCase("//Button[at(10, 50) and @Name='OK']")]
+    public void ParseXPath_AtFunction_DoesNotThrow(string xpath)
+    {
+        Assert.DoesNotThrow(() => XPathEngine.Validate(xpath));
+    }
+
+    [Test]
+    public void ParseXPath_AtFunction_ParsesAsContainsBoundsPoint()
+    {
+        var steps = XPathEngine.ParseXPath("//Button[at(10, 50)]");
+        Assert.That(steps, Has.Count.EqualTo(1));
+        Assert.That(steps[0].ContainsPredicates, Has.Count.EqualTo(1));
+        var cp = steps[0].ContainsPredicates![0] as ContainsBoundsPoint;
+        Assert.That(cp, Is.Not.Null);
+        Assert.That(cp!.X, Is.EqualTo(10));
+        Assert.That(cp.Y, Is.EqualTo(50));
+    }
+
+    [Test]
+    public void ParseXPath_AtFunctionWithAnd_ParsesBoth()
+    {
+        var steps = XPathEngine.ParseXPath("//Button[at(5, 10) and @Name='OK']");
+        Assert.That(steps[0].ContainsPredicates, Has.Count.EqualTo(1));
+        Assert.That(steps[0].Predicates, Has.Count.EqualTo(1));
+        Assert.That(steps[0].Predicates[0].Attribute, Is.EqualTo("Name"));
+    }
 }

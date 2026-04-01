@@ -20,6 +20,7 @@ public partial class MainWindow : Window, ICommandOutput
     private DateTime _lastTabTime = DateTime.MinValue;
     private BitmapImage? _currentBitmap;
     private HighlightInfo? _currentHighlight;
+    private WindowDimensions? _windowDimensions;
     private Border? _lastFocusedBorder;
 
     public MainWindow()
@@ -224,7 +225,7 @@ public partial class MainWindow : Window, ICommandOutput
     void ICommandOutput.WriteError(string message) =>
         Dispatcher.Invoke(() => AppendLog($"ERROR: {message}"));
 
-    void ICommandOutput.ShowScreenshot(byte[] imageData, HighlightInfo? highlight)
+    void ICommandOutput.ShowScreenshot(byte[] imageData, HighlightInfo? highlight, WindowDimensions? windowDimensions)
     {
         Dispatcher.Invoke(() =>
         {
@@ -235,6 +236,9 @@ public partial class MainWindow : Window, ICommandOutput
             bitmap.EndInit();
             bitmap.Freeze();
             ScreenshotImage.Source = bitmap;
+
+            if (windowDimensions is not null)
+                _windowDimensions = windowDimensions;
 
             if (highlight is not null)
                 ShowHighlight(bitmap, highlight);
@@ -247,6 +251,7 @@ public partial class MainWindow : Window, ICommandOutput
         Dispatcher.Invoke(() =>
         {
             ScreenshotImage.Source = null;
+            _windowDimensions = null;
             HideHighlight();
         });
 
@@ -416,6 +421,57 @@ public partial class MainWindow : Window, ICommandOutput
     {
         _blinkTimer?.Stop();
         _blinkTimer = null;
+    }
+
+    private async void ScreenshotImage_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (_currentBitmap is null || _windowDimensions is null) return;
+
+        var containerWidth = ScreenshotContainer.ActualWidth;
+        var containerHeight = ScreenshotContainer.ActualHeight;
+        if (containerWidth <= 0 || containerHeight <= 0) return;
+
+        var bitmap = _currentBitmap;
+        var winDim = _windowDimensions;
+
+        // Reverse of PositionHighlight: WPF click point → window-relative logical coords
+        var scaleX = containerWidth / bitmap.PixelWidth;
+        var scaleY = containerHeight / bitmap.PixelHeight;
+        var scale = Math.Min(scaleX, scaleY);
+
+        var renderedWidth = bitmap.PixelWidth * scale;
+        var renderedHeight = bitmap.PixelHeight * scale;
+        var offsetX = (containerWidth - renderedWidth) / 2;
+        var offsetY = (containerHeight - renderedHeight) / 2;
+
+        var dpiScaleX = winDim.Width > 0 ? bitmap.PixelWidth / winDim.Width : 1.0;
+        var dpiScaleY = winDim.Height > 0 ? bitmap.PixelHeight / winDim.Height : 1.0;
+
+        var clickPos = e.GetPosition(ScreenshotContainer);
+        var winRelX = (clickPos.X - offsetX) / (dpiScaleX * scale);
+        var winRelY = (clickPos.Y - offsetY) / (dpiScaleY * scale);
+
+        // Ignore clicks outside the rendered image area
+        if (winRelX < 0 || winRelY < 0 || winRelX > winDim.Width || winRelY > winDim.Height)
+            return;
+
+        // Convert to screen-absolute coordinates (BoundingRectangle uses screen coords)
+        var screenX = winDim.X + winRelX;
+        var screenY = winDim.Y + winRelY;
+
+        var selector = FormattableString.Invariant($"//frontmost::*[at({screenX:F0}, {screenY:F0})]");
+        AppendLog($"> {selector}", bold: true);
+
+        CommandInput.IsEnabled = false;
+        try
+        {
+            await _executor.ExecuteAsync($"locate {selector}");
+        }
+        finally
+        {
+            CommandInput.IsEnabled = true;
+            CommandInput.Focus();
+        }
     }
 
     private static readonly SolidColorBrush InputBrush = Frozen(new(Color.FromRgb(0xFF, 0xFF, 0xFF)));

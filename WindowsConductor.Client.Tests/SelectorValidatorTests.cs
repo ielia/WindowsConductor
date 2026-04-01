@@ -178,6 +178,11 @@ public class SelectorValidatorTests
     [TestCase("//Button[contains(@Name, 'foo')]")]               // substring contains
     [TestCase("//Button[contains(text(), 'bar')]")]              // text() substring
     [TestCase("//*[contains(bounds(), point(0, 0)) and @Name='OK']")] // spatial with and
+    [TestCase("//frontmost::Button[contains(bounds(), point(10, 50))]")]  // frontmost axis
+    [TestCase("//Window//frontmost::Button[@Name='OK']")]                 // frontmost in multi-step
+    [TestCase("/frontmost::Button")]                                      // frontmost with child axis
+    [TestCase("//Button[at(10, 50)]")]                                    // at() shorthand
+    [TestCase("//frontmost::Button[at(10, 50)]")]                         // at() with frontmost
     public void Validate_ValidSelector_DoesNotThrow(string selector)
     {
         Assert.DoesNotThrow(() => SelectorValidator.Validate(selector));
