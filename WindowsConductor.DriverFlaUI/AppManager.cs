@@ -142,10 +142,11 @@ public sealed class AppManager : IAppOperations, IDisposable
     {
         var root = rootElementId != null ? GetElement(rootElementId) : GetAppRoot(appId);
         var point = new System.Drawing.Point((int)x, (int)y);
-        var element = root.FindAllDescendants()
+        var candidates = root.FindAllDescendants()
             .Where(el => el.BoundingRectangle.Contains(point))
-            .OrderBy(el => (long)el.BoundingRectangle.Width * el.BoundingRectangle.Height)
-            .FirstOrDefault()
+            .ToHashSet();
+        var element = candidates
+            .FirstOrDefault(el => !el.FindAllChildren().Any(candidates.Contains))
             ?? throw new InvalidOperationException(
                 $"No element found at point ({x}, {y}).");
         return CacheElement(element);
