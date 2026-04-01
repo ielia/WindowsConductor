@@ -32,6 +32,9 @@ public sealed class WcRequest
     public int GetInt(string key, int fallback = 0) =>
         Params.TryGetValue(key, out var v) && v.ValueKind == JsonValueKind.Number ? v.GetInt32() : fallback;
 
+    public double GetDouble(string key, double fallback = 0) =>
+        Params.TryGetValue(key, out var v) && v.ValueKind == JsonValueKind.Number ? v.GetDouble() : fallback;
+
     public bool GetBool(string key, bool fallback = false) =>
         Params.TryGetValue(key, out var v) && v.ValueKind is JsonValueKind.True or JsonValueKind.False ? v.GetBoolean() : fallback;
 }

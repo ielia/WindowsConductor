@@ -94,6 +94,38 @@ public class WcAppTests
         Assert.That(loc.ToString(), Does.Contain("a\\]b"));
     }
 
+    // ── GetAtAsync ─────────────────────────────────────────────────────────
+
+    [Test]
+    public async Task GetAtAsync_SendsFindElementsAtPoint()
+    {
+        var transport = new FakeTransport();
+        transport.Enqueue(new[] { "el-1", "el-2" });
+        var app = new WcApp("app1", transport);
+
+        var elements = await app.GetAtAsync(50.5, 100.0);
+
+        Assert.That(elements, Has.Count.EqualTo(2));
+        Assert.That(elements[0].ElementId, Is.EqualTo("el-1"));
+        Assert.That(elements[1].ElementId, Is.EqualTo("el-2"));
+        Assert.That(transport.Calls[0].Command, Is.EqualTo("findElementsAtPoint"));
+        Assert.That(transport.Calls[0].ParamsJson, Does.Contain("\"appId\":\"app1\""));
+        Assert.That(transport.Calls[0].ParamsJson, Does.Contain("\"x\":50.5"));
+        Assert.That(transport.Calls[0].ParamsJson, Does.Contain("\"y\":100"));
+    }
+
+    [Test]
+    public async Task GetAtAsync_EmptyResult_ReturnsEmptyList()
+    {
+        var transport = new FakeTransport();
+        transport.Enqueue(Array.Empty<string>());
+        var app = new WcApp("app1", transport);
+
+        var elements = await app.GetAtAsync(0, 0);
+
+        Assert.That(elements, Is.Empty);
+    }
+
     // ── Internal properties ──────────────────────────────────────────────────
 
     [Test]

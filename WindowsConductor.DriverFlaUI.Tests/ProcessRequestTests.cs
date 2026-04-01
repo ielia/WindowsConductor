@@ -82,6 +82,10 @@ internal sealed class FakeAppOperations : IAppOperations
 
     public string StopRecording(string appId) { Record("StopRecording", appId); return StopRecordingResult; }
 
+    public string[] FindElementsAtPointResult { get; set; } = { "el-p1", "el-p2" };
+    public string[] FindElementsAtPoint(string appId, double x, double y, string? rootElementId = null)
+    { Record("FindElementsAtPoint", appId, x, y, rootElementId); return FindElementsAtPointResult; }
+
     public string WaitForElementResult { get; set; } = "el-wait-1";
     public string[] WaitForElementsResult { get; set; } = { "el-w1", "el-w2" };
 
@@ -242,6 +246,44 @@ public class ProcessRequestTests
 
         Assert.That(resp.Success, Is.True);
         Assert.That(resp.Result, Is.EqualTo(new[] { "el-1", "el-2" }));
+    }
+
+    // ── findElementsAtPoint ──────────────────────────────────────────────────
+
+    [Test]
+    public void FindElementsAtPoint_ReturnsArray()
+    {
+        var resp = WsServer.ProcessRequest(_fake, MakeRequest("findElementsAtPoint", new()
+        {
+            ["appId"] = "a1",
+            ["x"] = 50.5,
+            ["y"] = 100.0,
+            ["rootElementId"] = ""
+        }));
+
+        Assert.That(resp.Success, Is.True);
+        Assert.That(resp.Result, Is.EqualTo(new[] { "el-p1", "el-p2" }));
+        var call = _fake.Calls.Single(c => c.Method == "FindElementsAtPoint");
+        Assert.That(call.Args[0], Is.EqualTo("a1"));
+        Assert.That(call.Args[1], Is.EqualTo(50.5));
+        Assert.That(call.Args[2], Is.EqualTo(100.0));
+        Assert.That(call.Args[3], Is.Null);
+    }
+
+    [Test]
+    public void FindElementsAtPoint_WithRootElementId_PassesIt()
+    {
+        var resp = WsServer.ProcessRequest(_fake, MakeRequest("findElementsAtPoint", new()
+        {
+            ["appId"] = "a1",
+            ["x"] = 10.0,
+            ["y"] = 20.0,
+            ["rootElementId"] = "root-el"
+        }));
+
+        Assert.That(resp.Success, Is.True);
+        var call = _fake.Calls.Single(c => c.Method == "FindElementsAtPoint");
+        Assert.That(call.Args[3], Is.EqualTo("root-el"));
     }
 
     // ── click ────────────────────────────────────────────────────────────────

@@ -277,6 +277,25 @@ public class WcLocatorAsyncTests
         Assert.That(_transport.Calls[3].Command, Is.EqualTo("click"));
     }
 
+    // ── GetAtAsync ──────────────────────────────────────────────────────────
+
+    [Test]
+    public async Task GetAtAsync_ResolvesParentThenFindsAtPoint()
+    {
+        _transport.Enqueue("parent-el");          // parent locator resolves
+        _transport.Enqueue(new[] { "el-a", "el-b" }); // findElementsAtPoint result
+        var parent = MakeLocator("type=Panel");
+        var elements = await parent.GetAtAsync(75.0, 150.0);
+
+        Assert.That(elements, Has.Count.EqualTo(2));
+        Assert.That(elements[0].ElementId, Is.EqualTo("el-a"));
+        Assert.That(_transport.Calls[0].Command, Is.EqualTo("findElement"));
+        Assert.That(_transport.Calls[1].Command, Is.EqualTo("findElementsAtPoint"));
+        Assert.That(_transport.Calls[1].ParamsJson, Does.Contain("\"rootElementId\":\"parent-el\""));
+        Assert.That(_transport.Calls[1].ParamsJson, Does.Contain("\"x\":75"));
+        Assert.That(_transport.Calls[1].ParamsJson, Does.Contain("\"y\":150"));
+    }
+
     // ── WaitForVisible ──────────────────────────────────────────────────────
 
     [Test]

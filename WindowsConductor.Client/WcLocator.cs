@@ -63,6 +63,20 @@ public sealed class WcLocator
     /// <summary>Returns a locator that resolves to the parent of this locator's match.</summary>
     public WcLocator Parent() => Locator("/..");
 
+    /// <summary>Returns all elements whose bounding rectangles contain the given point, scoped within this locator's match.</summary>
+    public async Task<IReadOnlyList<WcElement>> GetAtAsync(double x, double y, CancellationToken ct = default)
+    {
+        var el = await GetElementAsync(ct);
+        var result = await _conn.SendAsync(
+            "findElementsAtPoint",
+            new { appId = _appId, x, y, rootElementId = el.ElementId },
+            ct);
+
+        return result.EnumerateArray()
+            .Select(e => new WcElement(e.GetString()!, _conn, _appId))
+            .ToList();
+    }
+
     // ── Element resolution ───────────────────────────────────────────────────
 
     /// <summary>Resolves and returns the first matching element.</summary>

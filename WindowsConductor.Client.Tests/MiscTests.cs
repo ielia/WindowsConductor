@@ -62,6 +62,31 @@ public class BoundingRectTests
         var b = new BoundingRect(1, 2, 3, 4);
         Assert.That(a.GetHashCode(), Is.EqualTo(b.GetHashCode()));
     }
+
+    [Test]
+    public void Contains_PointInside_ReturnsTrue()
+    {
+        var r = new BoundingRect(10, 20, 100, 50);
+        Assert.That(r.Contains(50, 40), Is.True);
+    }
+
+    [Test]
+    public void Contains_PointOnEdge_ReturnsTrue()
+    {
+        var r = new BoundingRect(10, 20, 100, 50);
+        Assert.That(r.Contains(10, 20), Is.True);
+        Assert.That(r.Contains(110, 70), Is.True);
+    }
+
+    [Test]
+    public void Contains_PointOutside_ReturnsFalse()
+    {
+        var r = new BoundingRect(10, 20, 100, 50);
+        Assert.That(r.Contains(5, 40), Is.False);
+        Assert.That(r.Contains(50, 15), Is.False);
+        Assert.That(r.Contains(111, 40), Is.False);
+        Assert.That(r.Contains(50, 71), Is.False);
+    }
 }
 
 [TestFixture]

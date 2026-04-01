@@ -57,6 +57,19 @@ public sealed class WcApp : IAsyncDisposable
     public WcLocator GetByControlType(string controlType) =>
         Locator($"type={controlType}");
 
+    /// <summary>Returns all elements whose bounding rectangles contain the given point.</summary>
+    public async Task<IReadOnlyList<WcElement>> GetAtAsync(double x, double y, CancellationToken ct = default)
+    {
+        var result = await Connection.SendAsync(
+            "findElementsAtPoint",
+            new { appId = AppId, x, y },
+            ct);
+
+        return result.EnumerateArray()
+            .Select(e => new WcElement(e.GetString()!, Connection, AppId))
+            .ToList();
+    }
+
     // ── Window-level queries ─────────────────────────────────────────────────
 
     /// <summary>Returns the title of the application's main window.</summary>

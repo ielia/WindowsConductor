@@ -122,4 +122,8 @@ public sealed class WcElement
 /// <param name="Y">Top edge in screen pixels.</param>
 /// <param name="Width">Element width in pixels.</param>
 /// <param name="Height">Element height in pixels.</param>
-public sealed record BoundingRect(double X, double Y, double Width, double Height);
+public sealed record BoundingRect(double X, double Y, double Width, double Height)
+{
+    public bool Contains(double pointX, double pointY) =>
+        pointX >= X && pointX <= X + Width && pointY >= Y && pointY <= Y + Height;
+}

@@ -128,6 +128,16 @@ public sealed class AppManager : IAppOperations, IDisposable
             .ToArray();
     }
 
+    public string[] FindElementsAtPoint(string appId, double x, double y, string? rootElementId = null)
+    {
+        var root = rootElementId != null ? GetElement(rootElementId) : GetAppRoot(appId);
+        var point = new System.Drawing.Point((int)x, (int)y);
+        return root.FindAllDescendants()
+            .Where(el => el.BoundingRectangle.Contains(point))
+            .Select(CacheElement)
+            .ToArray();
+    }
+
     // ── Wait operations ──────────────────────────────────────────────────────
 
     public string WaitForElement(string appId, string selector, string? rootElementId, uint timeout)
