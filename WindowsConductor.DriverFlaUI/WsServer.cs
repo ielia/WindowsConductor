@@ -184,6 +184,17 @@ public sealed class WsServer
                         return WcResponse.Ok(req.Id, ids);
                     }
 
+                case "findFrontElementAtPoint":
+                    {
+                        var rootElId = req.GetString("rootElementId");
+                        var elementId = mgr.FindFrontElementAtPoint(
+                            req.GetString("appId"),
+                            req.GetDouble("x"),
+                            req.GetDouble("y"),
+                            string.IsNullOrEmpty(rootElId) ? null : rootElId);
+                        return WcResponse.Ok(req.Id, elementId);
+                    }
+
                 case "waitForElement":
                     {
                         var rootElId = req.GetString("rootElementId");

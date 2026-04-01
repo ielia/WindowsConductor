@@ -77,6 +77,18 @@ public sealed class WcLocator
             .ToList();
     }
 
+    /// <summary>Returns the front-most (smallest) element at the given point, scoped within this locator's match.</summary>
+    public async Task<WcElement> GetFrontAtAsync(double x, double y, CancellationToken ct = default)
+    {
+        var el = await GetElementAsync(ct);
+        var result = await _conn.SendAsync(
+            "findFrontElementAtPoint",
+            new { appId = _appId, x, y, rootElementId = el.ElementId },
+            ct);
+
+        return new WcElement(result.GetString()!, _conn, _appId);
+    }
+
     // ── Element resolution ───────────────────────────────────────────────────
 
     /// <summary>Resolves and returns the first matching element.</summary>

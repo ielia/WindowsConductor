@@ -138,6 +138,19 @@ public sealed class AppManager : IAppOperations, IDisposable
             .ToArray();
     }
 
+    public string FindFrontElementAtPoint(string appId, double x, double y, string? rootElementId = null)
+    {
+        var root = rootElementId != null ? GetElement(rootElementId) : GetAppRoot(appId);
+        var point = new System.Drawing.Point((int)x, (int)y);
+        var element = root.FindAllDescendants()
+            .Where(el => el.BoundingRectangle.Contains(point))
+            .OrderBy(el => (long)el.BoundingRectangle.Width * el.BoundingRectangle.Height)
+            .FirstOrDefault()
+            ?? throw new InvalidOperationException(
+                $"No element found at point ({x}, {y}).");
+        return CacheElement(element);
+    }
+
     // ── Wait operations ──────────────────────────────────────────────────────
 
     public string WaitForElement(string appId, string selector, string? rootElementId, uint timeout)

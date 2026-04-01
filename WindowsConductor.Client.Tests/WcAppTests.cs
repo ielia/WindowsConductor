@@ -126,6 +126,23 @@ public class WcAppTests
         Assert.That(elements, Is.Empty);
     }
 
+    // ── GetFrontAtAsync ───────────────────────────────────────────────────────
+
+    [Test]
+    public async Task GetFrontAtAsync_SendsFindFrontElementAtPoint()
+    {
+        var transport = new FakeTransport();
+        transport.Enqueue("el-front");
+        var app = new WcApp("app1", transport);
+
+        var element = await app.GetFrontAtAsync(50.5, 100.0);
+
+        Assert.That(element.ElementId, Is.EqualTo("el-front"));
+        Assert.That(transport.Calls[0].Command, Is.EqualTo("findFrontElementAtPoint"));
+        Assert.That(transport.Calls[0].ParamsJson, Does.Contain("\"x\":50.5"));
+        Assert.That(transport.Calls[0].ParamsJson, Does.Contain("\"y\":100"));
+    }
+
     // ── Internal properties ──────────────────────────────────────────────────
 
     [Test]

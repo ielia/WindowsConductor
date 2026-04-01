@@ -70,6 +70,17 @@ public sealed class WcApp : IAsyncDisposable
             .ToList();
     }
 
+    /// <summary>Returns the front-most (smallest) element whose bounding rectangle contains the given point.</summary>
+    public async Task<WcElement> GetFrontAtAsync(double x, double y, CancellationToken ct = default)
+    {
+        var result = await Connection.SendAsync(
+            "findFrontElementAtPoint",
+            new { appId = AppId, x, y },
+            ct);
+
+        return new WcElement(result.GetString()!, Connection, AppId);
+    }
+
     // ── Window-level queries ─────────────────────────────────────────────────
 
     /// <summary>Returns the title of the application's main window.</summary>

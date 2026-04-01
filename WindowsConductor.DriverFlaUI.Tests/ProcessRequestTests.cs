@@ -86,6 +86,10 @@ internal sealed class FakeAppOperations : IAppOperations
     public string[] FindElementsAtPoint(string appId, double x, double y, string? rootElementId = null)
     { Record("FindElementsAtPoint", appId, x, y, rootElementId); return FindElementsAtPointResult; }
 
+    public string FindFrontElementAtPointResult { get; set; } = "el-front";
+    public string FindFrontElementAtPoint(string appId, double x, double y, string? rootElementId = null)
+    { Record("FindFrontElementAtPoint", appId, x, y, rootElementId); return FindFrontElementAtPointResult; }
+
     public string WaitForElementResult { get; set; } = "el-wait-1";
     public string[] WaitForElementsResult { get; set; } = { "el-w1", "el-w2" };
 
@@ -284,6 +288,28 @@ public class ProcessRequestTests
         Assert.That(resp.Success, Is.True);
         var call = _fake.Calls.Single(c => c.Method == "FindElementsAtPoint");
         Assert.That(call.Args[3], Is.EqualTo("root-el"));
+    }
+
+    // ── findFrontElementAtPoint ─────────────────────────────────────────────
+
+    [Test]
+    public void FindFrontElementAtPoint_ReturnsSingleElement()
+    {
+        var resp = WsServer.ProcessRequest(_fake, MakeRequest("findFrontElementAtPoint", new()
+        {
+            ["appId"] = "a1",
+            ["x"] = 50.5,
+            ["y"] = 100.0,
+            ["rootElementId"] = ""
+        }));
+
+        Assert.That(resp.Success, Is.True);
+        Assert.That(resp.Result, Is.EqualTo("el-front"));
+        var call = _fake.Calls.Single(c => c.Method == "FindFrontElementAtPoint");
+        Assert.That(call.Args[0], Is.EqualTo("a1"));
+        Assert.That(call.Args[1], Is.EqualTo(50.5));
+        Assert.That(call.Args[2], Is.EqualTo(100.0));
+        Assert.That(call.Args[3], Is.Null);
     }
 
     // ── click ────────────────────────────────────────────────────────────────

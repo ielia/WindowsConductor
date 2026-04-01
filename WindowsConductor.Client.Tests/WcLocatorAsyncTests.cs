@@ -296,6 +296,22 @@ public class WcLocatorAsyncTests
         Assert.That(_transport.Calls[1].ParamsJson, Does.Contain("\"y\":150"));
     }
 
+    // ── GetFrontAtAsync ──────────────────────────────────────────────────────
+
+    [Test]
+    public async Task GetFrontAtAsync_ResolvesParentThenFindsFront()
+    {
+        _transport.Enqueue("parent-el");
+        _transport.Enqueue("el-front");
+        var parent = MakeLocator("type=Panel");
+        var element = await parent.GetFrontAtAsync(75.0, 150.0);
+
+        Assert.That(element.ElementId, Is.EqualTo("el-front"));
+        Assert.That(_transport.Calls[0].Command, Is.EqualTo("findElement"));
+        Assert.That(_transport.Calls[1].Command, Is.EqualTo("findFrontElementAtPoint"));
+        Assert.That(_transport.Calls[1].ParamsJson, Does.Contain("\"rootElementId\":\"parent-el\""));
+    }
+
     // ── WaitForVisible ──────────────────────────────────────────────────────
 
     [Test]
