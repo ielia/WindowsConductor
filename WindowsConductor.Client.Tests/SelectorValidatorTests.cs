@@ -174,6 +174,10 @@ public class SelectorValidatorTests
     [TestCase("//Window[text()$='- Microsoft Edge']")]             // text() ends with
     [TestCase("//Window[text()^='Calc']")]                         // text() starts with
     [TestCase("//Window[text()*='Edge']")]                         // text() contains
+    [TestCase("//Button[contains(bounds(), point(10, 50))]")]    // spatial contains
+    [TestCase("//Button[contains(@Name, 'foo')]")]               // substring contains
+    [TestCase("//Button[contains(text(), 'bar')]")]              // text() substring
+    [TestCase("//*[contains(bounds(), point(0, 0)) and @Name='OK']")] // spatial with and
     public void Validate_ValidSelector_DoesNotThrow(string selector)
     {
         Assert.DoesNotThrow(() => SelectorValidator.Validate(selector));

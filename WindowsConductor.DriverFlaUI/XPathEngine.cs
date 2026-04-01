@@ -21,17 +21,28 @@ public sealed record XPathPredicate(
     AttributeMatchMode MatchMode = AttributeMatchMode.Exact,
     IReadOnlyList<ConcatArg>? ConcatArgs = null);
 
+/// <summary>A predicate using the <c>contains()</c> function.</summary>
+public abstract record ContainsPredicate;
+
+/// <summary><c>contains(bounds(), point(x, y))</c> — spatial containment check.</summary>
+public sealed record ContainsBoundsPoint(double X, double Y) : ContainsPredicate;
+
+/// <summary><c>contains(haystack, needle)</c> — substring check where each arg is an attribute reference or string literal.</summary>
+public sealed record ContainsSubstring(string Haystack, string Needle, bool HaystackIsAttr, bool NeedleIsAttr) : ContainsPredicate;
+
 /// <summary>One step of an XPath expression: axis + element type + predicates + optional 1-based positional index.</summary>
 /// <param name="Index">Result-set index from <c>[N]</c> — selects the Nth overall match.</param>
 /// <param name="FunctionPredicates">Expressions containing <c>position()</c>, <c>last()</c>, or <c>string-length()</c> that must all evaluate to truthy.</param>
 /// <param name="OrPredicateGroups">Predicate groups joined by <c>or</c> — for each group, at least one predicate must match.</param>
+/// <param name="ContainsPredicates"><c>contains()</c> function predicates — spatial or substring checks.</param>
 public sealed record XPathStep(
     XPathAxis Axis,
     string Type,
     IReadOnlyList<XPathPredicate> Predicates,
     int? Index = null,
     IReadOnlyList<string>? FunctionPredicates = null,
-    IReadOnlyList<IReadOnlyList<XPathPredicate>>? OrPredicateGroups = null);
+    IReadOnlyList<IReadOnlyList<XPathPredicate>>? OrPredicateGroups = null,
+    IReadOnlyList<ContainsPredicate>? ContainsPredicates = null);
 
 // ── Engine ───────────────────────────────────────────────────────────────────
 
@@ -96,7 +107,7 @@ public sealed class XPathEngine
             foreach (var el in candidates)
             {
                 Func<string, string?> getProp = k => ElementProperties.Resolve(el, k);
-                if (MatchesStep(step, getProp) && MatchesFunctionPredicates(el, step))
+                if (MatchesStep(step, getProp) && MatchesFunctionPredicates(el, step) && MatchesContainsPredicates(el, step, getProp))
                     results.Add(el);
             }
         }
@@ -145,6 +156,32 @@ public sealed class XPathEngine
         {
             if (!XPathExprEvaluator.Evaluate(expr, position, lastCount, getProp))
                 return false;
+        }
+
+        return true;
+    }
+
+    private static bool MatchesContainsPredicates(
+        AutomationElement element, XPathStep step, Func<string, string?> getProperty)
+    {
+        if (step.ContainsPredicates is not { Count: > 0 }) return true;
+
+        foreach (var cp in step.ContainsPredicates)
+        {
+            switch (cp)
+            {
+                case ContainsBoundsPoint bp:
+                    var rect = element.BoundingRectangle;
+                    if (!rect.Contains(new System.Drawing.Point((int)bp.X, (int)bp.Y)))
+                        return false;
+                    break;
+                case ContainsSubstring cs:
+                    var haystack = cs.HaystackIsAttr ? getProperty(cs.Haystack.ToLowerInvariant()) ?? "" : cs.Haystack;
+                    var needle = cs.NeedleIsAttr ? getProperty(cs.Needle.ToLowerInvariant()) ?? "" : cs.Needle;
+                    if (!haystack.Contains(needle, StringComparison.InvariantCultureIgnoreCase))
+                        return false;
+                    break;
+            }
         }
 
         return true;
@@ -277,6 +314,7 @@ public sealed class XPathEngine
             int? index = null;
             List<string>? functionPredicates = null;
             List<IReadOnlyList<XPathPredicate>>? orGroups = null;
+            List<ContainsPredicate>? containsPredicates = null;
 
             while (pos < len && xpath[pos] == '[')
             {
@@ -322,11 +360,14 @@ public sealed class XPathEngine
                     // Classify parts
                     var attrParts = new List<XPathPredicate>();
                     var funcParts = new List<string>();
+                    var containsParts = new List<ContainsPredicate>();
 
                     foreach (var rawPart in parts)
                     {
                         var part = NormalizeTextFunction(rawPart);
-                        if (XPathExprEvaluator.IsFunctionExpression(part))
+                        if (part.TrimStart().StartsWith("contains(", StringComparison.Ordinal))
+                            containsParts.Add(ParseContainsPredicate(part.Trim(), xpath));
+                        else if (XPathExprEvaluator.IsFunctionExpression(part))
                             funcParts.Add(part);
                         else if (part.TrimStart().StartsWith('@'))
                             attrParts.Add(ParseAttributePredicate(part, xpath));
@@ -344,6 +385,11 @@ public sealed class XPathEngine
                             XPathExprEvaluator.Validate(fp);
                             functionPredicates ??= [];
                             functionPredicates.Add(fp.Trim());
+                        }
+                        if (containsParts.Count > 0)
+                        {
+                            containsPredicates ??= [];
+                            containsPredicates.AddRange(containsParts);
                         }
                     }
                     else // "or"
@@ -380,6 +426,13 @@ public sealed class XPathEngine
                     continue;
                 }
 
+                if (trimmed.StartsWith("contains(", StringComparison.Ordinal))
+                {
+                    containsPredicates ??= [];
+                    containsPredicates.Add(ParseContainsPredicate(trimmed, xpath));
+                    continue;
+                }
+
                 if (trimmed.StartsWith('@'))
                 {
                     predicates.Add(ParseAttributePredicate(trimmed, xpath));
@@ -398,7 +451,8 @@ public sealed class XPathEngine
                 predicates,
                 index,
                 functionPredicates,
-                orGroups));
+                orGroups,
+                containsPredicates));
         }
 
         if (steps.Count == 0)
@@ -475,6 +529,74 @@ public sealed class XPathEngine
         throw new ArgumentException(
             $"Invalid value syntax in predicate '{content}' in XPath expression: '{xpath}'.",
             nameof(xpath));
+    }
+
+    private static ContainsPredicate ParseContainsPredicate(string content, string xpath)
+    {
+        // content = "contains(bounds(), point(10, 50))" or "contains(@Name, 'foo')"
+        if (!content.EndsWith(')'))
+            throw new ArgumentException(
+                $"Malformed contains() predicate in XPath expression: '{xpath}'", nameof(xpath));
+
+        string inner = content[9..^1]; // strip "contains(" and ")"
+        var args = SplitContainsArgs(inner);
+        if (args.Count != 2)
+            throw new ArgumentException(
+                $"contains() requires exactly 2 arguments in XPath expression: '{xpath}'", nameof(xpath));
+
+        string arg1 = args[0].Trim();
+        string arg2 = args[1].Trim();
+
+        // Spatial: contains(bounds(), point(x, y))
+        if (string.Equals(arg1, "bounds()", StringComparison.OrdinalIgnoreCase)
+            && arg2.StartsWith("point(", StringComparison.OrdinalIgnoreCase) && arg2.EndsWith(')'))
+        {
+            string pointArgs = arg2[6..^1];
+            var coords = pointArgs.Split(',', StringSplitOptions.TrimEntries);
+            if (coords.Length != 2
+                || !double.TryParse(coords[0], System.Globalization.CultureInfo.InvariantCulture, out double x)
+                || !double.TryParse(coords[1], System.Globalization.CultureInfo.InvariantCulture, out double y))
+                throw new ArgumentException(
+                    $"Invalid point() arguments in XPath expression: '{xpath}'", nameof(xpath));
+            return new ContainsBoundsPoint(x, y);
+        }
+
+        // String: contains(@attr, 'value') / contains('literal', @attr) / etc.
+        var (haystack, haystackIsAttr) = ParseContainsStringArg(arg1, xpath);
+        var (needle, needleIsAttr) = ParseContainsStringArg(arg2, xpath);
+        return new ContainsSubstring(haystack, needle, haystackIsAttr, needleIsAttr);
+    }
+
+    private static (string Value, bool IsAttr) ParseContainsStringArg(string arg, string xpath)
+    {
+        if (arg.StartsWith('@'))
+            return (arg[1..], true);
+        if (arg.StartsWith("text()", StringComparison.Ordinal))
+            return ("name", true);
+        if ((arg.StartsWith('\'') && arg.EndsWith('\'')) || (arg.StartsWith('"') && arg.EndsWith('"')))
+            return (arg[1..^1], false);
+        throw new ArgumentException(
+            $"Invalid contains() argument '{arg}' in XPath expression: '{xpath}'", nameof(xpath));
+    }
+
+    private static List<string> SplitContainsArgs(string inner)
+    {
+        var args = new List<string>();
+        int depth = 0;
+        int start = 0;
+        for (int i = 0; i < inner.Length; i++)
+        {
+            char c = inner[i];
+            if (c == '(') depth++;
+            else if (c == ')') depth--;
+            else if (c == ',' && depth == 0)
+            {
+                args.Add(inner[start..i]);
+                start = i + 1;
+            }
+        }
+        args.Add(inner[start..]);
+        return args;
     }
 
     private static List<ConcatArg> ParseConcatArgs(string argsStr, string xpath)

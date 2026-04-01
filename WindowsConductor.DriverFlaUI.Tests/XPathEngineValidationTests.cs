@@ -612,4 +612,70 @@ public class XPathEngineValidationTests
     {
         Assert.DoesNotThrow(() => XPathEngine.Validate(xpath));
     }
+
+    // ── contains(bounds(), point()) ──────────────────────────────────────────
+
+    [TestCase("//Button[contains(bounds(), point(10, 50))]")]
+    [TestCase("//*[contains(bounds(), point(0.5, 100.25))]")]
+    [TestCase("//Button[contains(bounds(), point(10, 50)) and @Name='OK']")]
+    [TestCase("//Button[contains(@Name, 'foo')]")]
+    [TestCase("//Button[contains(text(), 'bar')]")]
+    [TestCase("//Button[contains('hello world', 'world')]")]
+    public void ParseXPath_ContainsPredicate_DoesNotThrow(string xpath)
+    {
+        Assert.DoesNotThrow(() => XPathEngine.Validate(xpath));
+    }
+
+    [Test]
+    public void ParseXPath_ContainsBoundsPoint_ParsesCorrectly()
+    {
+        var steps = XPathEngine.ParseXPath("//Button[contains(bounds(), point(10, 50))]");
+        Assert.That(steps, Has.Count.EqualTo(1));
+        Assert.That(steps[0].ContainsPredicates, Has.Count.EqualTo(1));
+        var cp = steps[0].ContainsPredicates![0] as ContainsBoundsPoint;
+        Assert.That(cp, Is.Not.Null);
+        Assert.That(cp!.X, Is.EqualTo(10));
+        Assert.That(cp.Y, Is.EqualTo(50));
+    }
+
+    [Test]
+    public void ParseXPath_ContainsSubstring_ParsesCorrectly()
+    {
+        var steps = XPathEngine.ParseXPath("//Button[contains(@Name, 'foo')]");
+        Assert.That(steps, Has.Count.EqualTo(1));
+        Assert.That(steps[0].ContainsPredicates, Has.Count.EqualTo(1));
+        var cp = steps[0].ContainsPredicates![0] as ContainsSubstring;
+        Assert.That(cp, Is.Not.Null);
+        Assert.That(cp!.Haystack, Is.EqualTo("Name"));
+        Assert.That(cp.HaystackIsAttr, Is.True);
+        Assert.That(cp.Needle, Is.EqualTo("foo"));
+        Assert.That(cp.NeedleIsAttr, Is.False);
+    }
+
+    [Test]
+    public void ParseXPath_ContainsWithTextFunction_ParsesAsName()
+    {
+        var steps = XPathEngine.ParseXPath("//Button[contains(text(), 'bar')]");
+        var cp = steps[0].ContainsPredicates![0] as ContainsSubstring;
+        Assert.That(cp!.Haystack, Is.EqualTo("name"));
+        Assert.That(cp.HaystackIsAttr, Is.True);
+    }
+
+    [Test]
+    public void ParseXPath_ContainsBoundsPointWithAnd_ParsesBoth()
+    {
+        var steps = XPathEngine.ParseXPath("//Button[contains(bounds(), point(5, 10)) and @Name='OK']");
+        Assert.That(steps[0].ContainsPredicates, Has.Count.EqualTo(1));
+        Assert.That(steps[0].Predicates, Has.Count.EqualTo(1));
+        Assert.That(steps[0].Predicates[0].Attribute, Is.EqualTo("Name"));
+    }
+
+    [TestCase("//Button[contains()]")]
+    [TestCase("//Button[contains(bounds())]")]
+    [TestCase("//Button[contains(bounds(), point())]")]
+    [TestCase("//Button[contains(bounds(), point(10))]")]
+    public void ParseXPath_MalformedContains_Throws(string xpath)
+    {
+        Assert.Throws<ArgumentException>(() => XPathEngine.Validate(xpath));
+    }
 }
