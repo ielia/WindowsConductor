@@ -15,15 +15,17 @@ public sealed class WsServer
 {
     private readonly HttpListener _listener = new();
     private readonly bool _confineToApp;
+    private readonly string? _ffmpegPath;
     private readonly JsonSerializerOptions _jsonOpts = new()
     {
         PropertyNameCaseInsensitive = true,
         WriteIndented = false
     };
 
-    public WsServer(string prefix = WcDefaults.HttpPrefix, bool confineToApp = false)
+    public WsServer(string prefix = WcDefaults.HttpPrefix, bool confineToApp = false, string? ffmpegPath = null)
     {
         _confineToApp = confineToApp;
+        _ffmpegPath = ffmpegPath;
         _listener.Prefixes.Add(prefix);
     }
 
@@ -66,7 +68,7 @@ public sealed class WsServer
 
     private async Task HandleClientAsync(WebSocket ws, CancellationToken ct)
     {
-        using var appManager = new AppManager(confineToApp: _confineToApp);
+        using var appManager = new AppManager(confineToApp: _confineToApp, ffmpegPath: _ffmpegPath);
         var buffer = new byte[256 * 1024];
         Console.WriteLine($"[+] Client connected ({ws.GetHashCode()})");
 
@@ -291,7 +293,7 @@ public sealed class WsServer
                         mgr.ScreenshotApp(req.GetString("appId")));
 
                 case "startRecording":
-                    mgr.StartRecording(req.GetString("appId"), req.GetString("ffmpegPath"));
+                    mgr.StartRecording(req.GetString("appId"));
                     return WcResponse.Ok(req.Id);
 
                 case "stopRecording":

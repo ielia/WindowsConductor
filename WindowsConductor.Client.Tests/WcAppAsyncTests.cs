@@ -69,17 +69,10 @@ public class WcAppAsyncTests
     [Test]
     public async Task StartRecordingAsync_SendsCommand()
     {
-        await _app.StartRecordingAsync("/usr/bin/ffmpeg");
-        Assert.That(_transport.Calls[0].Command, Is.EqualTo("startRecording"));
-        Assert.That(_transport.Calls[0].ParamsJson, Does.Contain("\"ffmpegPath\":\"/usr/bin/ffmpeg\""));
-        Assert.That(_transport.Calls[0].ParamsJson, Does.Not.Contain("\"path\""));
-    }
-
-    [Test]
-    public async Task StartRecordingAsync_NullArgs_SendsEmptyFfmpegPath()
-    {
         await _app.StartRecordingAsync();
-        Assert.That(_transport.Calls[0].ParamsJson, Does.Contain("\"ffmpegPath\":\"\""));
+        Assert.That(_transport.Calls[0].Command, Is.EqualTo("startRecording"));
+        Assert.That(_transport.Calls[0].ParamsJson, Does.Contain("\"appId\""));
+        Assert.That(_transport.Calls[0].ParamsJson, Does.Not.Contain("\"ffmpegPath\""));
     }
 
     // ── StopRecordingAsync ───────────────────────────────────────────────────

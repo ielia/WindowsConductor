@@ -13,6 +13,9 @@ dotnet run --project WindowsConductor.DriverFlaUI -- "http://localhost:9000/"
 
 # Restrict navigation to the launched/attached application's process
 dotnet run --project WindowsConductor.DriverFlaUI -- --confine-to-app
+
+# Specify the path to ffmpeg (overrides FFMPEG_PATH env var)
+dotnet run --project WindowsConductor.DriverFlaUI -- --ffmpeg-path "C:\tools\ffmpeg.exe"
 ```
 
 Or use the convenience scripts at the repository root: `run-driver.bat`, `run-driver.ps1`, `run-driver.sh`.

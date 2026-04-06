@@ -80,8 +80,8 @@ internal sealed class FakeAppOperations : IAppOperations
     public byte[] ScreenshotApp(string appId)
     { Record("ScreenshotApp", appId); return ScreenshotAppResult; }
 
-    public void StartRecording(string appId, string? ffmpegPath)
-    { Record("StartRecording", appId, ffmpegPath); }
+    public void StartRecording(string appId)
+    { Record("StartRecording", appId); }
 
     public byte[] StopRecording(string appId) { Record("StopRecording", appId); return StopRecordingResult; }
 
@@ -539,12 +539,11 @@ public class ProcessRequestTests
     {
         var resp = WsServer.ProcessRequest(_fake, MakeRequest("startRecording", new()
         {
-            ["appId"] = "a1",
-            ["ffmpegPath"] = "/usr/bin/ffmpeg"
+            ["appId"] = "a1"
         }));
         Assert.That(resp.Success, Is.True);
         Assert.That(_fake.Calls[0].Method, Is.EqualTo("StartRecording"));
-        Assert.That(_fake.Calls[0].Args[1], Is.EqualTo("/usr/bin/ffmpeg"));
+        Assert.That(_fake.Calls[0].Args[0], Is.EqualTo("a1"));
     }
 
     // ── stopRecording ────────────────────────────────────────────────────────

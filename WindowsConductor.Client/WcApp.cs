@@ -112,10 +112,10 @@ public sealed class WcApp : IAsyncDisposable
     // ── Video recording ──────────────────────────────────────────────────────
 
     /// <summary>Starts video recording of the app window.</summary>
-    public async Task StartRecordingAsync(string? ffmpegPath = null, CancellationToken ct = default)
+    public async Task StartRecordingAsync(CancellationToken ct = default)
     {
         await Connection.SendAsync("startRecording",
-            new { appId = AppId, ffmpegPath = ffmpegPath ?? "" }, ct);
+            new { appId = AppId }, ct);
     }
 
     /// <summary>Stops video recording. Returns the video data as bytes.</summary>

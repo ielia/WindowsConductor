@@ -26,11 +26,13 @@ public sealed class AppManager : IAppOperations, IDisposable
     private readonly Dictionary<string, AutomationElement> _elements = new();
     private readonly SelectorEngine _selector;
     private readonly bool _confineToApp;
+    private readonly string? _ffmpegPath;
     private bool _disposed;
 
-    public AppManager(bool confineToApp = false)
+    public AppManager(bool confineToApp = false, string? ffmpegPath = null)
     {
         _confineToApp = confineToApp;
+        _ffmpegPath = ffmpegPath;
         _selector = new SelectorEngine(new XPathEngine());
     }
 
@@ -357,7 +359,7 @@ public sealed class AppManager : IAppOperations, IDisposable
     private readonly Dictionary<string, VideoRecorder> _recorders = new();
     private readonly Dictionary<string, string> _recordingPaths = new();
 
-    public void StartRecording(string appId, string? ffmpegPath)
+    public void StartRecording(string appId)
     {
         if (_recorders.ContainsKey(appId))
             throw new InvalidOperationException($"Recording is already in progress for app '{appId}'.");
@@ -372,8 +374,8 @@ public sealed class AppManager : IAppOperations, IDisposable
             VideoFormat = VideoFormat.x264,
             VideoQuality = 23
         };
-        if (!string.IsNullOrWhiteSpace(ffmpegPath))
-            settings.ffmpegPath = ffmpegPath;
+        if (!string.IsNullOrWhiteSpace(_ffmpegPath))
+            settings.ffmpegPath = _ffmpegPath;
 
         var recorder = new VideoRecorder(settings, _ => FlaUI.Core.Capturing.Capture.Element(root));
         _recorders[appId] = recorder;

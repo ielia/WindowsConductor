@@ -33,6 +33,6 @@ internal interface IAppOperations
     object GetWindowBoundingRect(string appId);
     byte[] ScreenshotElement(string elementId);
     byte[] ScreenshotApp(string appId);
-    void StartRecording(string appId, string? ffmpegPath);
+    void StartRecording(string appId);
     byte[] StopRecording(string appId);
 }
