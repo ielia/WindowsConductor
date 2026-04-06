@@ -22,7 +22,7 @@ public sealed class AppManager : IAppOperations, IDisposable
     private readonly UIA3Automation _automation = new();
     private readonly Dictionary<string, Application> _apps = new();
     private readonly HashSet<string> _attachedApps = new();
-    private readonly Dictionary<string, int[]> _appRootRuntimeIds = new();
+    private readonly Dictionary<string, int> _appProcessIds = new();
     private readonly Dictionary<string, AutomationElement> _elements = new();
     private readonly SelectorEngine _selector;
     private readonly bool _confineToApp;
@@ -68,7 +68,7 @@ public sealed class AppManager : IAppOperations, IDisposable
 
         var id = NewId();
         _apps[id] = app;
-        if (_confineToApp) CacheAppRootId(id);
+        if (_confineToApp) _appProcessIds[id] = app.ProcessId;
         return id;
     }
 
@@ -89,7 +89,7 @@ public sealed class AppManager : IAppOperations, IDisposable
         var id = NewId();
         _apps[id] = app;
         _attachedApps.Add(id);
-        if (_confineToApp) CacheAppRootId(id);
+        if (_confineToApp) _appProcessIds[id] = app.ProcessId;
         return id;
     }
 
@@ -101,7 +101,7 @@ public sealed class AppManager : IAppOperations, IDisposable
             try { app.Close(); } catch { /* already closed */ }
         _apps.Remove(appId);
         _attachedApps.Remove(appId);
-        _appRootRuntimeIds.Remove(appId);
+        _appProcessIds.Remove(appId);
     }
 
     // ── Element discovery ───────────────────────────────────────────────────
@@ -110,8 +110,7 @@ public sealed class AppManager : IAppOperations, IDisposable
     public string FindElement(string appId, string selector, string? rootElementId = null)
     {
         var root = rootElementId != null ? GetElement(rootElementId) : GetAppRoot(appId);
-        var boundary = GetBoundaryCheck(appId);
-        var element = _selector.FindElement(root, selector, boundary)
+        var element = _selector.FindElement(root, selector, GetDesktopRoot(), GetConfineProcessId(appId))
             ?? throw new InvalidOperationException(
                 $"No element found for selector '{selector}'.");
 
@@ -122,8 +121,7 @@ public sealed class AppManager : IAppOperations, IDisposable
     public string[] FindElements(string appId, string selector, string? rootElementId = null)
     {
         var root = rootElementId != null ? GetElement(rootElementId) : GetAppRoot(appId);
-        var boundary = GetBoundaryCheck(appId);
-        return _selector.FindElements(root, selector, boundary)
+        return _selector.FindElements(root, selector, GetDesktopRoot(), GetConfineProcessId(appId))
             .Select(CacheElement)
             .ToArray();
     }
@@ -156,11 +154,12 @@ public sealed class AppManager : IAppOperations, IDisposable
     public string WaitForElement(string appId, string selector, string? rootElementId, uint timeout)
     {
         var deadline = Environment.TickCount64 + timeout;
+        var desktopRoot = GetDesktopRoot();
+        var processId = GetConfineProcessId(appId);
         while (true)
         {
             var root = rootElementId != null ? GetElement(rootElementId) : GetAppRoot(appId);
-            var boundary = GetBoundaryCheck(appId);
-            var element = _selector.FindElement(root, selector, boundary);
+            var element = _selector.FindElement(root, selector, desktopRoot, processId);
             if (element is not null)
                 return CacheElement(element);
             if (Environment.TickCount64 >= deadline)
@@ -173,11 +172,12 @@ public sealed class AppManager : IAppOperations, IDisposable
     public string[] WaitForElements(string appId, string selector, string? rootElementId, uint timeout)
     {
         var deadline = Environment.TickCount64 + timeout;
+        var desktopRoot = GetDesktopRoot();
+        var processId = GetConfineProcessId(appId);
         while (true)
         {
             var root = rootElementId != null ? GetElement(rootElementId) : GetAppRoot(appId);
-            var boundary = GetBoundaryCheck(appId);
-            var results = _selector.FindElements(root, selector, boundary);
+            var results = _selector.FindElements(root, selector, desktopRoot, processId);
             if (results.Length > 0)
                 return results.Select(CacheElement).ToArray();
             if (Environment.TickCount64 >= deadline)
@@ -190,11 +190,12 @@ public sealed class AppManager : IAppOperations, IDisposable
     public void WaitForVanish(string appId, string selector, string? rootElementId, uint timeout)
     {
         var deadline = Environment.TickCount64 + timeout;
+        var desktopRoot = GetDesktopRoot();
+        var processId = GetConfineProcessId(appId);
         while (true)
         {
             var root = rootElementId != null ? GetElement(rootElementId) : GetAppRoot(appId);
-            var boundary = GetBoundaryCheck(appId);
-            var element = _selector.FindElement(root, selector, boundary);
+            var element = _selector.FindElement(root, selector, desktopRoot, processId);
             if (element is null)
                 return;
             if (Environment.TickCount64 >= deadline)
@@ -268,10 +269,18 @@ public sealed class AppManager : IAppOperations, IDisposable
     public string? GetParent(string elementId)
     {
         var el = GetElement(elementId);
-        if (_confineToApp && IsAnyAppRoot(el))
+        var parent = el.Parent;
+        if (parent is null)
             return null;
-        var parent = el.Parent
-            ?? throw new InvalidOperationException($"Element '{elementId}' has no parent.");
+
+        if (_confineToApp)
+        {
+            var parentPid = parent.Properties.ProcessId.ValueOrDefault;
+            if (!_appProcessIds.Values.Contains(parentPid))
+                throw new AccessRestrictedException(
+                    "Parent element belongs to a different process (--confine-to-app is active).");
+        }
+
         return CacheElement(parent);
     }
 
@@ -421,32 +430,10 @@ public sealed class AppManager : IAppOperations, IDisposable
     [DllImport("user32.dll")]
     static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
 
-    private void CacheAppRootId(string appId)
-    {
-        var root = GetAppRoot(appId);
-        _appRootRuntimeIds[appId] = root.Properties.RuntimeId.Value;
-    }
+    private AutomationElement GetDesktopRoot() => _automation.GetDesktop();
 
-    private Func<AutomationElement, bool>? GetBoundaryCheck(string appId) =>
-        _confineToApp && _appRootRuntimeIds.TryGetValue(appId, out var rid)
-            ? el => MatchesRuntimeId(el, rid)
-            : null;
-
-    private bool IsAnyAppRoot(AutomationElement el)
-    {
-        try
-        {
-            var rid = el.Properties.RuntimeId.Value;
-            return _appRootRuntimeIds.Values.Any(rootRid => rootRid.SequenceEqual(rid));
-        }
-        catch { return false; }
-    }
-
-    private static bool MatchesRuntimeId(AutomationElement el, int[] targetRid)
-    {
-        try { return el.Properties.RuntimeId.Value.SequenceEqual(targetRid); }
-        catch { return false; }
-    }
+    private int? GetConfineProcessId(string appId) =>
+        _confineToApp && _appProcessIds.TryGetValue(appId, out var pid) ? pid : null;
 
     private AutomationElement GetAppRoot(string appId)
     {

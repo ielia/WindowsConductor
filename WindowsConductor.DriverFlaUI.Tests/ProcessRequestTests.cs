@@ -609,6 +609,20 @@ public class ProcessRequestTests
     }
 
     [Test]
+    public void AccessRestrictedException_SetsErrorType()
+    {
+        _fake.ThrowOnNext = new AccessRestrictedException("All matched elements belong to a different process.");
+        var resp = WsServer.ProcessRequest(_fake, MakeRequest("findElement", new()
+        {
+            ["appId"] = "a1",
+            ["selector"] = "/Desktop",
+            ["rootElementId"] = ""
+        }));
+        Assert.That(resp.Success, Is.False);
+        Assert.That(resp.ErrorType, Is.EqualTo("AccessRestrictedException"));
+    }
+
+    [Test]
     public void GenericException_HasNullErrorType()
     {
         _fake.ThrowOnNext = new InvalidOperationException("boom");

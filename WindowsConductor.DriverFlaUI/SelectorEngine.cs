@@ -29,35 +29,63 @@ public sealed class SelectorEngine
 
     public AutomationElement? FindElement(
         AutomationElement root, string selector,
-        Func<AutomationElement, bool>? isAtBoundary = null) =>
-        FindElements(root, selector, isAtBoundary).FirstOrDefault();
+        AutomationElement? desktopRoot = null,
+        int? confineToProcessId = null) =>
+        FindElements(root, selector, desktopRoot, confineToProcessId).FirstOrDefault();
 
     public AutomationElement[] FindElements(
         AutomationElement root, string selector,
-        Func<AutomationElement, bool>? isAtBoundary = null)
+        AutomationElement? desktopRoot = null,
+        int? confineToProcessId = null)
     {
         Validate(selector);
 
         selector = selector.Trim();
 
-        // Delegate XPath to the dedicated engine
+        AutomationElement[] results;
+
         if (selector.StartsWith('/') || selector.StartsWith('.'))
-            return _xpath.Evaluate(root, selector, isAtBoundary).ToArray();
-
-        // Split compound conditions on &&
-        var parts = selector.Split("&&", StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
-
-        // Start with all descendants; narrow down with each condition
-        AutomationElement[]? current = null;
-
-        foreach (var part in parts)
         {
-            var (key, value) = ParsePart(part);
-            var pool = current as IEnumerable<AutomationElement> ?? root.FindAllDescendants();
-            current = Filter(pool, key, value);
+            var effectiveRoot = IsAbsoluteXPath(selector) && desktopRoot is not null
+                ? desktopRoot
+                : root;
+            results = _xpath.Evaluate(effectiveRoot, selector).ToArray();
+        }
+        else
+        {
+            var parts = selector.Split("&&", StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+            AutomationElement[]? current = null;
+            foreach (var part in parts)
+            {
+                var (key, value) = ParsePart(part);
+                var pool = current as IEnumerable<AutomationElement> ?? root.FindAllDescendants();
+                current = Filter(pool, key, value);
+            }
+            results = current ?? [];
         }
 
-        return current ?? Array.Empty<AutomationElement>();
+        return ApplyProcessFilter(results, confineToProcessId);
+    }
+
+    private static bool IsAbsoluteXPath(string selector) =>
+        selector.StartsWith('/') && !selector.StartsWith("//");
+
+    private static AutomationElement[] ApplyProcessFilter(AutomationElement[] results, int? confineToProcessId)
+    {
+        if (confineToProcessId is not { } pid || results.Length == 0)
+            return results;
+
+        var inProcess = results.Where(el => BelongsToProcess(el, pid)).ToArray();
+        if (inProcess.Length == 0)
+            throw new AccessRestrictedException(
+                $"All matched elements belong to a different process (confined to PID {pid}).");
+        return inProcess;
+    }
+
+    private static bool BelongsToProcess(AutomationElement el, int processId)
+    {
+        try { return el.Properties.ProcessId.ValueOrDefault == processId; }
+        catch { return false; }
     }
 
     // ── Validation ──────────────────────────────────────────────────────────

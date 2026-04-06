@@ -54,14 +54,13 @@ public sealed class XPathEngine
         RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
     public IReadOnlyList<AutomationElement> Evaluate(
-        AutomationElement root, string xpath,
-        Func<AutomationElement, bool>? isAtBoundary = null)
+        AutomationElement root, string xpath)
     {
         var steps = ParseXPath(xpath);
         IReadOnlyList<AutomationElement> current = new[] { root };
 
         foreach (var step in steps)
-            current = ApplyStep(current, step, isAtBoundary);
+            current = ApplyStep(current, step);
 
         return current;
     }
@@ -75,8 +74,7 @@ public sealed class XPathEngine
     // ── Step evaluation ──────────────────────────────────────────────────────
 
     private static IReadOnlyList<AutomationElement> ApplyStep(
-        IReadOnlyList<AutomationElement> roots, XPathStep step,
-        Func<AutomationElement, bool>? isAtBoundary = null)
+        IReadOnlyList<AutomationElement> roots, XPathStep step)
     {
         if (step.Axis == XPathAxis.Self)
             return roots;
@@ -86,9 +84,6 @@ public sealed class XPathEngine
             var parents = new List<AutomationElement>();
             foreach (var root in roots)
             {
-                if (isAtBoundary is not null && isAtBoundary(root))
-                    throw new InvalidOperationException(
-                        "XPath '..' cannot navigate above the application root (--confine-to-app is active).");
                 var parent = root.Parent;
                 if (parent is not null)
                     parents.Add(parent);
