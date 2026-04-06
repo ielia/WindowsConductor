@@ -140,7 +140,7 @@ public sealed class XPathEngine
                 if (step.Type == "*" || string.Equals(
                         sibling.Properties.ControlType.ValueOrDefault.ToString(),
                         element.Properties.ControlType.ValueOrDefault.ToString(),
-                        StringComparison.Ordinal))
+                        StringComparison.InvariantCulture))
                 {
                     lastCount++;
                     if (sibling.Equals(element))
@@ -193,7 +193,7 @@ public sealed class XPathEngine
             if (!Enum.TryParse<ControlType>(step.Type, ignoreCase: true, out var ct))
                 return false;
             string? controlType = getProperty("controltype");
-            if (!string.Equals(controlType, ct.ToString(), StringComparison.Ordinal))
+            if (!string.Equals(controlType, ct.ToString(), StringComparison.InvariantCulture))
                 return false;
         }
 
