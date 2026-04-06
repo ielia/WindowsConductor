@@ -1,3 +1,5 @@
+using SkiaSharp;
+
 namespace WindowsConductor.Client;
 
 /// <summary>
@@ -92,29 +94,35 @@ public sealed class WcApp : IAsyncDisposable
 
     // ── Screenshots ────────────────────────────────────────────────────────
 
-    /// <summary>Captures a screenshot of the app's main window. Returns the saved file path.</summary>
-    public async Task<string> ScreenshotAsync(string? path = null, CancellationToken ct = default)
+    /// <summary>Captures a screenshot of the app's main window as raw PNG bytes.</summary>
+    public async Task<byte[]> ScreenshotBytesAsync(CancellationToken ct = default)
     {
         var r = await Connection.SendAsync("screenshotApp",
-            new { appId = AppId, path = path ?? "" }, ct);
-        return r.GetString() ?? "";
+            new { appId = AppId }, ct);
+        return r.GetBytesFromBase64();
+    }
+
+    /// <summary>Captures a screenshot of the app's main window as an SKBitmap.</summary>
+    public async Task<SKBitmap> ScreenshotAsync(CancellationToken ct = default)
+    {
+        var bytes = await ScreenshotBytesAsync(ct);
+        return SKBitmap.Decode(bytes);
     }
 
     // ── Video recording ──────────────────────────────────────────────────────
 
-    /// <summary>Starts video recording of the app window. Returns the video file path.</summary>
-    public async Task<string> StartRecordingAsync(string? path = null, string? ffmpegPath = null, CancellationToken ct = default)
+    /// <summary>Starts video recording of the app window.</summary>
+    public async Task StartRecordingAsync(string? ffmpegPath = null, CancellationToken ct = default)
     {
-        var r = await Connection.SendAsync("startRecording",
-            new { appId = AppId, path = path ?? "", ffmpegPath = ffmpegPath ?? "" }, ct);
-        return r.GetString() ?? "";
+        await Connection.SendAsync("startRecording",
+            new { appId = AppId, ffmpegPath = ffmpegPath ?? "" }, ct);
     }
 
-    /// <summary>Stops video recording. Returns the video file path.</summary>
-    public async Task<string> StopRecordingAsync(CancellationToken ct = default)
+    /// <summary>Stops video recording. Returns the video data as bytes.</summary>
+    public async Task<byte[]> StopRecordingAsync(CancellationToken ct = default)
     {
         var r = await Connection.SendAsync("stopRecording", new { appId = AppId }, ct);
-        return r.GetString() ?? "";
+        return r.GetBytesFromBase64();
     }
 
     // ── Lifecycle ────────────────────────────────────────────────────────────

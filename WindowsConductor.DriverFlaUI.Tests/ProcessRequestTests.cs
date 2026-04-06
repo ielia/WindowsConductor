@@ -20,10 +20,9 @@ internal sealed class FakeAppOperations : IAppOperations
     public string GetWindowTitleResult { get; set; } = "My App";
     public object GetBoundingRectResult { get; set; } = new { x = 0, y = 0, width = 100, height = 50 };
     public object GetWindowBoundingRectResult { get; set; } = new { x = 10, y = 20, width = 800, height = 600 };
-    public string ScreenshotElementResult { get; set; } = "/tmp/el.png";
-    public string ScreenshotAppResult { get; set; } = "/tmp/app.png";
-    public string StartRecordingResult { get; set; } = "/tmp/video.mp4";
-    public string StopRecordingResult { get; set; } = "/tmp/video.mp4";
+    public byte[] ScreenshotElementResult { get; set; } = [0x89, 0x50, 0x4E, 0x47];
+    public byte[] ScreenshotAppResult { get; set; } = [0x89, 0x50, 0x4E, 0x47];
+    public byte[] StopRecordingResult { get; set; } = [0x00, 0x00, 0x01, 0xBA];
     public Exception? ThrowOnNext { get; set; }
 
     private void Record(string method, params object?[] args)
@@ -75,16 +74,16 @@ internal sealed class FakeAppOperations : IAppOperations
     public object GetBoundingRect(string elementId) { Record("GetBoundingRect", elementId); return GetBoundingRectResult; }
     public object GetWindowBoundingRect(string appId) { Record("GetWindowBoundingRect", appId); return GetWindowBoundingRectResult; }
 
-    public string ScreenshotElement(string elementId, string? path)
-    { Record("ScreenshotElement", elementId, path); return ScreenshotElementResult; }
+    public byte[] ScreenshotElement(string elementId)
+    { Record("ScreenshotElement", elementId); return ScreenshotElementResult; }
 
-    public string ScreenshotApp(string appId, string? path)
-    { Record("ScreenshotApp", appId, path); return ScreenshotAppResult; }
+    public byte[] ScreenshotApp(string appId)
+    { Record("ScreenshotApp", appId); return ScreenshotAppResult; }
 
-    public string StartRecording(string appId, string? path, string? ffmpegPath)
-    { Record("StartRecording", appId, path, ffmpegPath); return StartRecordingResult; }
+    public void StartRecording(string appId, string? ffmpegPath)
+    { Record("StartRecording", appId, ffmpegPath); }
 
-    public string StopRecording(string appId) { Record("StopRecording", appId); return StopRecordingResult; }
+    public byte[] StopRecording(string appId) { Record("StopRecording", appId); return StopRecordingResult; }
 
     public string[] FindElementsAtPointResult { get; set; } = { "el-p1", "el-p2" };
     public string[] FindElementsAtPoint(string appId, double x, double y, string? rootElementId = null)
@@ -507,52 +506,55 @@ public class ProcessRequestTests
     // ── screenshot ───────────────────────────────────────────────────────────
 
     [Test]
-    public void Screenshot_ReturnsPath()
+    public void Screenshot_ReturnsBytes()
     {
         var resp = WsServer.ProcessRequest(_fake, MakeRequest("screenshot", new()
         {
-            ["elementId"] = "e1",
-            ["path"] = "/tmp/shot.png"
+            ["elementId"] = "e1"
         }));
-        Assert.That(resp.Result, Is.EqualTo("/tmp/el.png"));
-        Assert.That(_fake.Calls[0].Args[1], Is.EqualTo("/tmp/shot.png"));
+        Assert.That(resp.Success, Is.True);
+        Assert.That(resp.Result, Is.EqualTo(new byte[] { 0x89, 0x50, 0x4E, 0x47 }));
+        Assert.That(_fake.Calls[0].Method, Is.EqualTo("ScreenshotElement"));
+        Assert.That(_fake.Calls[0].Args[0], Is.EqualTo("e1"));
     }
 
     // ── screenshotApp ────────────────────────────────────────────────────────
 
     [Test]
-    public void ScreenshotApp_ReturnsPath()
+    public void ScreenshotApp_ReturnsBytes()
     {
         var resp = WsServer.ProcessRequest(_fake, MakeRequest("screenshotApp", new()
         {
-            ["appId"] = "a1",
-            ["path"] = "/tmp/app.png"
+            ["appId"] = "a1"
         }));
-        Assert.That(resp.Result, Is.EqualTo("/tmp/app.png"));
+        Assert.That(resp.Success, Is.True);
+        Assert.That(resp.Result, Is.EqualTo(new byte[] { 0x89, 0x50, 0x4E, 0x47 }));
+        Assert.That(_fake.Calls[0].Method, Is.EqualTo("ScreenshotApp"));
     }
 
     // ── startRecording ───────────────────────────────────────────────────────
 
     [Test]
-    public void StartRecording_ReturnsPath()
+    public void StartRecording_ReturnsOk()
     {
         var resp = WsServer.ProcessRequest(_fake, MakeRequest("startRecording", new()
         {
             ["appId"] = "a1",
-            ["path"] = "/tmp/v.mp4",
             ["ffmpegPath"] = "/usr/bin/ffmpeg"
         }));
-        Assert.That(resp.Result, Is.EqualTo("/tmp/video.mp4"));
-        Assert.That(_fake.Calls[0].Args[2], Is.EqualTo("/usr/bin/ffmpeg"));
+        Assert.That(resp.Success, Is.True);
+        Assert.That(_fake.Calls[0].Method, Is.EqualTo("StartRecording"));
+        Assert.That(_fake.Calls[0].Args[1], Is.EqualTo("/usr/bin/ffmpeg"));
     }
 
     // ── stopRecording ────────────────────────────────────────────────────────
 
     [Test]
-    public void StopRecording_ReturnsPath()
+    public void StopRecording_ReturnsBytes()
     {
         var resp = WsServer.ProcessRequest(_fake, MakeRequest("stopRecording", new() { ["appId"] = "a1" }));
-        Assert.That(resp.Result, Is.EqualTo("/tmp/video.mp4"));
+        Assert.That(resp.Success, Is.True);
+        Assert.That(resp.Result, Is.EqualTo(new byte[] { 0x00, 0x00, 0x01, 0xBA }));
     }
 
     // ── waitForElement ────────────────────────────────────────────────────────

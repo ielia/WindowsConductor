@@ -39,53 +39,58 @@ public class WcAppAsyncTests
     // ── ScreenshotAsync ──────────────────────────────────────────────────────
 
     [Test]
-    public async Task ScreenshotAsync_WithPath_ReturnsPath()
+    public async Task ScreenshotBytesAsync_ReturnsRawBytes()
     {
-        _transport.Enqueue("/tmp/app.png");
-        var path = await _app.ScreenshotAsync("/tmp/app.png");
-        Assert.That(path, Is.EqualTo("/tmp/app.png"));
+        var pngBytes = new byte[] { 0x89, 0x50, 0x4E, 0x47 };
+        _transport.Enqueue(pngBytes);
+        var result = await _app.ScreenshotBytesAsync();
+        Assert.That(result, Is.EqualTo(pngBytes));
         Assert.That(_transport.Calls[0].Command, Is.EqualTo("screenshotApp"));
-        Assert.That(_transport.Calls[0].ParamsJson, Does.Contain("\"path\":\"/tmp/app.png\""));
+        Assert.That(_transport.Calls[0].ParamsJson, Does.Not.Contain("\"path\""));
     }
 
     [Test]
-    public async Task ScreenshotAsync_NullPath_SendsEmpty()
+    public async Task ScreenshotAsync_ReturnsBitmap()
     {
-        _transport.Enqueue("/tmp/auto.png");
-        await _app.ScreenshotAsync();
-        Assert.That(_transport.Calls[0].ParamsJson, Does.Contain("\"path\":\"\""));
+        var bitmap = new SkiaSharp.SKBitmap(1, 1);
+        bitmap.SetPixel(0, 0, SkiaSharp.SKColors.Red);
+        using var image = SkiaSharp.SKImage.FromBitmap(bitmap);
+        var pngBytes = image.Encode(SkiaSharp.SKEncodedImageFormat.Png, 100).ToArray();
+        bitmap.Dispose();
+
+        _transport.Enqueue(pngBytes);
+        using var result = await _app.ScreenshotAsync();
+        Assert.That(result, Is.Not.Null);
+        Assert.That(result.Width, Is.EqualTo(1));
     }
 
     // ── StartRecordingAsync ──────────────────────────────────────────────────
 
     [Test]
-    public async Task StartRecordingAsync_ReturnsPath()
+    public async Task StartRecordingAsync_SendsCommand()
     {
-        _transport.Enqueue("/tmp/video.mp4");
-        var path = await _app.StartRecordingAsync("/tmp/video.mp4", "/usr/bin/ffmpeg");
-        Assert.That(path, Is.EqualTo("/tmp/video.mp4"));
+        await _app.StartRecordingAsync("/usr/bin/ffmpeg");
         Assert.That(_transport.Calls[0].Command, Is.EqualTo("startRecording"));
-        Assert.That(_transport.Calls[0].ParamsJson, Does.Contain("\"path\":\"/tmp/video.mp4\""));
         Assert.That(_transport.Calls[0].ParamsJson, Does.Contain("\"ffmpegPath\":\"/usr/bin/ffmpeg\""));
+        Assert.That(_transport.Calls[0].ParamsJson, Does.Not.Contain("\"path\""));
     }
 
     [Test]
-    public async Task StartRecordingAsync_NullArgs_SendsEmpty()
+    public async Task StartRecordingAsync_NullArgs_SendsEmptyFfmpegPath()
     {
-        _transport.Enqueue("/tmp/auto.mp4");
         await _app.StartRecordingAsync();
-        Assert.That(_transport.Calls[0].ParamsJson, Does.Contain("\"path\":\"\""));
         Assert.That(_transport.Calls[0].ParamsJson, Does.Contain("\"ffmpegPath\":\"\""));
     }
 
     // ── StopRecordingAsync ───────────────────────────────────────────────────
 
     [Test]
-    public async Task StopRecordingAsync_ReturnsPath()
+    public async Task StopRecordingAsync_ReturnsBytes()
     {
-        _transport.Enqueue("/tmp/video.mp4");
-        var path = await _app.StopRecordingAsync();
-        Assert.That(path, Is.EqualTo("/tmp/video.mp4"));
+        var videoBytes = new byte[] { 0x00, 0x00, 0x01, 0xBA };
+        _transport.Enqueue(videoBytes);
+        var result = await _app.StopRecordingAsync();
+        Assert.That(result, Is.EqualTo(videoBytes));
         Assert.That(_transport.Calls[0].Command, Is.EqualTo("stopRecording"));
         Assert.That(_transport.Calls[0].ParamsJson, Does.Contain("\"appId\":\"app-42\""));
     }

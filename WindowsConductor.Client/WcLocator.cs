@@ -1,4 +1,5 @@
 using System.Text.Json;
+using SkiaSharp;
 
 namespace WindowsConductor.Client;
 
@@ -292,11 +293,11 @@ public sealed class WcLocator
 
     // ── Screenshots ────────────────────────────────────────────────────────
 
-    /// <summary>Captures a screenshot of the first matching element. Returns the saved file path.</summary>
-    public async Task<string> ScreenshotAsync(string? path = null, CancellationToken ct = default)
+    /// <summary>Captures a screenshot of the first matching element as an SKBitmap.</summary>
+    public async Task<SKBitmap> ScreenshotAsync(CancellationToken ct = default)
     {
         var el = await GetElementAsync(ct);
-        return await el.ScreenshotAsync(path, ct);
+        return await el.ScreenshotAsync(ct);
     }
 
     public override string ToString() => _parent != null

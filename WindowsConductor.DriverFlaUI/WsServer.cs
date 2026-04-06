@@ -284,15 +284,15 @@ public sealed class WsServer
 
                 case "screenshot":
                     return WcResponse.Ok(req.Id,
-                        mgr.ScreenshotElement(req.GetString("elementId"), req.GetString("path")));
+                        mgr.ScreenshotElement(req.GetString("elementId")));
 
                 case "screenshotApp":
                     return WcResponse.Ok(req.Id,
-                        mgr.ScreenshotApp(req.GetString("appId"), req.GetString("path")));
+                        mgr.ScreenshotApp(req.GetString("appId")));
 
                 case "startRecording":
-                    return WcResponse.Ok(req.Id,
-                        mgr.StartRecording(req.GetString("appId"), req.GetString("path"), req.GetString("ffmpegPath")));
+                    mgr.StartRecording(req.GetString("appId"), req.GetString("ffmpegPath"));
+                    return WcResponse.Ok(req.Id);
 
                 case "stopRecording":
                     return WcResponse.Ok(req.Id,

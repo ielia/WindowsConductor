@@ -171,20 +171,29 @@ public class WcElementAsyncTests
     // ── Screenshot ───────────────────────────────────────────────────────────
 
     [Test]
-    public async Task ScreenshotAsync_ReturnsPath()
+    public async Task ScreenshotBytesAsync_ReturnsRawBytes()
     {
-        _transport.Enqueue("/tmp/shot.png");
-        var path = await _element.ScreenshotAsync("/tmp/shot.png");
-        Assert.That(path, Is.EqualTo("/tmp/shot.png"));
+        var pngBytes = new byte[] { 0x89, 0x50, 0x4E, 0x47 };
+        _transport.Enqueue(pngBytes);
+        var result = await _element.ScreenshotBytesAsync();
+        Assert.That(result, Is.EqualTo(pngBytes));
         Assert.That(_transport.Calls[0].Command, Is.EqualTo("screenshot"));
-        Assert.That(_transport.Calls[0].ParamsJson, Does.Contain("\"path\":\"/tmp/shot.png\""));
+        Assert.That(_transport.Calls[0].ParamsJson, Does.Not.Contain("\"path\""));
     }
 
     [Test]
-    public async Task ScreenshotAsync_NullPath_SendsEmpty()
+    public async Task ScreenshotAsync_ReturnsBitmap()
     {
-        _transport.Enqueue("/tmp/auto.png");
-        await _element.ScreenshotAsync();
-        Assert.That(_transport.Calls[0].ParamsJson, Does.Contain("\"path\":\"\""));
+        var bitmap = new SkiaSharp.SKBitmap(1, 1);
+        bitmap.SetPixel(0, 0, SkiaSharp.SKColors.Red);
+        using var image = SkiaSharp.SKImage.FromBitmap(bitmap);
+        var pngBytes = image.Encode(SkiaSharp.SKEncodedImageFormat.Png, 100).ToArray();
+        bitmap.Dispose();
+
+        _transport.Enqueue(pngBytes);
+        using var result = await _element.ScreenshotAsync();
+        Assert.That(result, Is.Not.Null);
+        Assert.That(result.Width, Is.EqualTo(1));
+        Assert.That(result.Height, Is.EqualTo(1));
     }
 }

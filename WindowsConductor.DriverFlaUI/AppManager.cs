@@ -334,40 +334,40 @@ public sealed class AppManager : IAppOperations, IDisposable
 
     // ── Screenshots ──────────────────────────────────────────────────────────
 
-    /// <summary>Captures an element and saves it as a PNG file. Returns the file path.</summary>
-    public string ScreenshotElement(string elementId, string? path)
+    public byte[] ScreenshotElement(string elementId)
     {
         var el = GetElement(elementId);
-        path = ResolvePath(path, ".png");
-        el.CaptureToFile(path);
-        return path;
+        using var capture = FlaUI.Core.Capturing.Capture.Element(el);
+        using var ms = new MemoryStream();
+        capture.Bitmap.Save(ms, System.Drawing.Imaging.ImageFormat.Png);
+        return ms.ToArray();
     }
 
-    /// <summary>Captures the app's main window and saves it as a PNG file. Returns the file path.</summary>
-    public string ScreenshotApp(string appId, string? path)
+    public byte[] ScreenshotApp(string appId)
     {
         var root = GetAppRoot(appId);
-        path = ResolvePath(path, ".png");
-        root.CaptureToFile(path);
-        return path;
+        using var capture = FlaUI.Core.Capturing.Capture.Element(root);
+        using var ms = new MemoryStream();
+        capture.Bitmap.Save(ms, System.Drawing.Imaging.ImageFormat.Png);
+        return ms.ToArray();
     }
 
     // ── Video recording ──────────────────────────────────────────────────────
 
     private readonly Dictionary<string, VideoRecorder> _recorders = new();
+    private readonly Dictionary<string, string> _recordingPaths = new();
 
-    /// <summary>Starts video recording of the app's main window. Returns the video file path.</summary>
-    public string StartRecording(string appId, string? path, string? ffmpegPath)
+    public void StartRecording(string appId, string? ffmpegPath)
     {
         if (_recorders.ContainsKey(appId))
             throw new InvalidOperationException($"Recording is already in progress for app '{appId}'.");
 
         var root = GetAppRoot(appId);
-        path = ResolvePath(path, ".mp4");
+        var tempPath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.mp4");
 
         var settings = new VideoRecorderSettings
         {
-            TargetVideoPath = path,
+            TargetVideoPath = tempPath,
             FrameRate = 15,
             VideoFormat = VideoFormat.x264,
             VideoQuality = 23
@@ -377,28 +377,24 @@ public sealed class AppManager : IAppOperations, IDisposable
 
         var recorder = new VideoRecorder(settings, _ => FlaUI.Core.Capturing.Capture.Element(root));
         _recorders[appId] = recorder;
-        return path;
+        _recordingPaths[appId] = tempPath;
     }
 
-    /// <summary>Stops video recording for the app. Returns the video file path.</summary>
-    public string StopRecording(string appId)
+    public byte[] StopRecording(string appId)
     {
         if (!_recorders.TryGetValue(appId, out var recorder))
             throw new InvalidOperationException($"No recording in progress for app '{appId}'.");
 
         recorder.Stop();
-        var path = recorder.TargetVideoPath;
+        var path = _recordingPaths[appId];
+        var bytes = File.ReadAllBytes(path);
+        try { File.Delete(path); } catch { }
         _recorders.Remove(appId);
-        return path;
+        _recordingPaths.Remove(appId);
+        return bytes;
     }
 
     // ── Internal helpers ────────────────────────────────────────────────────
-
-    private static string ResolvePath(string? path, string defaultExtension)
-    {
-        if (!string.IsNullOrWhiteSpace(path)) return path;
-        return Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}{defaultExtension}");
-    }
 
     private Window FindWindow(UIA3Automation automation, string titleRegex, int retries = 20)
     {
@@ -502,6 +498,12 @@ public sealed class AppManager : IAppOperations, IDisposable
             try { recorder.Stop(); } catch { }
         }
         _recorders.Clear();
+
+        foreach (var path in _recordingPaths.Values)
+        {
+            try { File.Delete(path); } catch { }
+        }
+        _recordingPaths.Clear();
 
         foreach (var (id, app) in _apps)
         {

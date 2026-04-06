@@ -1,6 +1,4 @@
 using System.Diagnostics.CodeAnalysis;
-using System.IO;
-using System.Text.Json;
 using WindowsConductor.Client;
 
 namespace WindowsConductor.InspectorGUI;
@@ -55,11 +53,8 @@ internal sealed class WcInspectorSession : IInspectorSession, IAsyncDisposable
         return Task.CompletedTask;
     }
 
-    public async Task<byte[]> WindowScreenshotAsync(CancellationToken ct = default)
-    {
-        var path = await _app!.ScreenshotAsync(ct: ct);
-        return await File.ReadAllBytesAsync(path, ct);
-    }
+    public async Task<byte[]> WindowScreenshotAsync(CancellationToken ct = default) =>
+        await _app!.ScreenshotBytesAsync(ct);
 
     public async Task<BoundingRect> GetWindowBoundingRectAsync(CancellationToken ct = default)
     {
@@ -74,8 +69,7 @@ internal sealed class WcInspectorSession : IInspectorSession, IAsyncDisposable
     public async Task<byte[]> ElementWindowScreenshotAsync(CancellationToken ct = default)
     {
         var window = await _selectedElement!.TopLevelWindowAsync(ct) ?? _selectedElement;
-        var path = await window.ScreenshotAsync(ct: ct);
-        return await File.ReadAllBytesAsync(path, ct);
+        return await window.ScreenshotBytesAsync(ct);
     }
 
     public async Task<BoundingRect> GetElementWindowBoundingRectAsync(CancellationToken ct = default)
@@ -178,11 +172,8 @@ internal sealed class WcInspectorSession : IInspectorSession, IAsyncDisposable
     public async Task<string> GetTextAsync(CancellationToken ct = default) =>
         await _selectedElement!.GetTextAsync(ct);
 
-    public async Task<byte[]> ScreenshotElementAsync(CancellationToken ct = default)
-    {
-        var path = await _selectedElement!.ScreenshotAsync(ct: ct);
-        return await File.ReadAllBytesAsync(path, ct);
-    }
+    public async Task<byte[]> ScreenshotElementAsync(CancellationToken ct = default) =>
+        await _selectedElement!.ScreenshotBytesAsync(ct);
 
     public async Task<BoundingRect> GetElementBoundingRectAsync(CancellationToken ct = default) =>
         await _selectedElement!.GetBoundingRectAsync(ct);

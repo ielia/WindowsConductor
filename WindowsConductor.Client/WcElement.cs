@@ -1,4 +1,5 @@
 using System.Text.Json;
+using SkiaSharp;
 
 namespace WindowsConductor.Client;
 
@@ -113,12 +114,19 @@ public sealed class WcElement
 
     // ── Screenshots ────────────────────────────────────────────────────────
 
-    /// <summary>Captures a screenshot of this element. Returns the saved file path.</summary>
-    public async Task<string> ScreenshotAsync(string? path = null, CancellationToken ct = default)
+    /// <summary>Captures a screenshot of this element as raw PNG bytes.</summary>
+    public async Task<byte[]> ScreenshotBytesAsync(CancellationToken ct = default)
     {
         var r = await _conn.SendAsync("screenshot",
-            new { elementId = ElementId, path = path ?? "" }, ct);
-        return r.GetString() ?? "";
+            new { elementId = ElementId }, ct);
+        return r.GetBytesFromBase64();
+    }
+
+    /// <summary>Captures a screenshot of this element as an SKBitmap.</summary>
+    public async Task<SKBitmap> ScreenshotAsync(CancellationToken ct = default)
+    {
+        var bytes = await ScreenshotBytesAsync(ct);
+        return SKBitmap.Decode(bytes);
     }
 
     public override string ToString() => $"WcElement({ElementId})";

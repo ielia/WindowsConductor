@@ -247,12 +247,19 @@ public class WcLocatorAsyncTests
     }
 
     [Test]
-    public async Task ScreenshotAsync_ResolvesAndReturnsPath()
+    public async Task ScreenshotAsync_ResolvesAndReturnsBitmap()
     {
+        var bitmap = new SkiaSharp.SKBitmap(1, 1);
+        bitmap.SetPixel(0, 0, SkiaSharp.SKColors.Blue);
+        using var image = SkiaSharp.SKImage.FromBitmap(bitmap);
+        var pngBytes = image.Encode(SkiaSharp.SKEncodedImageFormat.Png, 100).ToArray();
+        bitmap.Dispose();
+
         _transport.Enqueue("el-1");
-        _transport.Enqueue("/tmp/shot.png");
-        var path = await MakeLocator("[name=OK]").ScreenshotAsync("/tmp/shot.png");
-        Assert.That(path, Is.EqualTo("/tmp/shot.png"));
+        _transport.Enqueue(pngBytes);
+        using var result = await MakeLocator("[name=OK]").ScreenshotAsync();
+        Assert.That(result, Is.Not.Null);
+        Assert.That(result.Width, Is.EqualTo(1));
     }
 
     // ── Chained actions resolve full hierarchy ───────────────────────────────
