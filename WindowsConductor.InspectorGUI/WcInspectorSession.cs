@@ -71,6 +71,19 @@ internal sealed class WcInspectorSession : IInspectorSession, IAsyncDisposable
             result.GetProperty("height").GetDouble());
     }
 
+    public async Task<byte[]> ElementWindowScreenshotAsync(CancellationToken ct = default)
+    {
+        var window = await _selectedElement!.TopLevelWindowAsync(ct) ?? _selectedElement;
+        var path = await window.ScreenshotAsync(ct: ct);
+        return await File.ReadAllBytesAsync(path, ct);
+    }
+
+    public async Task<BoundingRect> GetElementWindowBoundingRectAsync(CancellationToken ct = default)
+    {
+        var window = await _selectedElement!.TopLevelWindowAsync(ct) ?? _selectedElement;
+        return await window.GetBoundingRectAsync(ct);
+    }
+
     public async Task<string> LocateAsync(string[] selectors, CancellationToken ct = default)
     {
         WcLocator locator = _app!.Locator(selectors[0]);

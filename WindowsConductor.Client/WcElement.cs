@@ -53,8 +53,15 @@ public sealed class WcElement
     public async Task<WcElement?> ParentAsync(CancellationToken ct = default)
     {
         var r = await _conn.SendAsync("getParent", new { elementId = ElementId }, ct);
-        var parentId = r.GetString();
+        var parentId = r.ValueKind == JsonValueKind.String ? r.GetString() : null;
         return parentId is null ? null : new WcElement(parentId, _conn, _appId);
+    }
+
+    public async Task<WcElement?> TopLevelWindowAsync(CancellationToken ct = default)
+    {
+        var r = await _conn.SendAsync("getTopLevelWindow", new { elementId = ElementId }, ct);
+        var windowId = r.ValueKind == JsonValueKind.String ? r.GetString() : null;
+        return windowId is null ? null : new WcElement(windowId, _conn, _appId);
     }
 
     // ── Queries ──────────────────────────────────────────────────────────────

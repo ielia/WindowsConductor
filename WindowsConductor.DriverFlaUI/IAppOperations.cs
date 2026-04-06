@@ -24,6 +24,7 @@ internal interface IAppOperations
     string GetAttribute(string elementId, string attribute);
     Dictionary<string, object?> GetAttributes(string elementId);
     string? GetParent(string elementId);
+    string? GetTopLevelWindow(string elementId);
     bool IsEnabled(string elementId);
     bool IsVisible(string elementId);
     void Focus(string elementId);

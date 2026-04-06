@@ -269,20 +269,28 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
             return;
         }
 
-        var imgData = await session.WindowScreenshotAsync(ct);
-        var winRect = await session.GetWindowBoundingRectAsync(ct);
-        var elRect = await session.GetElementBoundingRectAsync(ct);
+        var imgData = await session.ElementWindowScreenshotAsync(ct);
+        var winRect = await session.GetElementWindowBoundingRectAsync(ct);
 
-        // Element rect is in screen coordinates; convert to window-relative.
-        // Pass window dimensions so the renderer can compensate for DPI
-        // scaling mismatches between UIAutomation coords and screenshot pixels.
-        var highlight = new HighlightInfo(
-            elRect.X - winRect.X,
-            elRect.Y - winRect.Y,
-            elRect.Width,
-            elRect.Height,
-            winRect.Width,
-            winRect.Height);
+        HighlightInfo? highlight = null;
+        try
+        {
+            var elRect = await session.GetElementBoundingRectAsync(ct);
+            // Element rect is in screen coordinates; convert to window-relative.
+            // Pass window dimensions so the renderer can compensate for DPI
+            // scaling mismatches between UIAutomation coords and screenshot pixels.
+            highlight = new HighlightInfo(
+                elRect.X - winRect.X,
+                elRect.Y - winRect.Y,
+                elRect.Width,
+                elRect.Height,
+                winRect.Width,
+                winRect.Height);
+        }
+        catch
+        {
+            // Some elements (e.g. Desktop root) do not support bounding rect.
+        }
 
         output.ShowScreenshot(imgData, highlight, new WindowDimensions(winRect.X, winRect.Y, winRect.Width, winRect.Height));
     }

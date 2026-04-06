@@ -16,6 +16,8 @@ internal interface IInspectorSession
 
     Task<byte[]> WindowScreenshotAsync(CancellationToken ct = default);
     Task<BoundingRect> GetWindowBoundingRectAsync(CancellationToken ct = default);
+    Task<byte[]> ElementWindowScreenshotAsync(CancellationToken ct = default);
+    Task<BoundingRect> GetElementWindowBoundingRectAsync(CancellationToken ct = default);
 
     Task<string> LocateAsync(string[] selectors, CancellationToken ct = default);
     Task<string> LocateFromElementAsync(string[] selectors, CancellationToken ct = default);

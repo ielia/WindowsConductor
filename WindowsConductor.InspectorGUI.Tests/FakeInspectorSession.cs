@@ -80,6 +80,21 @@ internal sealed class FakeInspectorSession : IInspectorSession
         return Task.FromResult(WindowBoundingRectResult);
     }
 
+    public byte[] ElementWindowScreenshotResult { get; set; } = [0x89, 0x50, 0x4E, 0x47];
+    public BoundingRect ElementWindowBoundingRectResult { get; set; } = new(0, 0, 800, 600);
+
+    public Task<byte[]> ElementWindowScreenshotAsync(CancellationToken ct = default)
+    {
+        Record("ElementWindowScreenshot");
+        return Task.FromResult(ElementWindowScreenshotResult);
+    }
+
+    public Task<BoundingRect> GetElementWindowBoundingRectAsync(CancellationToken ct = default)
+    {
+        Record("GetElementWindowBoundingRect");
+        return Task.FromResult(ElementWindowBoundingRectResult);
+    }
+
     public Task<string> LocateAsync(string[] selectors, CancellationToken ct = default)
     {
         Record("Locate", (object)selectors);

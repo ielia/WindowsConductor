@@ -894,7 +894,7 @@ public class CommandExecutorTests
     {
         _session.IsConnected = true;
         _session.HasApp = true;
-        _session.WindowBoundingRectResult = new BoundingRect(100, 200, 800, 600);
+        _session.ElementWindowBoundingRectResult = new BoundingRect(100, 200, 800, 600);
         _session.ElementBoundingRectResult = new BoundingRect(150, 250, 50, 30);
 
         await _executor.ExecuteAsync("locate [name=OK]");

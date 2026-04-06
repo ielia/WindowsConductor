@@ -63,6 +63,10 @@ internal sealed class FakeAppOperations : IAppOperations
     public string? GetParent(string elementId)
     { Record("GetParent", elementId); return GetParentResult; }
 
+    public string? GetTopLevelWindowResult { get; set; } = "win-el-1";
+    public string? GetTopLevelWindow(string elementId)
+    { Record("GetTopLevelWindow", elementId); return GetTopLevelWindowResult; }
+
     public bool IsEnabled(string elementId) { Record("IsEnabled", elementId); return IsEnabledResult; }
     public bool IsVisible(string elementId) { Record("IsVisible", elementId); return IsVisibleResult; }
     public void Focus(string elementId) => Record("Focus", elementId);
@@ -413,6 +417,32 @@ public class ProcessRequestTests
         }));
         Assert.That(_fake.Calls[0].Method, Is.EqualTo("GetParent"));
         Assert.That(resp.Result, Is.EqualTo("parent-el-1"));
+    }
+
+    // ── getTopLevelWindow ──────────────────────────────────────────────────────
+
+    [Test]
+    public void GetTopLevelWindow_ReturnsWindowElementId()
+    {
+        _fake.GetTopLevelWindowResult = "win-el-1";
+        var resp = WsServer.ProcessRequest(_fake, MakeRequest("getTopLevelWindow", new()
+        {
+            ["elementId"] = "e1"
+        }));
+        Assert.That(_fake.Calls[0].Method, Is.EqualTo("GetTopLevelWindow"));
+        Assert.That(resp.Result, Is.EqualTo("win-el-1"));
+    }
+
+    [Test]
+    public void GetTopLevelWindow_ReturnsNull_WhenAlreadyTopLevel()
+    {
+        _fake.GetTopLevelWindowResult = null;
+        var resp = WsServer.ProcessRequest(_fake, MakeRequest("getTopLevelWindow", new()
+        {
+            ["elementId"] = "e1"
+        }));
+        Assert.That(resp.Success, Is.True);
+        Assert.That(resp.Result, Is.Null);
     }
 
     // ── isEnabled ────────────────────────────────────────────────────────────

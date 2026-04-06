@@ -284,6 +284,30 @@ public sealed class AppManager : IAppOperations, IDisposable
         return CacheElement(parent);
     }
 
+    public string? GetTopLevelWindow(string elementId)
+    {
+        var el = GetElement(elementId);
+        var current = el;
+        var parent = SafeGetParent(current);
+        while (parent is not null)
+        {
+            var grandparent = SafeGetParent(parent);
+            if (grandparent is null)
+                break;
+            current = parent;
+            parent = grandparent;
+        }
+        if (parent is null)
+            return null;
+        return CacheElement(current);
+    }
+
+    private static AutomationElement? SafeGetParent(AutomationElement el)
+    {
+        try { return el.Parent; }
+        catch { return null; }
+    }
+
     public bool IsEnabled(string elementId) =>
         GetElement(elementId).IsEnabled;
 

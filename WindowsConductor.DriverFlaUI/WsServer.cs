@@ -259,6 +259,10 @@ public sealed class WsServer
                     return WcResponse.Ok(req.Id,
                         mgr.GetParent(req.GetString("elementId")));
 
+                case "getTopLevelWindow":
+                    return WcResponse.Ok(req.Id,
+                        mgr.GetTopLevelWindow(req.GetString("elementId")));
+
                 case "isEnabled":
                     return WcResponse.Ok(req.Id, mgr.IsEnabled(req.GetString("elementId")));
 
