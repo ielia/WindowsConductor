@@ -159,26 +159,6 @@ public class CommandExecutorTests
         Assert.That(_output.ClearAttributesCount, Is.EqualTo(1));
     }
 
-    // ── wscreenshot ─────────────────────────────────────────────────────────
-
-    [Test]
-    public async Task Execute_Wscreenshot_NoApp_WritesError()
-    {
-        _session.IsConnected = true;
-        await _executor.ExecuteAsync("wscreenshot");
-        Assert.That(_output.ErrorMessages[0], Does.Contain("No application"));
-    }
-
-    [Test]
-    public async Task Execute_Wscreenshot_ShowsScreenshot()
-    {
-        _session.IsConnected = true;
-        _session.HasApp = true;
-        await _executor.ExecuteAsync("wscreenshot");
-        Assert.That(_output.Screenshots, Has.Count.EqualTo(1));
-        Assert.That(_output.Screenshots[0].Highlight, Is.Null);
-    }
-
     // ── locate ──────────────────────────────────────────────────────────────
 
     [Test]
@@ -662,14 +642,6 @@ public class CommandExecutorTests
     {
         _session.IsConnected = false;
         await _executor.ExecuteAsync("attach Calc.*");
-        Assert.That(_output.ErrorMessages[0], Does.Contain("Not connected"));
-    }
-
-    [Test]
-    public async Task Execute_Wscreenshot_NotConnected_RequiresConnection()
-    {
-        _session.IsConnected = false;
-        await _executor.ExecuteAsync("wscreenshot");
         Assert.That(_output.ErrorMessages[0], Does.Contain("Not connected"));
     }
 

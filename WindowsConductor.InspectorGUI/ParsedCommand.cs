@@ -176,11 +176,3 @@ internal sealed record UnselectCommand : ParsedCommand
     internal override string Description => "Clears the current element selection.";
     internal override string[] Examples => [];
 }
-
-internal sealed record WindowScreenshotCommand : ParsedCommand
-{
-    internal override string Name => "wscreenshot";
-    internal override string Usage => "wscreenshot";
-    internal override string Description => "Captures a screenshot of the application window.";
-    internal override string[] Examples => [];
-}

@@ -138,14 +138,6 @@ public class CommandCompleterTests
         Assert.That(result.Applied, Is.True);
     }
 
-    [Test]
-    public void Complete_Wscreenshot_UniqueMatch()
-    {
-        var result = CommandCompleter.Complete("ws");
-        Assert.That(result.Text, Is.EqualTo("wscreenshot "));
-        Assert.That(result.Applied, Is.True);
-    }
-
     // ── TabResult record ────────────────────────────────────────────────────
 
     [Test]
@@ -167,8 +159,8 @@ public class CommandCompleterTests
     }
 
     [Test]
-    public void Commands_ContainsAll21Commands()
+    public void Commands_ContainsAll20Commands()
     {
-        Assert.That(CommandCompleter.Commands, Has.Length.EqualTo(21));
+        Assert.That(CommandCompleter.Commands, Has.Length.EqualTo(20));
     }
 }

@@ -87,11 +87,6 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
                 output.WriteInfo("Disconnected.");
                 break;
 
-            case WindowScreenshotCommand:
-                RequireApp();
-                await ShowWindowScreenshotAsync(ct);
-                break;
-
             case LocateCommand cmd:
                 RequireApp();
                 var firstTrimmed = cmd.Selectors[0].TrimStart();

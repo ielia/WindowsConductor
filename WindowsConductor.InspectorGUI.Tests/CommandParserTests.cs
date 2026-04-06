@@ -166,14 +166,6 @@ public class CommandParserTests
         Assert.That(CommandParser.Parse("disconnect"), Is.InstanceOf<DisconnectCommand>());
     }
 
-    // ── wscreenshot ─────────────────────────────────────────────────────────
-
-    [Test]
-    public void Parse_Wscreenshot_ReturnsWindowScreenshotCommand()
-    {
-        Assert.That(CommandParser.Parse("wscreenshot"), Is.InstanceOf<WindowScreenshotCommand>());
-    }
-
     // ── locate ──────────────────────────────────────────────────────────────
 
     [Test]
