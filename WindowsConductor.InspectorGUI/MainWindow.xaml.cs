@@ -502,19 +502,23 @@ public partial class MainWindow : Window, ICommandOutput
 
     private static readonly SolidColorBrush InputBrush = Frozen(new(Color.FromRgb(0xFF, 0xFF, 0xFF)));
     private static readonly SolidColorBrush ResponseBrush = Frozen(new(Color.FromRgb(0xCC, 0xCC, 0xCC)));
-    private static readonly SolidColorBrush FocusBorderBrush = Frozen(new(Color.FromRgb(0x00, 0x78, 0xD4)));
+    private static readonly SolidColorBrush FocusBorderBrush = Frozen(new(Color.FromRgb(0x40, 0xA0, 0xF0)));
     private static readonly SolidColorBrush DefaultBorderBrush = Frozen(new(Color.FromRgb(0x33, 0x33, 0x33)));
 
     private static SolidColorBrush Frozen(SolidColorBrush brush) { brush.Freeze(); return brush; }
 
     private void AppendLog(string text, bool bold = false)
     {
-        var paragraph = new Paragraph();
-        var run = new Run(text) { Foreground = bold ? InputBrush : ResponseBrush };
-        if (bold)
-            run.FontWeight = FontWeights.Bold;
-        paragraph.Inlines.Add(run);
-        OutputLog.Document.Blocks.Add(paragraph);
+        var brush = bold ? InputBrush : ResponseBrush;
+        var weight = bold ? FontWeights.Bold : FontWeights.Normal;
+        var lines = text.Split('\n');
+        foreach (var line in lines)
+        {
+            var paragraph = new Paragraph();
+            var run = new Run(line.TrimEnd('\r')) { Foreground = brush, FontWeight = weight };
+            paragraph.Inlines.Add(run);
+            OutputLog.Document.Blocks.Add(paragraph);
+        }
         OutputLog.ScrollToEnd();
     }
 }

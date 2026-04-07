@@ -23,7 +23,7 @@
 
             <!-- Screenshot display with highlight overlay -->
             <Border x:Name="ScreenshotBorder" Grid.Column="0" Background="#1E1E1E" Margin="4"
-                    BorderThickness="2" BorderBrush="#333333">
+                    BorderThickness="3" BorderBrush="#333333">
                 <Grid x:Name="ScreenshotContainer" SizeChanged="ScreenshotContainer_SizeChanged">
                     <Image x:Name="ScreenshotImage" Stretch="Uniform" Focusable="True"
                            MouseLeftButtonDown="ScreenshotImage_MouseLeftButtonDown" />
@@ -40,7 +40,7 @@
 
             <!-- Attributes panel -->
             <Border x:Name="AttributesBorder" Grid.Column="2" Background="#1E1E1E" Margin="4"
-                    BorderThickness="2" BorderBrush="#333333">
+                    BorderThickness="3" BorderBrush="#333333">
                 <DockPanel>
                     <!-- Locator chain -->
                     <DockPanel x:Name="LocatorChainPanel" DockPanel.Dock="Top" Visibility="Collapsed">
@@ -144,7 +144,7 @@
 
         <!-- Output log -->
         <Border x:Name="OutputLogBorder" Grid.Row="2" Margin="4"
-                BorderThickness="2" BorderBrush="#333333">
+                BorderThickness="3" BorderBrush="#333333">
             <RichTextBox x:Name="OutputLog"
                          IsReadOnly="True" VerticalScrollBarVisibility="Auto"
                          Background="#1E1E1E" Foreground="#CCCCCC"
@@ -160,7 +160,7 @@
 
         <!-- Command input -->
         <Border x:Name="CommandInputBorder" Grid.Row="3" Margin="4"
-                BorderThickness="2" BorderBrush="#333333">
+                BorderThickness="3" BorderBrush="#333333">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
