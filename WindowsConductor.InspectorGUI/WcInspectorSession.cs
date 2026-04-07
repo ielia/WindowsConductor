@@ -107,9 +107,11 @@ internal sealed class WcInspectorSession : IInspectorSession, IAsyncDisposable
             locator = locator.Locator(selectors[i]);
 
         var elements = await locator.GetAllElementsAsync(ct);
-        _matchedElements = elements;
         if (elements.Count > 0)
+        {
+            _matchedElements = elements;
             _selectedElement = elements[0];
+        }
         return elements.Count;
     }
 
@@ -120,9 +122,11 @@ internal sealed class WcInspectorSession : IInspectorSession, IAsyncDisposable
             locator = locator.Locator(selectors[i]);
 
         var elements = await locator.GetAllElementsAsync(ct);
-        _matchedElements = elements;
         if (elements.Count > 0)
+        {
+            _matchedElements = elements;
             _selectedElement = elements[0];
+        }
         return elements.Count;
     }
 

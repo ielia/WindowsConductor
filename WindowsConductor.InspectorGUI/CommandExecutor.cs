@@ -118,10 +118,6 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
                     _currentSelectors = previousSelectors;
                     _matchCount = previousMatchCount;
                     _matchIndex = previousMatchIndex;
-                    if (previousSelectors is not null && previousMatchCount > 0)
-                        await session.LocateAllAsync(previousSelectors, ct);
-                    if (previousMatchIndex > 0)
-                        await session.SelectMatchAsync(previousMatchIndex, ct);
                     throw new InvalidOperationException(
                         $"No element found for selector '{string.Join(" >> ", cmd.Selectors)}'.");
                 }
