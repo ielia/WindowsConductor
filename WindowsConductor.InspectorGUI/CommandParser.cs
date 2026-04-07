@@ -30,6 +30,7 @@ internal static class CommandParser
             "type" => ParseType(parts),
             "focus" => new FocusCommand(),
             "parent" => new ParentCommand(),
+            "children" => new ChildrenCommand(),
             "text" => new TextCommand(),
             "screenshot" => new ScreenshotCommand(),
             "exit" or "quit" => new ExitCommand(),

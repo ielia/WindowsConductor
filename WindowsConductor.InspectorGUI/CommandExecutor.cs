@@ -201,6 +201,25 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
                 await ShowAttributesAsync(ct);
                 break;
 
+            case ChildrenCommand:
+                RequireElement();
+                BakeMatchIndex();
+                var childSelectors = new[] { "./*" };
+                var childCount = await session.LocateAllFromElementAsync(childSelectors, ct);
+                if (childCount == 0)
+                    throw new InvalidOperationException("No children found.");
+                _currentSelectors = CombineSelectors(_currentSelectors, childSelectors);
+                _isAtRoot = false;
+                _matchCount = childCount;
+                _matchIndex = 0;
+                output.WriteInfo(childCount == 1
+                    ? "Located 1 child."
+                    : $"Located {childCount} children (showing 1 of {childCount}).");
+                output.UpdateMatchNavigation(_matchIndex, _matchCount);
+                await ShowWindowScreenshotWithHighlightAsync(ct);
+                await ShowAttributesAsync(ct);
+                break;
+
             case FocusCommand:
                 RequireElement();
                 await session.FocusAsync(ct);

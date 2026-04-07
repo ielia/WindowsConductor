@@ -137,6 +137,14 @@ internal sealed record ParentCommand : ParsedCommand
     internal override string[] Examples => [];
 }
 
+internal sealed record ChildrenCommand : ParsedCommand
+{
+    internal override string Name => "children";
+    internal override string Usage => "children";
+    internal override string Description => "Locates all direct children of the currently selected element.";
+    internal override string[] Examples => [];
+}
+
 internal sealed record RightClickCommand : ParsedCommand
 {
     internal override string Name => "rightclick";
