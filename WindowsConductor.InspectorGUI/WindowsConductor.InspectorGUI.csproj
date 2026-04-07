@@ -8,6 +8,7 @@
     <UseWPF>true</UseWPF>
     <RootNamespace>WindowsConductor.InspectorGUI</RootNamespace>
     <AssemblyName>WindowsConductor.InspectorGUI</AssemblyName>
+    <ApplicationIcon>InspectorGUI.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>
