@@ -165,6 +165,7 @@
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
                 <TextBlock Grid.Column="0" Text="&gt; " Foreground="#CCCCCC"
                            FontFamily="Consolas" FontSize="14"
@@ -175,6 +176,13 @@
                          CaretBrush="White" BorderThickness="0"
                          Padding="4"
                          PreviewKeyDown="CommandInput_PreviewKeyDown" />
+                <Button Grid.Column="2" x:Name="SleepStopButton"
+                        Content="Stop" Padding="12,3"
+                        FontFamily="Consolas" FontSize="11"
+                        Background="#2D2D2D" Foreground="#CCCCCC"
+                        BorderBrush="#555555" BorderThickness="1"
+                        Visibility="Collapsed"
+                        Click="SleepStopButton_Click" />
             </Grid>
         </Border>
     </Grid>

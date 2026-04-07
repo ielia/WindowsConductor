@@ -31,6 +31,7 @@ internal static class CommandParser
             "focus" => new FocusCommand(),
             "parent" => new ParentCommand(),
             "children" => new ChildrenCommand(),
+            "sleep" => ParseSleep(parts),
             "text" => new TextCommand(),
             "screenshot" => new ScreenshotCommand(),
             "exit" or "quit" => new ExitCommand(),
@@ -194,6 +195,67 @@ internal static class CommandParser
             };
         }
         return modifiers;
+    }
+
+    private static SleepCommand ParseSleep(string[] parts)
+    {
+        if (parts.Length < 2 || !int.TryParse(parts[1], out var ms) || ms <= 0)
+            throw new ArgumentException("Usage: sleep <milliseconds>");
+        return new SleepCommand(ms);
+    }
+
+    /// <summary>
+    /// Splits input into individual commands separated by ';',
+    /// respecting quoted strings and bracket groups.
+    /// </summary>
+    internal static string[] SplitCommands(string input)
+    {
+        var commands = new List<string>();
+        var current = new System.Text.StringBuilder();
+        bool inQuote = false;
+        char quoteChar = '\0';
+        int bracketDepth = 0;
+
+        for (int i = 0; i < input.Length; i++)
+        {
+            char c = input[i];
+            if (inQuote)
+            {
+                current.Append(c);
+                if (c == quoteChar) inQuote = false;
+            }
+            else if (c is '"' or '\'')
+            {
+                current.Append(c);
+                inQuote = true;
+                quoteChar = c;
+            }
+            else if (c == '[')
+            {
+                current.Append(c);
+                bracketDepth++;
+            }
+            else if (c == ']' && bracketDepth > 0)
+            {
+                current.Append(c);
+                bracketDepth--;
+            }
+            else if (c == ';' && bracketDepth == 0)
+            {
+                var cmd = current.ToString().Trim();
+                if (cmd.Length > 0) commands.Add(cmd);
+                current.Clear();
+            }
+            else
+            {
+                current.Append(c);
+            }
+        }
+
+        var last = current.ToString().Trim();
+        if (last.Length > 0) commands.Add(last);
+
+        return commands.ToArray();
     }
 
     /// <summary>

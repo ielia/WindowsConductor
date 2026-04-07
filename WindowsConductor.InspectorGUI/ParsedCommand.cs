@@ -153,6 +153,14 @@ internal sealed record RightClickCommand : ParsedCommand
     internal override string[] Examples => [];
 }
 
+internal sealed record SleepCommand(int Milliseconds) : ParsedCommand
+{
+    internal override string Name => "sleep";
+    internal override string Usage => "sleep <milliseconds>";
+    internal override string Description => "Pauses the inspector for the specified number of milliseconds.";
+    internal override string[] Examples => ["sleep 1000", "sleep 5000"];
+}
+
 internal sealed record ScreenshotCommand : ParsedCommand
 {
     internal override string Name => "screenshot";

@@ -421,4 +421,68 @@ public class CommandParserTests
         var tokens = CommandParser.Tokenize("");
         Assert.That(tokens, Is.Empty);
     }
+
+    // ── SplitCommands ────────────────────────────────────────────────────
+
+    [Test]
+    public void SplitCommands_SingleCommand_ReturnsSingle()
+    {
+        var result = CommandParser.SplitCommands("click");
+        Assert.That(result, Is.EqualTo(new[] { "click" }));
+    }
+
+    [Test]
+    public void SplitCommands_MultipleCommands_SplitsOnSemicolon()
+    {
+        var result = CommandParser.SplitCommands("sleep 1000; click; text");
+        Assert.That(result, Is.EqualTo(new[] { "sleep 1000", "click", "text" }));
+    }
+
+    [Test]
+    public void SplitCommands_SemicolonInsideDoubleQuotes_NotSplit()
+    {
+        var result = CommandParser.SplitCommands("locate \"//*[text()='a; b']\"; text");
+        Assert.That(result, Is.EqualTo(new[] { "locate \"//*[text()='a; b']\"", "text" }));
+    }
+
+    [Test]
+    public void SplitCommands_SemicolonInsideSingleQuotes_NotSplit()
+    {
+        var result = CommandParser.SplitCommands("locate '//*[text()=\"a; b\"]'; text");
+        Assert.That(result, Is.EqualTo(new[] { "locate '//*[text()=\"a; b\"]'", "text" }));
+    }
+
+    [Test]
+    public void SplitCommands_SemicolonInsideBrackets_NotSplit()
+    {
+        var result = CommandParser.SplitCommands("launch app.exe [\"a;b\",\"c;d\"]; click");
+        Assert.That(result, Is.EqualTo(new[] { "launch app.exe [\"a;b\",\"c;d\"]", "click" }));
+    }
+
+    [Test]
+    public void SplitCommands_EmptySegments_Ignored()
+    {
+        var result = CommandParser.SplitCommands("; click ; ; text ;");
+        Assert.That(result, Is.EqualTo(new[] { "click", "text" }));
+    }
+
+    [Test]
+    public void SplitCommands_EmptyInput_ReturnsEmpty()
+    {
+        var result = CommandParser.SplitCommands("");
+        Assert.That(result, Is.Empty);
+    }
+
+    [Test]
+    public void SplitCommands_ComplexExample_PreservesSemicolonsInQuotes()
+    {
+        var result = CommandParser.SplitCommands(
+            "sleep 1000; locate \"//*[text()*='some; text; as one; text']\"; text");
+        Assert.That(result, Is.EqualTo(new[]
+        {
+            "sleep 1000",
+            "locate \"//*[text()*='some; text; as one; text']\"",
+            "text"
+        }));
+    }
 }

@@ -222,8 +222,11 @@ public partial class MainWindow : Window, ICommandOutput
     void ICommandOutput.WriteInfo(string message) =>
         Dispatcher.Invoke(() => AppendLog(message));
 
+    void ICommandOutput.WriteCommand(string command) =>
+        Dispatcher.Invoke(() => AppendLog($"> {command}", italic: true, brush: CommandBrush));
+
     void ICommandOutput.WriteError(string message) =>
-        Dispatcher.Invoke(() => AppendLog($"ERROR: {message}"));
+        Dispatcher.Invoke(() => AppendLog($"ERROR: {message}", brush: ErrorBrush));
 
     void ICommandOutput.ShowScreenshot(byte[] imageData, HighlightInfo? highlight, WindowDimensions? windowDimensions)
     {
@@ -291,6 +294,46 @@ public partial class MainWindow : Window, ICommandOutput
             NextMatchButton.IsEnabled = hasMultiple;
             MatchCountLabel.Text = hasMultiple ? $"({currentIndex + 1}/{totalCount})" : "";
         });
+
+    private Action? _sleepStopAction;
+    private DispatcherTimer? _sleepCountdownTimer;
+    private DateTime _sleepEndTime;
+
+    void ICommandOutput.ShowSleepCancel(int totalMilliseconds, Action cancelAction)
+    {
+        Dispatcher.Invoke(() =>
+        {
+            _sleepStopAction = cancelAction;
+            _sleepEndTime = DateTime.UtcNow.AddMilliseconds(totalMilliseconds);
+            UpdateSleepButtonLabel();
+            SleepStopButton.Visibility = Visibility.Visible;
+            _sleepCountdownTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(100) };
+            _sleepCountdownTimer.Tick += (_, _) => UpdateSleepButtonLabel();
+            _sleepCountdownTimer.Start();
+            SetBusy(true);
+        });
+    }
+
+    void ICommandOutput.HideSleepCancel()
+    {
+        Dispatcher.Invoke(() =>
+        {
+            _sleepCountdownTimer?.Stop();
+            _sleepCountdownTimer = null;
+            SleepStopButton.Visibility = Visibility.Collapsed;
+            _sleepStopAction = null;
+            SetBusy(false);
+        });
+    }
+
+    private void UpdateSleepButtonLabel()
+    {
+        var remaining = Math.Max(0, (int)(_sleepEndTime - DateTime.UtcNow).TotalMilliseconds);
+        SleepStopButton.Content = $"{remaining} - Stop";
+    }
+
+    private void SleepStopButton_Click(object sender, RoutedEventArgs e) =>
+        _sleepStopAction?.Invoke();
 
     void ICommandOutput.RequestExit() =>
         Dispatcher.Invoke(Close);
@@ -502,20 +545,23 @@ public partial class MainWindow : Window, ICommandOutput
 
     private static readonly SolidColorBrush InputBrush = Frozen(new(Color.FromRgb(0xFF, 0xFF, 0xFF)));
     private static readonly SolidColorBrush ResponseBrush = Frozen(new(Color.FromRgb(0xCC, 0xCC, 0xCC)));
+    private static readonly SolidColorBrush CommandBrush = Frozen(new(Color.FromRgb(0x80, 0xC0, 0xFF)));
+    private static readonly SolidColorBrush ErrorBrush = Frozen(new(Color.FromRgb(0xFF, 0x80, 0x80)));
     private static readonly SolidColorBrush FocusBorderBrush = Frozen(new(Color.FromRgb(0x40, 0xA0, 0xF0)));
     private static readonly SolidColorBrush DefaultBorderBrush = Frozen(new(Color.FromRgb(0x33, 0x33, 0x33)));
 
     private static SolidColorBrush Frozen(SolidColorBrush brush) { brush.Freeze(); return brush; }
 
-    private void AppendLog(string text, bool bold = false)
+    private void AppendLog(string text, bool bold = false, bool italic = false, SolidColorBrush? brush = null)
     {
-        var brush = bold ? InputBrush : ResponseBrush;
+        brush ??= bold ? InputBrush : ResponseBrush;
         var weight = bold ? FontWeights.Bold : FontWeights.Normal;
+        var style = italic ? FontStyles.Italic : FontStyles.Normal;
         var lines = text.Split('\n');
         foreach (var line in lines)
         {
             var paragraph = new Paragraph();
-            var run = new Run(line.TrimEnd('\r')) { Foreground = brush, FontWeight = weight };
+            var run = new Run(line.TrimEnd('\r')) { Foreground = brush, FontWeight = weight, FontStyle = style };
             paragraph.Inlines.Add(run);
             OutputLog.Document.Blocks.Add(paragraph);
         }

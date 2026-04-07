@@ -16,6 +16,8 @@ internal sealed class FakeCommandOutput : ICommandOutput
 
     public void ClearLog() => ClearLogCount++;
     public void WriteInfo(string message) => InfoMessages.Add(message);
+    public List<string> CommandMessages { get; } = new();
+    public void WriteCommand(string command) => CommandMessages.Add(command);
     public void WriteError(string message) => ErrorMessages.Add(message);
 
     public void ShowScreenshot(byte[] imageData, HighlightInfo? highlight = null, WindowDimensions? windowDimensions = null) =>
@@ -31,6 +33,19 @@ internal sealed class FakeCommandOutput : ICommandOutput
     public List<(int CurrentIndex, int TotalCount)> MatchNavigationUpdates { get; } = new();
     public void UpdateMatchNavigation(int currentIndex, int totalCount) =>
         MatchNavigationUpdates.Add((currentIndex, totalCount));
+
+    public int ShowSleepCancelCount { get; private set; }
+    public Action? LastSleepStopAction { get; private set; }
+    public int LastSleepTotalMilliseconds { get; private set; }
+    public void ShowSleepCancel(int totalMilliseconds, Action cancelAction)
+    {
+        ShowSleepCancelCount++;
+        LastSleepTotalMilliseconds = totalMilliseconds;
+        LastSleepStopAction = cancelAction;
+    }
+
+    public int HideSleepCancelCount { get; private set; }
+    public void HideSleepCancel() => HideSleepCancelCount++;
 
     public int RequestExitCount { get; private set; }
     public void RequestExit() => RequestExitCount++;

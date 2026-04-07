@@ -4,6 +4,7 @@ internal interface ICommandOutput
 {
     void ClearLog();
     void WriteInfo(string message);
+    void WriteCommand(string command);
     void WriteError(string message);
     void ShowScreenshot(byte[] imageData, HighlightInfo? highlight = null, WindowDimensions? windowDimensions = null);
     void ClearScreenshot();
@@ -11,6 +12,8 @@ internal interface ICommandOutput
     void ShowAttributes(string locatorChain, Dictionary<string, object?> attributes);
     void ClearAttributes();
     void UpdateMatchNavigation(int currentIndex, int totalCount);
+    void ShowSleepCancel(int totalMilliseconds, Action cancelAction);
+    void HideSleepCancel();
     void RequestExit();
 }
 

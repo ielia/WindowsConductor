@@ -4,35 +4,65 @@ namespace WindowsConductor.InspectorGUI;
 
 internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput output)
 {
+    private const bool STOP_CHAIN_ON_ERROR = false;
+
     private string[]? _currentSelectors;
     private readonly Stack<string[]> _selectorHistory = new();
     private int _matchCount;
     private int _matchIndex;
     private bool _isAtRoot;
+    private CancellationTokenSource? _chainCts;
 
     internal bool IsAtRoot => _isAtRoot;
     internal bool CanGoBack => _selectorHistory.Count > 0;
     internal bool HasMultipleMatches => _matchCount > 1;
     internal async Task ExecuteAsync(string input, CancellationToken ct = default)
     {
-        ParsedCommand command;
-        try
+        var commands = CommandParser.SplitCommands(input);
+        if (commands.Length == 0)
         {
-            command = CommandParser.Parse(input);
-        }
-        catch (ArgumentException ex)
-        {
-            output.WriteError(ex.Message);
+            output.WriteError("Command cannot be empty.");
             return;
         }
-
+        bool isChain = commands.Length > 1;
+        using var chainCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        _chainCts = chainCts;
         try
         {
-            await ExecuteCommandAsync(command, ct);
+            foreach (var cmd in commands)
+            {
+                if (chainCts.Token.IsCancellationRequested)
+                    return;
+
+                if (isChain)
+                    output.WriteCommand(cmd);
+
+                ParsedCommand command;
+                try
+                {
+                    command = CommandParser.Parse(cmd);
+                }
+                catch (ArgumentException ex)
+                {
+                    output.WriteError(ex.Message);
+                    if (!isChain || STOP_CHAIN_ON_ERROR) return;
+                    continue;
+                }
+
+                try
+                {
+                    await ExecuteCommandAsync(command, chainCts.Token);
+                }
+                catch (Exception ex)
+                {
+                    output.WriteError(ex.Message);
+                    if (!isChain || STOP_CHAIN_ON_ERROR) return;
+                }
+            }
         }
-        catch (Exception ex)
+        finally
         {
-            output.WriteError(ex.Message);
+            _chainCts = null;
         }
     }
 
@@ -237,6 +267,23 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
                 var imgData = await session.ScreenshotElementAsync(ct);
                 output.ShowScreenshot(imgData);
                 output.WriteInfo("Element screenshot captured.");
+                break;
+
+            case SleepCommand sleepCmd:
+                output.ShowSleepCancel(sleepCmd.Milliseconds, () => _chainCts?.Cancel());
+                try
+                {
+                    await Task.Delay(sleepCmd.Milliseconds, ct);
+                    output.WriteInfo($"Slept {sleepCmd.Milliseconds}ms.");
+                }
+                catch (OperationCanceledException)
+                {
+                    output.WriteInfo("Sleep and all remaining commands stopped.");
+                }
+                finally
+                {
+                    output.HideSleepCancel();
+                }
                 break;
 
             case HelpCommand cmd:
