@@ -29,6 +29,7 @@ internal interface IInspectorSession
     Task<string> GetAttributeAsync(string attributeName, CancellationToken ct = default);
     Task<Dictionary<string, object?>> GetAttributesAsync(CancellationToken ct = default);
     Task<string?> ParentAsync(CancellationToken ct = default);
+    Task<bool> IsSelectedElementRootAsync(CancellationToken ct = default);
     Task ClickAsync(CancellationToken ct = default);
     Task DoubleClickAsync(CancellationToken ct = default);
     Task RightClickAsync(CancellationToken ct = default);

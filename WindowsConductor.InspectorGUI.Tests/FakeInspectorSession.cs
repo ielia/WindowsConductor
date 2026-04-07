@@ -137,6 +137,13 @@ internal sealed class FakeInspectorSession : IInspectorSession
         HasSelectedElement = false;
     }
 
+    public bool IsSelectedElementRootResult { get; set; }
+    public Task<bool> IsSelectedElementRootAsync(CancellationToken ct = default)
+    {
+        Record("IsSelectedElementRoot");
+        return Task.FromResult(IsSelectedElementRootResult);
+    }
+
     public Task<string> GetAttributeAsync(string attributeName, CancellationToken ct = default)
     {
         Record("GetAttribute", attributeName);

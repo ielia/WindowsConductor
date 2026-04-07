@@ -5,8 +5,14 @@ namespace WindowsConductor.InspectorGUI;
 internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput output)
 {
     private string[]? _currentSelectors;
+    private readonly Stack<string[]> _selectorHistory = new();
     private int _matchCount;
     private int _matchIndex;
+    private bool _isAtRoot;
+
+    internal bool IsAtRoot => _isAtRoot;
+    internal bool CanGoBack => _selectorHistory.Count > 0;
+    internal bool HasMultipleMatches => _matchCount > 1;
     internal async Task ExecuteAsync(string input, CancellationToken ct = default)
     {
         ParsedCommand command;
@@ -93,6 +99,8 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
                 bool isRelative = session.HasSelectedElement
                     && IsXPath(firstTrimmed) && firstTrimmed != "/";
                 var previousSelectors = _currentSelectors;
+                var previousMatchCount = _matchCount;
+                var previousMatchIndex = _matchIndex;
                 int count;
                 if (isRelative)
                 {
@@ -108,9 +116,18 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
                 if (count == 0)
                 {
                     _currentSelectors = previousSelectors;
+                    _matchCount = previousMatchCount;
+                    _matchIndex = previousMatchIndex;
+                    if (previousSelectors is not null && previousMatchCount > 0)
+                        await session.LocateAllAsync(previousSelectors, ct);
+                    if (previousMatchIndex > 0)
+                        await session.SelectMatchAsync(previousMatchIndex, ct);
                     throw new InvalidOperationException(
                         $"No element found for selector '{string.Join(" >> ", cmd.Selectors)}'.");
                 }
+                if (previousSelectors is not null)
+                    _selectorHistory.Push(previousSelectors);
+                _isAtRoot = await session.IsSelectedElementRootAsync(ct);
                 _matchCount = count;
                 _matchIndex = 0;
                 output.WriteInfo(count == 1
@@ -177,10 +194,12 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
                 var parentId = await session.ParentAsync(ct);
                 if (parentId is null)
                 {
+                    _isAtRoot = true;
                     output.WriteInfo("Already at application root.");
                     break;
                 }
                 _currentSelectors = CombineSelectors(_currentSelectors, [".."]);
+                _isAtRoot = await session.IsSelectedElementRootAsync(ct);
                 output.WriteInfo($"Navigated to parent: {parentId}");
                 await ShowWindowScreenshotWithHighlightAsync(ct);
                 await ShowAttributesAsync(ct);
@@ -232,6 +251,21 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
         if (_matchCount <= 1) return;
         _matchIndex = (_matchIndex + direction + _matchCount) % _matchCount;
         await session.SelectMatchAsync(_matchIndex, ct);
+        output.UpdateMatchNavigation(_matchIndex, _matchCount);
+        await ShowWindowScreenshotWithHighlightAsync(ct);
+        await ShowAttributesAsync(ct);
+    }
+
+    internal async Task GoBackAsync(CancellationToken ct = default)
+    {
+        if (_selectorHistory.Count == 0) return;
+        var selectors = _selectorHistory.Pop();
+        session.Unselect();
+        var count = await session.LocateAllAsync(selectors, ct);
+        _currentSelectors = selectors;
+        _isAtRoot = await session.IsSelectedElementRootAsync(ct);
+        _matchCount = count;
+        _matchIndex = 0;
         output.UpdateMatchNavigation(_matchIndex, _matchCount);
         await ShowWindowScreenshotWithHighlightAsync(ct);
         await ShowAttributesAsync(ct);
@@ -320,6 +354,8 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
     {
         _matchCount = 0;
         _matchIndex = 0;
+        _isAtRoot = false;
+        _selectorHistory.Clear();
         output.UpdateMatchNavigation(0, 0);
     }
 

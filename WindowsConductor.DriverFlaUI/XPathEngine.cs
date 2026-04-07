@@ -169,8 +169,8 @@ public sealed class XPathEngine
             switch (cp)
             {
                 case ContainsBoundsPoint bp:
-                    var rect = element.BoundingRectangle;
-                    if (!rect.Contains(new System.Drawing.Point((int)bp.X, (int)bp.Y)))
+                    var relRect = GetTopContainerRelativeBounds(element);
+                    if (!relRect.Contains(new System.Drawing.Point((int)bp.X, (int)bp.Y)))
                         return false;
                     break;
                 case ContainsSubstring cs:
@@ -712,5 +712,40 @@ public sealed class XPathEngine
         parts.Add(content[start..].Trim());
 
         return parts.Count > 1 ? (parts, foundOp) : (parts, null);
+    }
+
+    private static System.Drawing.Rectangle GetTopContainerRelativeBounds(AutomationElement element)
+    {
+        var rect = element.BoundingRectangle;
+        var origin = GetTopContainerOrigin(element);
+        return new System.Drawing.Rectangle(
+            rect.X - origin.X, rect.Y - origin.Y,
+            rect.Width, rect.Height);
+    }
+
+    private static System.Drawing.Point GetTopContainerOrigin(AutomationElement element)
+    {
+        var current = element;
+        var parent = SafeGetParent(current);
+        while (parent is not null)
+        {
+            var grandparent = SafeGetParent(parent);
+            if (grandparent is null)
+                break;
+            current = parent;
+            parent = grandparent;
+        }
+
+        if (parent is null)
+            return System.Drawing.Point.Empty;
+
+        var r = current.BoundingRectangle;
+        return new System.Drawing.Point(r.X, r.Y);
+    }
+
+    private static AutomationElement? SafeGetParent(AutomationElement el)
+    {
+        try { return el.Parent; }
+        catch { return null; }
     }
 }

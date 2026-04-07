@@ -43,12 +43,20 @@
                     BorderThickness="2" BorderBrush="#333333">
                 <DockPanel>
                     <!-- Locator chain -->
-                    <TextBox x:Name="LocatorChainText" DockPanel.Dock="Top"
-                             IsReadOnly="True" TextWrapping="Wrap"
-                             Background="#252525" Foreground="#E0E080"
-                             FontFamily="Consolas" FontSize="11"
-                             BorderThickness="0" Padding="6,4"
-                             Visibility="Collapsed" />
+                    <DockPanel x:Name="LocatorChainPanel" DockPanel.Dock="Top" Visibility="Collapsed">
+                        <Button x:Name="BackLocatorButton" DockPanel.Dock="Left"
+                                Content="&lt;&lt;" Padding="6,3"
+                                FontFamily="Consolas" FontSize="11"
+                                Background="#2D2D2D" Foreground="#CCCCCC"
+                                BorderBrush="#555555" BorderThickness="1"
+                                IsEnabled="False"
+                                Click="BackLocatorButton_Click" />
+                        <TextBox x:Name="LocatorChainText"
+                                 IsReadOnly="True" TextWrapping="Wrap"
+                                 Background="#252525" Foreground="#E0E080"
+                                 FontFamily="Consolas" FontSize="11"
+                                 BorderThickness="0" Padding="6,4" />
+                    </DockPanel>
 
                     <TextBlock DockPanel.Dock="Top" Text="Attributes"
                                Foreground="#AAAAAA" FontFamily="Consolas" FontSize="12"

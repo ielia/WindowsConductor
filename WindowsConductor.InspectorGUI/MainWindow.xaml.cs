@@ -22,6 +22,7 @@ public partial class MainWindow : Window, ICommandOutput
     private HighlightInfo? _currentHighlight;
     private WindowDimensions? _windowDimensions;
     private Border? _lastFocusedBorder;
+    private bool _busy;
 
     public MainWindow()
     {
@@ -175,15 +176,14 @@ public partial class MainWindow : Window, ICommandOutput
         CommandInput.Text = "";
         AppendLog($"> {input}", bold: true);
 
-        CommandInput.IsEnabled = false;
+        SetBusy(true);
         try
         {
             await _executor.ExecuteAsync(input);
         }
         finally
         {
-            CommandInput.IsEnabled = true;
-            CommandInput.Focus();
+            SetBusy(false);
         }
     }
 
@@ -264,7 +264,8 @@ public partial class MainWindow : Window, ICommandOutput
             if (!string.IsNullOrEmpty(locatorChain))
             {
                 LocatorChainText.Text = locatorChain;
-                LocatorChainText.Visibility = Visibility.Visible;
+                LocatorChainPanel.Visibility = Visibility.Visible;
+                BackLocatorButton.IsEnabled = _executor.CanGoBack;
             }
 
             AttributesGrid.ItemsSource = attributes
@@ -277,7 +278,8 @@ public partial class MainWindow : Window, ICommandOutput
         Dispatcher.Invoke(() =>
         {
             LocatorChainText.Text = "";
-            LocatorChainText.Visibility = Visibility.Collapsed;
+            LocatorChainPanel.Visibility = Visibility.Collapsed;
+            BackLocatorButton.IsEnabled = false;
             AttributesGrid.ItemsSource = null;
         });
 
@@ -318,6 +320,19 @@ public partial class MainWindow : Window, ICommandOutput
         try
         {
             await _executor.NavigateMatchAsync(direction);
+        }
+        catch (Exception ex)
+        {
+            AppendLog($"ERROR: {ex.Message}");
+        }
+    }
+
+    private async void BackLocatorButton_Click(object sender, RoutedEventArgs e)
+    {
+        BackLocatorButton.IsEnabled = false;
+        try
+        {
+            await _executor.GoBackAsync();
         }
         catch (Exception ex)
         {
@@ -425,6 +440,7 @@ public partial class MainWindow : Window, ICommandOutput
 
     private async void ScreenshotImage_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
+        if (_busy) return;
         if (_currentBitmap is null || _windowDimensions is null) return;
 
         var containerWidth = ScreenshotContainer.ActualWidth;
@@ -455,23 +471,33 @@ public partial class MainWindow : Window, ICommandOutput
         if (winRelX < 0 || winRelY < 0 || winRelX > winDim.Width || winRelY > winDim.Height)
             return;
 
-        // Convert to screen-absolute coordinates (BoundingRectangle uses screen coords)
-        var screenX = winDim.X + winRelX;
-        var screenY = winDim.Y + winRelY;
-
-        var selector = FormattableString.Invariant($"//frontmost::*[at({screenX:F0}, {screenY:F0})]");
+        var selector = _executor.IsAtRoot
+            ? FormattableString.Invariant($"/*[at({winRelX:F0}, {winRelY:F0})]")
+            : FormattableString.Invariant($"//frontmost::*[at({winRelX:F0}, {winRelY:F0})]");
         AppendLog($"> {selector}", bold: true);
 
-        CommandInput.IsEnabled = false;
+        SetBusy(true);
         try
         {
             await _executor.ExecuteAsync($"locate {selector}");
         }
         finally
         {
-            CommandInput.IsEnabled = true;
-            CommandInput.Focus();
+            SetBusy(false);
         }
+    }
+
+    private void SetBusy(bool busy)
+    {
+        _busy = busy;
+        CommandInput.IsEnabled = !busy;
+        RefreshButton.IsEnabled = !busy;
+        BackLocatorButton.IsEnabled = !busy && _executor.CanGoBack;
+        PrevMatchButton.IsEnabled = !busy && _executor.HasMultipleMatches;
+        NextMatchButton.IsEnabled = !busy && _executor.HasMultipleMatches;
+        ScreenshotImage.Cursor = busy ? Cursors.Wait : Cursors.Arrow;
+        if (!busy)
+            CommandInput.Focus();
     }
 
     private static readonly SolidColorBrush InputBrush = Frozen(new(Color.FromRgb(0xFF, 0xFF, 0xFF)));
