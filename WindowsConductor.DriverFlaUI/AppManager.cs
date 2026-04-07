@@ -244,18 +244,20 @@ public sealed class AppManager : IAppOperations, IDisposable
 
     /// <summary>
     /// Returns visible text for the element.
-    /// Tries <c>TextBox.Text</c> first, then falls back to <c>Name</c>.
+    /// Returns <c>TextBox.Text</c> for the element, or empty string if not a text box.
     /// </summary>
     public string GetText(string elementId)
     {
         var el = GetElement(elementId);
-        var tb = el.AsTextBox();
-        if (tb != null)
+        try
         {
-            try { return tb.Text ?? el.Name ?? ""; }
-            catch { /* pattern not supported */ }
+            var tb = el.AsTextBox();
+            return tb?.Text ?? "";
         }
-        return el.Name ?? "";
+        catch
+        {
+            return "";
+        }
     }
 
     public string GetAttribute(string elementId, string attribute)

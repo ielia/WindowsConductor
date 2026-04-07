@@ -72,7 +72,7 @@ public class CompoundSelectorChainingTests
         var (k2, v2) = SelectorEngine.ParsePart(parts[1]);
 
         Assert.That(k1, Is.EqualTo("automationid"));
-        Assert.That(k2, Is.EqualTo("name"));
+        Assert.That(k2, Is.EqualTo("text"));
         Assert.That(v2, Is.EqualTo("Hello"));
     }
 

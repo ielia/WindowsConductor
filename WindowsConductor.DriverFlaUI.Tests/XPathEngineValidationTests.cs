@@ -436,7 +436,7 @@ public class XPathEngineValidationTests
     {
         var steps = XPathEngine.ParseXPath("//Window[text()='Calculator']");
         Assert.That(steps[0].Predicates, Has.Count.EqualTo(1));
-        Assert.That(steps[0].Predicates[0].Attribute, Is.EqualTo("name"));
+        Assert.That(steps[0].Predicates[0].Attribute, Is.EqualTo("text"));
         Assert.That(steps[0].Predicates[0].Values, Is.EqualTo(new[] { "Calculator" }));
         Assert.That(steps[0].Predicates[0].MatchMode, Is.EqualTo(AttributeMatchMode.Exact));
     }
@@ -446,7 +446,7 @@ public class XPathEngineValidationTests
     {
         var steps = XPathEngine.ParseXPath("//Window[text()$='- Microsoft Edge']");
         Assert.That(steps[0].Predicates, Has.Count.EqualTo(1));
-        Assert.That(steps[0].Predicates[0].Attribute, Is.EqualTo("name"));
+        Assert.That(steps[0].Predicates[0].Attribute, Is.EqualTo("text"));
         Assert.That(steps[0].Predicates[0].MatchMode, Is.EqualTo(AttributeMatchMode.EndsWith));
         Assert.That(steps[0].Predicates[0].Values, Is.EqualTo(new[] { "- Microsoft Edge" }));
     }
@@ -470,7 +470,7 @@ public class XPathEngineValidationTests
     {
         var steps = XPathEngine.ParseXPath("//Window[text()='foo' and @ClassName='bar']");
         Assert.That(steps[0].Predicates, Has.Count.EqualTo(2));
-        Assert.That(steps[0].Predicates[0].Attribute, Is.EqualTo("name"));
+        Assert.That(steps[0].Predicates[0].Attribute, Is.EqualTo("text"));
         Assert.That(steps[0].Predicates[1].Attribute, Is.EqualTo("ClassName"));
     }
 
@@ -657,7 +657,7 @@ public class XPathEngineValidationTests
     {
         var steps = XPathEngine.ParseXPath("//Button[contains(text(), 'bar')]");
         var cp = steps[0].ContainsPredicates![0] as ContainsSubstring;
-        Assert.That(cp!.Haystack, Is.EqualTo("name"));
+        Assert.That(cp!.Haystack, Is.EqualTo("text"));
         Assert.That(cp.HaystackIsAttr, Is.True);
     }
 

@@ -137,13 +137,15 @@ public class XPathMatchingTests
 {
     private static Func<string, string?> Props(
         string? automationId = null, string? name = null,
-        string? className = null, string? controlType = null) =>
+        string? className = null, string? controlType = null,
+        string? text = null) =>
         key => key switch
         {
             "automationid" => automationId,
             "name" => name,
             "classname" => className,
             "controltype" => controlType,
+            "text" => text,
             _ => null
         };
 
@@ -467,14 +469,14 @@ public class XPathMatchingTests
             Props(automationId: "OK", name: "btn-OK", controlType: "Button")), Is.True);
     }
 
-    // ── text() function (normalized to Name) ─────────────────────────────────
+    // ── text() function (resolved to Text property) ──────────────────────────
 
     [Test]
     public void MatchesStep_TextFunction_ExactMatch()
     {
         var steps = XPathEngine.ParseXPath("//Window[text()='Calculator']");
         Assert.That(XPathEngine.MatchesStep(steps[0],
-            Props(name: "Calculator", controlType: "Window")), Is.True);
+            Props(text: "Calculator", controlType: "Window")), Is.True);
     }
 
     [Test]
@@ -482,7 +484,7 @@ public class XPathMatchingTests
     {
         var steps = XPathEngine.ParseXPath("//Window[text()$='- Microsoft Edge']");
         Assert.That(XPathEngine.MatchesStep(steps[0],
-            Props(name: "Google - Microsoft Edge", controlType: "Window")), Is.True);
+            Props(text: "Google - Microsoft Edge", controlType: "Window")), Is.True);
     }
 
     [Test]
@@ -511,8 +513,8 @@ public class ElementPropertiesTests
 {
     // ── Normalize ─────────────────────────────────────────────────────────────
 
-    [TestCase("text", "name")]
-    [TestCase("Text", "name")]
+    [TestCase("text", "text")]
+    [TestCase("Text", "text")]
     [TestCase("class", "classname")]
     [TestCase("CLASS", "classname")]
     [TestCase("type", "controltype")]

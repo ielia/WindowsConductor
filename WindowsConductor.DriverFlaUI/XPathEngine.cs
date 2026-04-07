@@ -581,7 +581,7 @@ public sealed class XPathEngine
         if (arg.StartsWith('@'))
             return (arg[1..], true);
         if (arg.StartsWith("text()", StringComparison.Ordinal))
-            return ("name", true);
+            return ("text", true);
         if ((arg.StartsWith('\'') && arg.EndsWith('\'')) || (arg.StartsWith('"') && arg.EndsWith('"')))
             return (arg[1..^1], false);
         throw new ArgumentException(
@@ -647,14 +647,14 @@ public sealed class XPathEngine
     }
 
     /// <summary>
-    /// Rewrites <c>text()</c> at the start of a predicate part to <c>@name</c>
+    /// Rewrites <c>text()</c> at the start of a predicate part to <c>@text</c>
     /// so the existing attribute-predicate pipeline handles it transparently.
     /// </summary>
     private static string NormalizeTextFunction(string part)
     {
         var trimmed = part.TrimStart();
         return trimmed.StartsWith("text()", StringComparison.Ordinal)
-            ? "@name" + trimmed[6..]
+            ? "@text" + trimmed[6..]
             : part;
     }
 

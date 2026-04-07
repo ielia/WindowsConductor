@@ -14,7 +14,6 @@ internal static class ElementProperties
 {
     private static readonly Dictionary<string, string> Aliases = new(StringComparer.InvariantCultureIgnoreCase)
     {
-        ["text"] = "name",
         ["class"] = "classname",
         ["type"] = "controltype",
     };
@@ -32,8 +31,11 @@ internal static class ElementProperties
             .ToFrozenDictionary(p => p.Name.ToLowerInvariant(), p => p);
     }
 
-    internal static bool IsSupported(string key) =>
-        PropertyMap.ContainsKey(Normalize(key));
+    internal static bool IsSupported(string key)
+    {
+        var normalized = Normalize(key);
+        return normalized == "text" || PropertyMap.ContainsKey(normalized);
+    }
 
     internal static string Normalize(string key)
     {
@@ -43,7 +45,7 @@ internal static class ElementProperties
 
     internal static Dictionary<string, object?> ResolveAll(AutomationElement el)
     {
-        var result = new Dictionary<string, object?>(PropertyMap.Count, StringComparer.InvariantCultureIgnoreCase);
+        var result = new Dictionary<string, object?>(PropertyMap.Count + 1, StringComparer.InvariantCultureIgnoreCase);
         foreach (var (name, propInfo) in PropertyMap)
         {
             try
@@ -56,12 +58,21 @@ internal static class ElementProperties
             }
             catch { /* skip unsupported properties */ }
         }
+
+        var text = ResolveText(el);
+        if (text is not null)
+            result["text"] = text;
+
         return result;
     }
 
     internal static string? Resolve(AutomationElement el, string key)
     {
         var normalized = Normalize(key);
+
+        if (normalized == "text")
+            return ResolveText(el);
+
         if (!PropertyMap.TryGetValue(normalized, out var propInfo))
             return null;
 
@@ -73,6 +84,19 @@ internal static class ElementProperties
             // AutomationProperty<T> exposes ValueOrDefault via its base class.
             var value = automationProp.GetType().GetProperty("ValueOrDefault")?.GetValue(automationProp);
             return value?.ToString();
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static string? ResolveText(AutomationElement el)
+    {
+        try
+        {
+            var tb = el.AsTextBox();
+            return tb?.Text;
         }
         catch
         {
