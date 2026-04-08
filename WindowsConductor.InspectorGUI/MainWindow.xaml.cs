@@ -1,9 +1,13 @@
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
+using System.Runtime.InteropServices;
+#pragma warning disable CA2101 // Specify marshaling for P/Invoke string arguments - CharSet.Unicode is set
+#pragma warning disable SYSLIB1054 // Use LibraryImportAttribute - requires AllowUnsafeBlocks
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
 using System.Windows.Input;
+using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
@@ -24,9 +28,26 @@ public partial class MainWindow : Window, ICommandOutput
     private Border? _lastFocusedBorder;
     private bool _busy;
 
+    private const int WM_SYSCOMMAND = 0x0112;
+    private const int MF_SEPARATOR = 0x800;
+    private const int MF_STRING = 0x0;
+    private const int MF_CHECKED = 0x8;
+    private const int MF_UNCHECKED = 0x0;
+    private const int SC_STOP_ON_ERROR = 0x1000;
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr GetSystemMenu(IntPtr hWnd, bool bRevert);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    private static extern bool AppendMenu(IntPtr hMenu, int uFlags, int uIDNewItem, string lpNewItem);
+
+    [DllImport("user32.dll")]
+    private static extern int CheckMenuItem(IntPtr hMenu, int uIDCheckItem, int uCheck);
+
     public MainWindow()
     {
         InitializeComponent();
+        SourceInitialized += OnSourceInitialized;
         var session = new WcInspectorSession();
         _executor = new CommandExecutor(session, this);
         _focusablePanels = [CommandInput, OutputLog, ScreenshotImage, AttributesGrid];
@@ -41,6 +62,29 @@ public partial class MainWindow : Window, ICommandOutput
         AppendLog("");
         AppendLog(CommandHelp.KeyBindingsText);
         CommandInput.Focus();
+    }
+
+    private void OnSourceInitialized(object? sender, EventArgs e)
+    {
+        var hwnd = new WindowInteropHelper(this).Handle;
+        var sysMenu = GetSystemMenu(hwnd, false);
+        AppendMenu(sysMenu, MF_SEPARATOR, 0, string.Empty);
+        AppendMenu(sysMenu, MF_STRING | MF_UNCHECKED, SC_STOP_ON_ERROR, "Stop on error");
+        var source = HwndSource.FromHwnd(hwnd);
+        source?.AddHook(WndProc);
+    }
+
+    private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
+    {
+        if (msg == WM_SYSCOMMAND && wParam.ToInt32() == SC_STOP_ON_ERROR)
+        {
+            _executor.StopChainOnError = !_executor.StopChainOnError;
+            var sysMenu = GetSystemMenu(hwnd, false);
+            CheckMenuItem(sysMenu, SC_STOP_ON_ERROR,
+                _executor.StopChainOnError ? MF_CHECKED : MF_UNCHECKED);
+            handled = true;
+        }
+        return IntPtr.Zero;
     }
 
     private readonly UIElement[] _focusablePanels;

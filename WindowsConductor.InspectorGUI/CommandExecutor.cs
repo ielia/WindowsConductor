@@ -4,7 +4,7 @@ namespace WindowsConductor.InspectorGUI;
 
 internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput output)
 {
-    private const bool STOP_CHAIN_ON_ERROR = false;
+    internal bool StopChainOnError { get; set; }
 
     private string[]? _currentSelectors;
     private readonly Stack<string[]> _selectorHistory = new();
@@ -45,7 +45,7 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
                 catch (ArgumentException ex)
                 {
                     output.WriteError(ex.Message);
-                    if (!isChain || STOP_CHAIN_ON_ERROR) return;
+                    if (!isChain || StopChainOnError) return;
                     continue;
                 }
 
@@ -56,7 +56,7 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
                 catch (Exception ex)
                 {
                     output.WriteError(ex.Message);
-                    if (!isChain || STOP_CHAIN_ON_ERROR) return;
+                    if (!isChain || StopChainOnError) return;
                 }
             }
         }
