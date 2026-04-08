@@ -1,6 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Drawing;
 using System.IO;
+using WindowsConductor.Client;
 using System.Runtime.InteropServices;
 #pragma warning disable CA2101 // Specify marshaling for P/Invoke string arguments - CharSet.Unicode is set
 #pragma warning disable SYSLIB1054 // Use LibraryImportAttribute - requires AllowUnsafeBlocks
@@ -39,6 +40,11 @@ public partial class MainWindow : Window, ICommandOutput
     private bool _clicklessLocated;
     private bool _sleeping;
     private Task? _clicklessTask;
+    private bool _snapshotMode;
+    private SnapshotCapture? _snapshotCapture;
+    private CancellationTokenSource? _snapshotCts;
+    private string? _preSnapshotTitle;
+    private bool _preSnapshotClickless;
 
     private const int WM_SYSCOMMAND = 0x0112;
     private const int WM_MEASUREITEM = 0x002C;
@@ -605,6 +611,8 @@ public partial class MainWindow : Window, ICommandOutput
                 .OrderBy(kv => kv.Key, StringComparer.InvariantCultureIgnoreCase)
                 .Select(kv => new { Name = kv.Key, Value = kv.Value?.ToString() ?? "" })
                 .ToList();
+
+            SnapshotButton.IsEnabled = true;
         });
 
     void ICommandOutput.ClearAttributes() =>
@@ -614,6 +622,7 @@ public partial class MainWindow : Window, ICommandOutput
             LocatorChainPanel.Visibility = Visibility.Collapsed;
             BackLocatorButton.IsEnabled = false;
             AttributesGrid.ItemsSource = null;
+            SnapshotButton.IsEnabled = false;
         });
 
     void ICommandOutput.UpdateMatchNavigation(int currentIndex, int totalCount) =>
@@ -670,6 +679,324 @@ public partial class MainWindow : Window, ICommandOutput
 
     private void SleepStopButton_Click(object sender, RoutedEventArgs e) =>
         _sleepStopAction?.Invoke();
+
+    // ── Snapshot mode ────────────────────────────────────────────────────
+
+    private async void SnapshotButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_snapshotMode || !_executor.Session.HasSelectedElement) return;
+
+        _snapshotCts = new CancellationTokenSource();
+        var ct = _snapshotCts.Token;
+
+        EnterSnapshotMode();
+
+        try
+        {
+            var session = _executor.Session;
+            var elementsById = new Dictionary<string, WcElement>();
+
+            var rootNode = await BuildSnapshotTreeAsync(session, elementsById, ct);
+            ct.ThrowIfCancellationRequested();
+
+            var screenshotBytes = await session.DesktopScreenshotAsync(ct);
+            ct.ThrowIfCancellationRequested();
+
+            var unionRect = ComputeUnionRect(rootNode);
+            byte[] croppedBytes;
+            if (unionRect is not null)
+                croppedBytes = CropScreenshot(screenshotBytes, unionRect);
+            else
+                croppedBytes = screenshotBytes;
+
+            _snapshotCapture = new SnapshotCapture(
+                croppedBytes,
+                unionRect ?? new BoundingRect(0, 0, 0, 0),
+                rootNode,
+                elementsById);
+
+            ShowSnapshotScreenshot(croppedBytes, unionRect);
+            SnapshotTree.IsEnabled = true;
+        }
+        catch (OperationCanceledException)
+        {
+            ExitSnapshotMode();
+            return;
+        }
+        catch (Exception ex)
+        {
+            AppendLog($"ERROR: Snapshot failed: {ex.Message}", brush: ErrorBrush);
+            ExitSnapshotMode();
+        }
+    }
+
+    private async Task<SnapshotNode> BuildSnapshotTreeAsync(
+        IInspectorSession session, Dictionary<string, WcElement> elementsById, CancellationToken ct)
+    {
+        var attrs = await session.GetAttributesAsync(ct);
+        BoundingRect? rect = null;
+        try { rect = await session.GetElementBoundingRectAsync(ct); } catch { }
+
+        var label = ComputeSnapshotLabel(attrs);
+        var children = new List<SnapshotNode>();
+        var node = new SnapshotNode(label, rect, attrs, children);
+
+        var treeItem = new TreeViewItem { Header = label, Tag = node, Foreground = ResponseBrush };
+        SnapshotTree.Items.Add(treeItem);
+
+#pragma warning disable CS0162 // Unreachable code — SnapshotGetDescendantsInBulk is a compile-time toggle
+        if (WcInspectorSession.SnapshotGetDescendantsInBulk)
+        {
+            var tree = await session.GetDescendantsAsync(ct);
+            await PopulateFromTreeNodeAsync(tree, treeItem, elementsById, ct);
+        }
+        else
+        {
+            var childElements = await session.GetChildrenAsync(ct);
+            foreach (var childEl in childElements)
+            {
+                ct.ThrowIfCancellationRequested();
+                elementsById[childEl.ElementId] = childEl;
+                await BuildChildSnapshotAsync(childEl, treeItem, elementsById, ct);
+            }
+        }
+#pragma warning restore CS0162
+
+        return node;
+    }
+
+    private async Task BuildChildSnapshotAsync(
+        WcElement element, TreeViewItem parentItem,
+        Dictionary<string, WcElement> elementsById, CancellationToken ct)
+    {
+        var attrs = await element.GetAttributesAsync(ct);
+        BoundingRect? rect = null;
+        try { rect = await element.GetBoundingRectAsync(ct); } catch { }
+
+        var label = ComputeSnapshotLabel(attrs);
+        var children = new List<SnapshotNode>();
+        var node = new SnapshotNode(label, rect, attrs, children);
+
+        var treeItem = new TreeViewItem { Header = label, Tag = node, Foreground = ResponseBrush };
+        parentItem.Items.Add(treeItem);
+        parentItem.IsExpanded = true;
+
+        var parentNode = (SnapshotNode)parentItem.Tag;
+        parentNode.Children.Add(node);
+
+        var childElements = await element.ChildrenAsync(ct);
+        foreach (var childEl in childElements)
+        {
+            ct.ThrowIfCancellationRequested();
+            elementsById[childEl.ElementId] = childEl;
+            await BuildChildSnapshotAsync(childEl, treeItem, elementsById, ct);
+        }
+    }
+
+    private async Task PopulateFromTreeNodeAsync(
+        IReadOnlyTreeNode<WcElement> tree, TreeViewItem parentItem,
+        Dictionary<string, WcElement> elementsById, CancellationToken ct)
+    {
+        foreach (var childTree in tree.Children)
+        {
+            ct.ThrowIfCancellationRequested();
+            var el = childTree.Value;
+            elementsById[el.ElementId] = el;
+
+            var attrs = await el.GetAttributesAsync(ct);
+            BoundingRect? rect = null;
+            try { rect = await el.GetBoundingRectAsync(ct); } catch { }
+
+            var label = ComputeSnapshotLabel(attrs);
+            var children = new List<SnapshotNode>();
+            var node = new SnapshotNode(label, rect, attrs, children);
+
+            var treeItem = new TreeViewItem { Header = label, Tag = node, Foreground = ResponseBrush };
+            parentItem.Items.Add(treeItem);
+            parentItem.IsExpanded = true;
+
+            var parentNode = (SnapshotNode)parentItem.Tag;
+            parentNode.Children.Add(node);
+
+            await PopulateFromTreeNodeAsync(childTree, treeItem, elementsById, ct);
+        }
+    }
+
+    private static string ComputeSnapshotLabel(Dictionary<string, object?> attrs)
+    {
+        if (attrs.TryGetValue("name", out var name) && name is string ns && !string.IsNullOrEmpty(ns))
+            return ns;
+        if (attrs.TryGetValue("automationid", out var aid) && aid is string aidStr && !string.IsNullOrEmpty(aidStr))
+            return aidStr;
+        if (attrs.TryGetValue("controltype", out var ct) && ct is string ctStr && !string.IsNullOrEmpty(ctStr))
+            return ctStr;
+        return "Unknown";
+    }
+
+    private static BoundingRect? ComputeUnionRect(SnapshotNode node)
+    {
+        double minX = double.MaxValue, minY = double.MaxValue;
+        double maxX = double.MinValue, maxY = double.MinValue;
+        bool found = false;
+        AccumulateRects(node, ref minX, ref minY, ref maxX, ref maxY, ref found);
+        if (!found) return null;
+        return new BoundingRect(minX, minY, maxX - minX, maxY - minY);
+    }
+
+    private static void AccumulateRects(SnapshotNode node,
+        ref double minX, ref double minY, ref double maxX, ref double maxY, ref bool found)
+    {
+        if (node.BoundingRect is { Width: > 0, Height: > 0 } r)
+        {
+            minX = Math.Min(minX, r.X);
+            minY = Math.Min(minY, r.Y);
+            maxX = Math.Max(maxX, r.X + r.Width);
+            maxY = Math.Max(maxY, r.Y + r.Height);
+            found = true;
+        }
+        foreach (var child in node.Children)
+            AccumulateRects(child, ref minX, ref minY, ref maxX, ref maxY, ref found);
+    }
+
+    private static byte[] CropScreenshot(byte[] screenshotBytes, BoundingRect unionRect)
+    {
+        using var bitmap = SkiaSharp.SKBitmap.Decode(screenshotBytes);
+        var cropX = Math.Max(0, (int)unionRect.X);
+        var cropY = Math.Max(0, (int)unionRect.Y);
+        var cropW = Math.Min((int)unionRect.Width, bitmap.Width - cropX);
+        var cropH = Math.Min((int)unionRect.Height, bitmap.Height - cropY);
+        if (cropW <= 0 || cropH <= 0) return screenshotBytes;
+
+        var subset = new SkiaSharp.SKBitmap(cropW, cropH);
+        using var canvas = new SkiaSharp.SKCanvas(subset);
+        canvas.DrawBitmap(bitmap, new SkiaSharp.SKRect(cropX, cropY, cropX + cropW, cropY + cropH),
+            new SkiaSharp.SKRect(0, 0, cropW, cropH));
+        using var image = SkiaSharp.SKImage.FromBitmap(subset);
+        using var data = image.Encode(SkiaSharp.SKEncodedImageFormat.Png, 100);
+        return data.ToArray();
+    }
+
+    private void ShowSnapshotScreenshot(byte[] imageBytes, BoundingRect? unionRect)
+    {
+        var bitmap = new BitmapImage();
+        bitmap.BeginInit();
+        bitmap.StreamSource = new MemoryStream(imageBytes);
+        bitmap.CacheOption = BitmapCacheOption.OnLoad;
+        bitmap.EndInit();
+        bitmap.Freeze();
+        ScreenshotImage.Source = bitmap;
+        _currentBitmap = bitmap;
+
+        if (unionRect is not null)
+            _windowDimensions = new WindowDimensions(unionRect.X, unionRect.Y, unionRect.Width, unionRect.Height);
+
+        StopBlinking();
+        _currentHighlight = null;
+        HighlightRect.Visibility = Visibility.Collapsed;
+    }
+
+    private void EnterSnapshotMode()
+    {
+        _snapshotMode = true;
+        _preSnapshotTitle = Title;
+        _preSnapshotClickless = ClicklessCheckBox.IsChecked == true;
+
+        Title += " [snapshot]";
+        ClicklessCheckBox.IsChecked = false;
+        ClicklessCheckBox.IsEnabled = false;
+        CommandInput.IsEnabled = false;
+        SnapshotButton.IsEnabled = false;
+        RefreshButton.IsEnabled = false;
+        BackLocatorButton.IsEnabled = false;
+        PrevMatchButton.IsEnabled = false;
+        NextMatchButton.IsEnabled = false;
+
+        LocatorChainPanel.Visibility = Visibility.Collapsed;
+
+        SnapshotPanel.Visibility = Visibility.Visible;
+        SnapshotColumn.Width = new GridLength(280);
+
+        ScreenshotBorder.Background = new SolidColorBrush(System.Windows.Media.Color.FromRgb(0x24, 0x24, 0x1A));
+        OutputLogBorder.Background = new SolidColorBrush(System.Windows.Media.Color.FromRgb(0x24, 0x24, 0x1A));
+        AttributesBorder.Background = new SolidColorBrush(System.Windows.Media.Color.FromRgb(0x24, 0x24, 0x1A));
+    }
+
+    private void ExitSnapshotMode()
+    {
+        _snapshotMode = false;
+        _snapshotCapture = null;
+        _snapshotCts?.Dispose();
+        _snapshotCts = null;
+
+        SnapshotTree.IsEnabled = false;
+        SnapshotTree.Items.Clear();
+        SnapshotPanel.Visibility = Visibility.Collapsed;
+        SnapshotColumn.Width = new GridLength(0);
+
+        Title = _preSnapshotTitle ?? BaseTitle;
+        ClicklessCheckBox.IsEnabled = true;
+        if (_preSnapshotClickless) ClicklessCheckBox.IsChecked = true;
+        CommandInput.IsEnabled = true;
+        SnapshotButton.IsEnabled = _executor.Session.HasSelectedElement;
+
+        ScreenshotBorder.Background = new SolidColorBrush(System.Windows.Media.Color.FromRgb(0x1E, 0x1E, 0x1E));
+        OutputLogBorder.Background = new SolidColorBrush(System.Windows.Media.Color.FromRgb(0x1E, 0x1E, 0x1E));
+        AttributesBorder.Background = new SolidColorBrush(System.Windows.Media.Color.FromRgb(0x1E, 0x1E, 0x1E));
+    }
+
+    private void SnapshotCloseButton_Click(object sender, RoutedEventArgs e)
+    {
+        _snapshotCts?.Cancel();
+        if (_snapshotCapture is not null)
+        {
+            ExitSnapshotMode();
+            _ = RestoreAfterSnapshotAsync();
+        }
+    }
+
+    private async Task RestoreAfterSnapshotAsync()
+    {
+        SetBusy(true);
+        try
+        {
+            await _executor.RefreshAsync();
+        }
+        catch (Exception ex)
+        {
+            AppendLog($"ERROR: {ex.Message}");
+        }
+        finally
+        {
+            SetBusy(false);
+        }
+    }
+
+    private void SnapshotTree_SelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
+    {
+        if (e.NewValue is not TreeViewItem { Tag: SnapshotNode node } || _snapshotCapture is null) return;
+
+        AttributesGrid.ItemsSource = node.Attributes
+            .OrderBy(kv => kv.Key, StringComparer.InvariantCultureIgnoreCase)
+            .Select(kv => new { Name = kv.Key, Value = kv.Value?.ToString() ?? "" })
+            .ToList();
+
+        if (node.BoundingRect is { Width: > 0, Height: > 0 } rect)
+        {
+            var union = _snapshotCapture.UnionRect;
+            var highlight = new HighlightInfo(
+                rect.X - union.X, rect.Y - union.Y, rect.Width, rect.Height,
+                union.Width, union.Height);
+            _currentHighlight = highlight;
+            PositionHighlight();
+            StartBlinking();
+        }
+        else
+        {
+            StopBlinking();
+            _currentHighlight = null;
+            HighlightRect.Visibility = Visibility.Collapsed;
+        }
+    }
 
     private const string BaseTitle = "WindowsConductor Inspector";
 
@@ -856,7 +1183,7 @@ public partial class MainWindow : Window, ICommandOutput
 
     private async void ScreenshotImage_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
-        if (_busy) return;
+        if (_busy || _snapshotMode) return;
         var coords = ScreenPointToWindowRelative(e.GetPosition(ScreenshotContainer));
         if (coords is null) return;
 
@@ -891,7 +1218,7 @@ public partial class MainWindow : Window, ICommandOutput
 
     private void ScreenshotImage_MouseMove(object sender, MouseEventArgs e)
     {
-        if (!_clicklessMode || (_busy && !_sleeping)) return;
+        if (_snapshotMode || !_clicklessMode || (_busy && !_sleeping)) return;
 
         var coords = ScreenPointToWindowRelative(e.GetPosition(ScreenshotContainer));
         if (coords is null) return;

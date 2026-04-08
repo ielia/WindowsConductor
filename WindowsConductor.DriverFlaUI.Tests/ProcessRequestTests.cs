@@ -104,6 +104,18 @@ internal sealed class FakeAppOperations : IAppOperations
 
     public void WaitForVanish(string appId, string selector, string? rootElementId, uint timeout)
     { Record("WaitForVanish", appId, selector, rootElementId, timeout); }
+
+    public string[] GetChildrenResult { get; set; } = ["child-1", "child-2"];
+    public string[] GetChildren(string elementId)
+    { Record("GetChildren", elementId); return GetChildrenResult; }
+
+    public object GetDescendantsResult { get; set; } = new { id = "el-1", children = Array.Empty<object>() };
+    public object GetDescendants(string elementId)
+    { Record("GetDescendants", elementId); return GetDescendantsResult; }
+
+    public byte[] DesktopScreenshotResult { get; set; } = [0x89, 0x50, 0x4E, 0x47];
+    public byte[] DesktopScreenshot()
+    { Record("DesktopScreenshot"); return DesktopScreenshotResult; }
 }
 
 [TestFixture]

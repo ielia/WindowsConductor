@@ -33,6 +33,9 @@ internal interface IAppOperations
     object GetWindowBoundingRect(string appId);
     byte[] ScreenshotElement(string elementId);
     byte[] ScreenshotApp(string appId);
+    string[] GetChildren(string elementId);
+    object GetDescendants(string elementId);
+    byte[] DesktopScreenshot();
     void StartRecording(string appId);
     byte[] StopRecording(string appId);
 }

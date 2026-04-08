@@ -112,6 +112,32 @@ public sealed class WcElement
             r.GetProperty("height").GetDouble());
     }
 
+    // ── Tree navigation ────────────────────────────────────────────────────
+
+    public async Task<IReadOnlyList<WcElement>> ChildrenAsync(CancellationToken ct = default)
+    {
+        var r = await _conn.SendAsync("getChildren", new { elementId = ElementId }, ct);
+        return r.EnumerateArray()
+            .Select(e => new WcElement(e.GetString()!, _conn, _appId))
+            .ToList();
+    }
+
+    public async Task<IReadOnlyTreeNode<WcElement>> DescendantsAsync(CancellationToken ct = default)
+    {
+        var r = await _conn.SendAsync("getDescendants", new { elementId = ElementId }, ct);
+        return ParseTreeNode(r);
+    }
+
+    private IReadOnlyTreeNode<WcElement> ParseTreeNode(JsonElement json)
+    {
+        var id = json.GetProperty("id").GetString()!;
+        var node = new TreeNode<WcElement>(new WcElement(id, _conn, _appId));
+        if (json.TryGetProperty("children", out var children))
+            foreach (var child in children.EnumerateArray())
+                node.AddChild((TreeNode<WcElement>)ParseTreeNode(child));
+        return node;
+    }
+
     // ── Screenshots ────────────────────────────────────────────────────────
 
     /// <summary>Captures a screenshot of this element as raw PNG bytes.</summary>

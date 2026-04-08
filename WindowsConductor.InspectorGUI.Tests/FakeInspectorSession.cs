@@ -212,6 +212,27 @@ internal sealed class FakeInspectorSession : IInspectorSession
         return Task.FromResult(ElementBoundingRectResult);
     }
 
+    public IReadOnlyList<WcElement> GetChildrenResult { get; set; } = [];
+    public Task<IReadOnlyList<WcElement>> GetChildrenAsync(CancellationToken ct = default)
+    {
+        Record("GetChildren");
+        return Task.FromResult(GetChildrenResult);
+    }
+
+    public IReadOnlyTreeNode<WcElement>? GetDescendantsResult { get; set; }
+    public Task<IReadOnlyTreeNode<WcElement>> GetDescendantsAsync(CancellationToken ct = default)
+    {
+        Record("GetDescendants");
+        return Task.FromResult(GetDescendantsResult!);
+    }
+
+    public byte[] DesktopScreenshotResult { get; set; } = [0x89, 0x50, 0x4E, 0x47];
+    public Task<byte[]> DesktopScreenshotAsync(CancellationToken ct = default)
+    {
+        Record("DesktopScreenshot");
+        return Task.FromResult(DesktopScreenshotResult);
+    }
+
     public Task DisconnectAsync()
     {
         Record("Disconnect");

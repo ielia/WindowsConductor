@@ -13,6 +13,7 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
     private bool _isAtRoot;
     private CancellationTokenSource? _chainCts;
 
+    internal IInspectorSession Session => session;
     internal bool IsAtRoot => _isAtRoot;
     internal bool CanGoBack => _selectorHistory.Count > 0;
     internal bool HasMultipleMatches => _matchCount > 1;

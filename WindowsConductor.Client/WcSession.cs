@@ -1,6 +1,7 @@
 using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
+using SkiaSharp;
 
 namespace WindowsConductor.Client;
 
@@ -92,6 +93,20 @@ public sealed class WcSession : IWcTransport, IAsyncDisposable
             ?? throw new WcException("Driver returned no appId for 'attach'.");
 
         return new WcApp(appId, this, ownsApp: false);
+    }
+
+    // ── Desktop screenshots ─────────────────────────────────────────────────
+
+    public async Task<byte[]> DesktopScreenshotBytesAsync(CancellationToken ct = default)
+    {
+        var r = await SendAsync("desktopScreenshot", null, ct);
+        return r.GetBytesFromBase64();
+    }
+
+    public async Task<SKBitmap> DesktopScreenshotAsync(CancellationToken ct = default)
+    {
+        var bytes = await DesktopScreenshotBytesAsync(ct);
+        return SKBitmap.Decode(bytes);
     }
 
     // ── Internal transport ───────────────────────────────────────────────────

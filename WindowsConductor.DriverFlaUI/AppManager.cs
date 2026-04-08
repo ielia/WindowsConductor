@@ -356,6 +356,42 @@ public sealed class AppManager : IAppOperations, IDisposable
         return ms.ToArray();
     }
 
+    // ── Tree navigation ────────────────────────────────────────────────────
+
+    public string[] GetChildren(string elementId)
+    {
+        var el = GetElement(elementId);
+        var children = el.FindAllChildren();
+        return children.Select(CacheElement).ToArray();
+    }
+
+    public object GetDescendants(string elementId)
+    {
+        var el = GetElement(elementId);
+        return BuildDescendantTree(el);
+    }
+
+    private object BuildDescendantTree(AutomationElement el)
+    {
+        var id = CacheElement(el);
+        var children = el.FindAllChildren();
+        return new
+        {
+            id,
+            children = children.Select(BuildDescendantTree).ToArray()
+        };
+    }
+
+    // ── Desktop screenshot ──────────────────────────────────────────────────
+
+    public byte[] DesktopScreenshot()
+    {
+        using var capture = FlaUI.Core.Capturing.Capture.Screen();
+        using var ms = new MemoryStream();
+        capture.Bitmap.Save(ms, System.Drawing.Imaging.ImageFormat.Png);
+        return ms.ToArray();
+    }
+
     // ── Video recording ──────────────────────────────────────────────────────
 
     private readonly Dictionary<string, VideoRecorder> _recorders = new();

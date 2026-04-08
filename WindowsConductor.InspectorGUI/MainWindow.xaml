@@ -6,200 +6,250 @@
         PreviewKeyDown="Window_PreviewKeyDown"
         PreviewGotKeyboardFocus="Window_PreviewGotKeyboardFocus">
     <Grid>
-        <Grid.RowDefinitions>
-            <RowDefinition Height="*" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="120" />
-            <RowDefinition Height="Auto" />
-        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition x:Name="SnapshotColumn" Width="0" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
 
-        <!-- Screenshot + Attributes panel -->
-        <Grid Grid.Row="0">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="280" />
-            </Grid.ColumnDefinitions>
-
-            <!-- Screenshot display with highlight overlay -->
-            <DockPanel Grid.Column="0">
-                <CheckBox x:Name="ClicklessCheckBox" DockPanel.Dock="Bottom"
-                          Content="Click_less" Margin="6,2"
-                          FontFamily="Consolas" FontSize="11"
-                          Foreground="Black"
-                          ToolTip="Toggle clickless hover mode (Alt+L)"
-                          Checked="ClicklessCheckBox_Changed"
-                          Unchecked="ClicklessCheckBox_Changed" />
-                <Border x:Name="ScreenshotBorder" Background="#1E1E1E" Margin="4"
-                        BorderThickness="3" BorderBrush="#333333">
-                    <Grid x:Name="ScreenshotContainer" SizeChanged="ScreenshotContainer_SizeChanged">
-                        <Image x:Name="ScreenshotImage" Stretch="Uniform" Focusable="True"
-                               MouseLeftButtonDown="ScreenshotImage_MouseLeftButtonDown"
-                               MouseMove="ScreenshotImage_MouseMove" />
-                        <Canvas x:Name="HighlightCanvas" IsHitTestVisible="False">
-                            <Rectangle x:Name="HighlightRect"
-                                       Stroke="Red" StrokeThickness="2"
-                                       Visibility="Collapsed" />
-                        </Canvas>
-                    </Grid>
-                </Border>
-            </DockPanel>
-
-            <GridSplitter Grid.Column="1" Width="4" HorizontalAlignment="Center"
-                          VerticalAlignment="Stretch" Background="#333333" />
-
-            <!-- Attributes panel -->
-            <Border x:Name="AttributesBorder" Grid.Column="2" Background="#1E1E1E" Margin="4"
-                    BorderThickness="3" BorderBrush="#333333">
-                <DockPanel>
-                    <!-- Locator chain -->
-                    <DockPanel x:Name="LocatorChainPanel" DockPanel.Dock="Top" Visibility="Collapsed">
-                        <Button x:Name="BackLocatorButton" DockPanel.Dock="Left"
-                                Content="&lt;&lt;" Padding="6,3"
-                                FontFamily="Consolas" FontSize="11"
-                                Background="#2D2D2D" Foreground="#CCCCCC"
-                                BorderBrush="#555555" BorderThickness="1"
-                                IsEnabled="False"
-                                ToolTip="Go back to previous locator (Alt+B)"
-                                Click="BackLocatorButton_Click" />
-                        <TextBox x:Name="LocatorChainText"
-                                 IsReadOnly="True" TextWrapping="Wrap"
-                                 Background="#252525" Foreground="#E0E080"
-                                 FontFamily="Consolas" FontSize="11"
-                                 BorderThickness="0" Padding="6,4" />
-                    </DockPanel>
-
-                    <TextBlock DockPanel.Dock="Top" Text="Attributes"
-                               Foreground="#AAAAAA" FontFamily="Consolas" FontSize="12"
-                               FontWeight="Bold" Margin="6,4,6,2" />
-
-                    <!-- Footer with match navigation, Copy and Refresh buttons -->
-                    <Grid DockPanel.Dock="Bottom" Margin="4,2">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="4" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <Button Grid.Column="0" x:Name="PrevMatchButton"
-                                Content="&lt;" Padding="6,3"
-                                FontFamily="Consolas" FontSize="11"
-                                Background="#2D2D2D" Foreground="#CCCCCC"
-                                BorderBrush="#555555" BorderThickness="1"
-                                IsEnabled="False"
-                                ToolTip="Previous match (Alt+Left)"
-                                Click="PrevMatchButton_Click" />
-                        <TextBlock Grid.Column="1" x:Name="MatchCountLabel"
-                                   Text="" Padding="4,3"
-                                   FontFamily="Consolas" FontSize="11"
-                                   Foreground="#AAAAAA"
-                                   VerticalAlignment="Center" />
-                        <Button Grid.Column="2" x:Name="NextMatchButton"
-                                Content="&gt;" Padding="6,3"
-                                FontFamily="Consolas" FontSize="11"
-                                Background="#2D2D2D" Foreground="#CCCCCC"
-                                BorderBrush="#555555" BorderThickness="1"
-                                IsEnabled="False"
-                                ToolTip="Next match (Alt+Right)"
-                                Click="NextMatchButton_Click" />
-                        <Button Grid.Column="4" x:Name="CopyButton"
-                                Content="_Copy" Padding="12,3"
-                                FontFamily="Consolas" FontSize="11"
-                                Background="#2D2D2D" Foreground="#CCCCCC"
-                                BorderBrush="#555555" BorderThickness="1"
-                                ToolTip="Copy attributes to clipboard (Alt+C)"
-                                Click="CopyButton_Click" />
-                        <Button Grid.Column="6" x:Name="RefreshButton"
-                                Content="_Refresh" Padding="12,3"
-                                FontFamily="Consolas" FontSize="11"
-                                Background="#2D2D2D" Foreground="#CCCCCC"
-                                BorderBrush="#555555" BorderThickness="1"
-                                ToolTip="Refresh screenshot and attributes (Alt+R)"
-                                Click="RefreshButton_Click" />
-                    </Grid>
-
-                    <DataGrid x:Name="AttributesGrid"
-                              AutoGenerateColumns="False"
-                              IsReadOnly="True"
-                              HeadersVisibility="Column"
-                              GridLinesVisibility="Horizontal"
-                              HorizontalGridLinesBrush="#333333"
-                              Background="#1E1E1E"
-                              Foreground="#CCCCCC"
-                              RowBackground="#1E1E1E"
-                              AlternatingRowBackground="#252525"
-                              BorderThickness="0"
-                              FontFamily="Consolas" FontSize="11"
-                              CanUserResizeRows="False"
-                              SelectionMode="Extended">
-                        <DataGrid.ColumnHeaderStyle>
-                            <Style TargetType="DataGridColumnHeader">
-                                <Setter Property="Background" Value="#2D2D2D" />
-                                <Setter Property="Foreground" Value="#AAAAAA" />
-                                <Setter Property="FontWeight" Value="Bold" />
-                                <Setter Property="Padding" Value="6,3" />
-                                <Setter Property="BorderBrush" Value="#333333" />
-                                <Setter Property="BorderThickness" Value="0,0,0,1" />
-                            </Style>
-                        </DataGrid.ColumnHeaderStyle>
-                        <DataGrid.Columns>
-                            <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="Auto" MinWidth="80" />
-                            <DataGridTextColumn Header="Value" Binding="{Binding Value}" Width="*" />
-                        </DataGrid.Columns>
-                    </DataGrid>
-                </DockPanel>
-            </Border>
-        </Grid>
-
-        <GridSplitter Grid.Row="1" Height="4" HorizontalAlignment="Stretch"
-                      Background="#333333" />
-
-        <!-- Output log -->
-        <Border x:Name="OutputLogBorder" Grid.Row="2" Margin="4"
-                BorderThickness="3" BorderBrush="#333333">
-            <RichTextBox x:Name="OutputLog"
-                         IsReadOnly="True" VerticalScrollBarVisibility="Auto"
-                         Background="#1E1E1E" Foreground="#CCCCCC"
-                         FontFamily="Consolas" FontSize="12"
-                         BorderThickness="0">
-                <RichTextBox.Resources>
-                    <Style TargetType="Paragraph">
-                        <Setter Property="Margin" Value="0" />
-                    </Style>
-                </RichTextBox.Resources>
-            </RichTextBox>
-        </Border>
-
-        <!-- Command input -->
-        <Border x:Name="CommandInputBorder" Grid.Row="3" Margin="4"
-                BorderThickness="3" BorderBrush="#333333">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-                <TextBlock Grid.Column="0" Text="&gt; " Foreground="#CCCCCC"
-                           FontFamily="Consolas" FontSize="14"
-                           VerticalAlignment="Center" Margin="4,0" />
-                <TextBox Grid.Column="1" x:Name="CommandInput"
-                         FontFamily="Consolas" FontSize="14"
-                         Background="#2D2D2D" Foreground="#FFFFFF"
-                         CaretBrush="White" BorderThickness="0"
-                         Padding="4"
-                         PreviewKeyDown="CommandInput_PreviewKeyDown" />
-                <Button Grid.Column="2" x:Name="SleepStopButton"
-                        Content="Stop" Padding="12,3"
+        <!-- Snapshot panel -->
+        <Border x:Name="SnapshotPanel" Grid.Column="0" Background="#2A2A1E"
+                BorderBrush="#555533" BorderThickness="0,0,3,0" Visibility="Collapsed">
+            <DockPanel>
+                <Button x:Name="SnapshotCloseButton" DockPanel.Dock="Top"
+                        Content="X" HorizontalAlignment="Right"
+                        Margin="4" Padding="6,2"
                         FontFamily="Consolas" FontSize="11"
                         Background="#2D2D2D" Foreground="#CCCCCC"
                         BorderBrush="#555555" BorderThickness="1"
-                        Visibility="Collapsed"
-                        ToolTip="Stop sleep and remaining commands (Alt+S)"
-                        Click="SleepStopButton_Click" />
-            </Grid>
+                        ToolTip="Close snapshot and return to normal mode"
+                        Click="SnapshotCloseButton_Click" />
+                <TreeView x:Name="SnapshotTree"
+                          Background="Transparent" Foreground="#CCCCCC"
+                          FontFamily="Consolas" FontSize="11"
+                          BorderThickness="0" IsEnabled="False"
+                          SelectedItemChanged="SnapshotTree_SelectedItemChanged">
+                    <TreeView.ItemContainerStyle>
+                        <Style TargetType="TreeViewItem">
+                            <Setter Property="Foreground" Value="#CCCCCC" />
+                            <Setter Property="IsExpanded" Value="True" />
+                            <Style.Triggers>
+                                <Trigger Property="IsEnabled" Value="False">
+                                    <Setter Property="Foreground" Value="#999999" />
+                                </Trigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TreeView.ItemContainerStyle>
+                </TreeView>
+            </DockPanel>
         </Border>
+
+        <!-- Main content -->
+        <Grid Grid.Column="1">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="120" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <!-- Screenshot + Attributes panel -->
+            <Grid Grid.Row="0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="280" />
+                </Grid.ColumnDefinitions>
+
+                <!-- Screenshot display with highlight overlay -->
+                <DockPanel Grid.Column="0">
+                    <CheckBox x:Name="ClicklessCheckBox" DockPanel.Dock="Bottom"
+                              Content="Click_less" Margin="6,2"
+                              FontFamily="Consolas" FontSize="11"
+                              Foreground="Black"
+                              ToolTip="Toggle clickless hover mode (Alt+L)"
+                              Checked="ClicklessCheckBox_Changed"
+                              Unchecked="ClicklessCheckBox_Changed" />
+                    <Border x:Name="ScreenshotBorder" Background="#1E1E1E" Margin="4"
+                            BorderThickness="3" BorderBrush="#333333">
+                        <Grid x:Name="ScreenshotContainer" SizeChanged="ScreenshotContainer_SizeChanged">
+                            <Image x:Name="ScreenshotImage" Stretch="Uniform" Focusable="True"
+                                   MouseLeftButtonDown="ScreenshotImage_MouseLeftButtonDown"
+                                   MouseMove="ScreenshotImage_MouseMove" />
+                            <Canvas x:Name="HighlightCanvas" IsHitTestVisible="False">
+                                <Rectangle x:Name="HighlightRect"
+                                           Stroke="Red" StrokeThickness="2"
+                                           Visibility="Collapsed" />
+                            </Canvas>
+                        </Grid>
+                    </Border>
+                </DockPanel>
+
+                <GridSplitter Grid.Column="1" Width="4" HorizontalAlignment="Center"
+                              VerticalAlignment="Stretch" Background="#333333" />
+
+                <!-- Attributes panel -->
+                <Border x:Name="AttributesBorder" Grid.Column="2" Background="#1E1E1E" Margin="4"
+                        BorderThickness="3" BorderBrush="#333333">
+                    <DockPanel>
+                        <!-- Locator chain -->
+                        <DockPanel x:Name="LocatorChainPanel" DockPanel.Dock="Top" Visibility="Collapsed">
+                            <Button x:Name="BackLocatorButton" DockPanel.Dock="Left"
+                                    Content="&lt;&lt;" Padding="6,3"
+                                    FontFamily="Consolas" FontSize="11"
+                                    Background="#2D2D2D" Foreground="#CCCCCC"
+                                    BorderBrush="#555555" BorderThickness="1"
+                                    IsEnabled="False"
+                                    ToolTip="Go back to previous locator (Alt+B)"
+                                    Click="BackLocatorButton_Click" />
+                            <TextBox x:Name="LocatorChainText"
+                                     IsReadOnly="True" TextWrapping="Wrap"
+                                     Background="#252525" Foreground="#E0E080"
+                                     FontFamily="Consolas" FontSize="11"
+                                     BorderThickness="0" Padding="6,4" />
+                        </DockPanel>
+
+                        <TextBlock DockPanel.Dock="Top" Text="Attributes"
+                                   Foreground="#AAAAAA" FontFamily="Consolas" FontSize="12"
+                                   FontWeight="Bold" Margin="6,4,6,2" />
+
+                        <!-- Footer with match navigation, Snapshot, Copy and Refresh buttons -->
+                        <Grid DockPanel.Dock="Bottom" Margin="4,2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="4" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="4" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <Button Grid.Column="0" x:Name="PrevMatchButton"
+                                    Content="&lt;" Padding="6,3"
+                                    FontFamily="Consolas" FontSize="11"
+                                    Background="#2D2D2D" Foreground="#CCCCCC"
+                                    BorderBrush="#555555" BorderThickness="1"
+                                    IsEnabled="False"
+                                    ToolTip="Previous match (Alt+Left)"
+                                    Click="PrevMatchButton_Click" />
+                            <TextBlock Grid.Column="1" x:Name="MatchCountLabel"
+                                       Text="" Padding="4,3"
+                                       FontFamily="Consolas" FontSize="11"
+                                       Foreground="#AAAAAA"
+                                       VerticalAlignment="Center" />
+                            <Button Grid.Column="2" x:Name="NextMatchButton"
+                                    Content="&gt;" Padding="6,3"
+                                    FontFamily="Consolas" FontSize="11"
+                                    Background="#2D2D2D" Foreground="#CCCCCC"
+                                    BorderBrush="#555555" BorderThickness="1"
+                                    IsEnabled="False"
+                                    ToolTip="Next match (Alt+Right)"
+                                    Click="NextMatchButton_Click" />
+                            <Button Grid.Column="4" x:Name="SnapshotButton"
+                                    Content="Snapshot" Padding="12,3"
+                                    FontFamily="Consolas" FontSize="11"
+                                    Background="#2D2D2D" Foreground="#CCCCCC"
+                                    BorderBrush="#555555" BorderThickness="1"
+                                    IsEnabled="False"
+                                    ToolTip="Capture element tree snapshot with the selected element as root"
+                                    Click="SnapshotButton_Click" />
+                            <Button Grid.Column="6" x:Name="CopyButton"
+                                    Content="_Copy" Padding="12,3"
+                                    FontFamily="Consolas" FontSize="11"
+                                    Background="#2D2D2D" Foreground="#CCCCCC"
+                                    BorderBrush="#555555" BorderThickness="1"
+                                    ToolTip="Copy attributes to clipboard (Alt+C)"
+                                    Click="CopyButton_Click" />
+                            <Button Grid.Column="8" x:Name="RefreshButton"
+                                    Content="_Refresh" Padding="12,3"
+                                    FontFamily="Consolas" FontSize="11"
+                                    Background="#2D2D2D" Foreground="#CCCCCC"
+                                    BorderBrush="#555555" BorderThickness="1"
+                                    ToolTip="Refresh screenshot and attributes (Alt+R)"
+                                    Click="RefreshButton_Click" />
+                        </Grid>
+
+                        <DataGrid x:Name="AttributesGrid"
+                                  AutoGenerateColumns="False"
+                                  IsReadOnly="True"
+                                  HeadersVisibility="Column"
+                                  GridLinesVisibility="Horizontal"
+                                  HorizontalGridLinesBrush="#333333"
+                                  Background="#1E1E1E"
+                                  Foreground="#CCCCCC"
+                                  RowBackground="#1E1E1E"
+                                  AlternatingRowBackground="#252525"
+                                  BorderThickness="0"
+                                  FontFamily="Consolas" FontSize="11"
+                                  CanUserResizeRows="False"
+                                  SelectionMode="Extended">
+                            <DataGrid.ColumnHeaderStyle>
+                                <Style TargetType="DataGridColumnHeader">
+                                    <Setter Property="Background" Value="#2D2D2D" />
+                                    <Setter Property="Foreground" Value="#AAAAAA" />
+                                    <Setter Property="FontWeight" Value="Bold" />
+                                    <Setter Property="Padding" Value="6,3" />
+                                    <Setter Property="BorderBrush" Value="#333333" />
+                                    <Setter Property="BorderThickness" Value="0,0,0,1" />
+                                </Style>
+                            </DataGrid.ColumnHeaderStyle>
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="Auto" MinWidth="80" />
+                                <DataGridTextColumn Header="Value" Binding="{Binding Value}" Width="*" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </DockPanel>
+                </Border>
+            </Grid>
+
+            <GridSplitter Grid.Row="1" Height="4" HorizontalAlignment="Stretch"
+                          Background="#333333" />
+
+            <!-- Output log -->
+            <Border x:Name="OutputLogBorder" Grid.Row="2" Margin="4"
+                    BorderThickness="3" BorderBrush="#333333">
+                <RichTextBox x:Name="OutputLog"
+                             IsReadOnly="True" VerticalScrollBarVisibility="Auto"
+                             Background="#1E1E1E" Foreground="#CCCCCC"
+                             FontFamily="Consolas" FontSize="12"
+                             BorderThickness="0">
+                    <RichTextBox.Resources>
+                        <Style TargetType="Paragraph">
+                            <Setter Property="Margin" Value="0" />
+                        </Style>
+                    </RichTextBox.Resources>
+                </RichTextBox>
+            </Border>
+
+            <!-- Command input -->
+            <Border x:Name="CommandInputBorder" Grid.Row="3" Margin="4"
+                    BorderThickness="3" BorderBrush="#333333">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="&gt; " Foreground="#CCCCCC"
+                               FontFamily="Consolas" FontSize="14"
+                               VerticalAlignment="Center" Margin="4,0" />
+                    <TextBox Grid.Column="1" x:Name="CommandInput"
+                             FontFamily="Consolas" FontSize="14"
+                             Background="#2D2D2D" Foreground="#FFFFFF"
+                             CaretBrush="White" BorderThickness="0"
+                             Padding="4"
+                             PreviewKeyDown="CommandInput_PreviewKeyDown" />
+                    <Button Grid.Column="2" x:Name="SleepStopButton"
+                            Content="Stop" Padding="12,3"
+                            FontFamily="Consolas" FontSize="11"
+                            Background="#2D2D2D" Foreground="#CCCCCC"
+                            BorderBrush="#555555" BorderThickness="1"
+                            Visibility="Collapsed"
+                            ToolTip="Stop sleep and remaining commands (Alt+S)"
+                            Click="SleepStopButton_Click" />
+                </Grid>
+            </Border>
+        </Grid>
     </Grid>
 </Window>

@@ -284,6 +284,17 @@ public sealed class WsServer
                 case "getWindowBoundingRect":
                     return WcResponse.Ok(req.Id, mgr.GetWindowBoundingRect(req.GetString("appId")));
 
+                case "getChildren":
+                    return WcResponse.Ok(req.Id,
+                        mgr.GetChildren(req.GetString("elementId")));
+
+                case "getDescendants":
+                    return WcResponse.Ok(req.Id,
+                        mgr.GetDescendants(req.GetString("elementId")));
+
+                case "desktopScreenshot":
+                    return WcResponse.Ok(req.Id, mgr.DesktopScreenshot());
+
                 case "screenshot":
                     return WcResponse.Ok(req.Id,
                         mgr.ScreenshotElement(req.GetString("elementId")));

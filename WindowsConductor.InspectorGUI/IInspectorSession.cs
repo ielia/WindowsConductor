@@ -39,5 +39,9 @@ internal interface IInspectorSession
     Task<byte[]> ScreenshotElementAsync(CancellationToken ct = default);
     Task<BoundingRect> GetElementBoundingRectAsync(CancellationToken ct = default);
 
+    Task<IReadOnlyList<WcElement>> GetChildrenAsync(CancellationToken ct = default);
+    Task<IReadOnlyTreeNode<WcElement>> GetDescendantsAsync(CancellationToken ct = default);
+    Task<byte[]> DesktopScreenshotAsync(CancellationToken ct = default);
+
     Task DisconnectAsync();
 }

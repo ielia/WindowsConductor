@@ -188,6 +188,17 @@ internal sealed class WcInspectorSession : IInspectorSession, IAsyncDisposable
     public async Task<BoundingRect> GetElementBoundingRectAsync(CancellationToken ct = default) =>
         await _selectedElement!.GetBoundingRectAsync(ct);
 
+    internal const bool SnapshotGetDescendantsInBulk = false;
+
+    public async Task<IReadOnlyList<WcElement>> GetChildrenAsync(CancellationToken ct = default) =>
+        await _selectedElement!.ChildrenAsync(ct);
+
+    public async Task<IReadOnlyTreeNode<WcElement>> GetDescendantsAsync(CancellationToken ct = default) =>
+        await _selectedElement!.DescendantsAsync(ct);
+
+    public async Task<byte[]> DesktopScreenshotAsync(CancellationToken ct = default) =>
+        await _session!.DesktopScreenshotBytesAsync(ct);
+
     public async Task DisconnectAsync()
     {
         _selectedElement = null;
