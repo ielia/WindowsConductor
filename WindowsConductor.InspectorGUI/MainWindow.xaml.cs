@@ -479,6 +479,7 @@ public partial class MainWindow : Window, ICommandOutput
         try
         {
             await _executor.ExecuteAsync(input);
+            _clicklessLocated = false;
         }
         finally
         {
@@ -828,7 +829,7 @@ public partial class MainWindow : Window, ICommandOutput
         try
         {
             await _executor.ExecuteAsync($"locate {selector}");
-            _clicklessLocated = true;
+            _clicklessLocated = false;
         }
         finally
         {
