@@ -90,7 +90,10 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
                 RequireConnected();
                 await session.AttachAsync(cmd.MainWindowTitleRegex, cmd.MainWindowTimeout ?? 0, ct);
                 output.WriteInfo($"Attached to '{cmd.MainWindowTitleRegex}'");
-                await ShowWindowScreenshotAsync(ct);
+                session.Unselect();
+                _currentSelectors = null;
+                ResetMatchState();
+                await LocateRootAsync(ct);
                 break;
 
             case CloseCommand:
@@ -175,18 +178,8 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
                 session.Unselect();
                 _currentSelectors = null;
                 ResetMatchState();
-                var resetSelectors = new[] { "." };
-                var resetCount = await session.LocateAllAsync(resetSelectors, ct);
-                if (resetCount == 0)
-                    throw new InvalidOperationException("No root element found.");
-                _currentSelectors = resetSelectors;
-                _isAtRoot = await session.IsSelectedElementRootAsync(ct);
-                _matchCount = resetCount;
-                _matchIndex = 0;
+                await LocateRootAsync(ct);
                 output.WriteInfo("Reset to application root.");
-                output.UpdateMatchNavigation(_matchIndex, _matchCount);
-                await ShowWindowScreenshotWithHighlightAsync(ct);
-                await ShowAttributesAsync(ct);
                 break;
 
             case UnselectCommand:
@@ -355,6 +348,21 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
         var selectors = _selectorHistory.Pop();
         session.Unselect();
         var count = await session.LocateAllAsync(selectors, ct);
+        _currentSelectors = selectors;
+        _isAtRoot = await session.IsSelectedElementRootAsync(ct);
+        _matchCount = count;
+        _matchIndex = 0;
+        output.UpdateMatchNavigation(_matchIndex, _matchCount);
+        await ShowWindowScreenshotWithHighlightAsync(ct);
+        await ShowAttributesAsync(ct);
+    }
+
+    private async Task LocateRootAsync(CancellationToken ct)
+    {
+        var selectors = new[] { "." };
+        var count = await session.LocateAllAsync(selectors, ct);
+        if (count == 0)
+            throw new InvalidOperationException("No root element found.");
         _currentSelectors = selectors;
         _isAtRoot = await session.IsSelectedElementRootAsync(ct);
         _matchCount = count;

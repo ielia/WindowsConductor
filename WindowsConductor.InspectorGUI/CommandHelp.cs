@@ -49,7 +49,9 @@ internal static class CommandHelp
           Tab                         Autocomplete command
           Ctrl+Tab / Shift+Ctrl+Tab   Cycle panels
           Alt+Left / Alt+Right        Previous / next match
+          Alt+B                       Go back (<<)
           Alt+C                       Copy attributes
+          Alt+L                       Toggle clickless mode
           Alt+R                       Refresh
         """;
 

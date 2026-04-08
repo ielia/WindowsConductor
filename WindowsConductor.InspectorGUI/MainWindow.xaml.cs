@@ -364,6 +364,13 @@ public partial class MainWindow : Window, ICommandOutput
                 NextMatchButton_Click(NextMatchButton, new RoutedEventArgs());
                 return;
             }
+
+            if (e.SystemKey == Key.B && BackLocatorButton.IsEnabled)
+            {
+                e.Handled = true;
+                BackLocatorButton_Click(BackLocatorButton, new RoutedEventArgs());
+                return;
+            }
         }
 
         if (Keyboard.Modifiers == ModifierKeys.Shift && e.Key is Key.PageUp or Key.PageDown)
