@@ -14,6 +14,7 @@ internal interface ICommandOutput
     void UpdateMatchNavigation(int currentIndex, int totalCount);
     void ShowSleepCancel(int totalMilliseconds, Action cancelAction);
     Task HideSleepCancelAsync();
+    void SetConnectionUrl(string? url);
     void RequestExit();
 }
 

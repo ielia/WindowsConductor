@@ -75,7 +75,10 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
                 break;
 
             case ConnectCommand cmd:
+                if (session.IsConnected)
+                    throw new InvalidOperationException("Already connected. Use 'disconnect' first.");
                 await session.ConnectAsync(cmd.Url, ct);
+                output.SetConnectionUrl(cmd.Url);
                 output.WriteInfo($"Connected to {cmd.Url}");
                 break;
 
@@ -123,6 +126,7 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
                 ResetMatchState();
                 output.ClearScreenshot();
                 output.ClearAttributes();
+                output.SetConnectionUrl(null);
                 output.WriteInfo("Disconnected.");
                 break;
 

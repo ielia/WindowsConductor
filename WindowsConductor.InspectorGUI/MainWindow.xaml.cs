@@ -650,6 +650,11 @@ public partial class MainWindow : Window, ICommandOutput
     private void SleepStopButton_Click(object sender, RoutedEventArgs e) =>
         _sleepStopAction?.Invoke();
 
+    private const string BaseTitle = "WindowsConductor Inspector";
+
+    void ICommandOutput.SetConnectionUrl(string? url) =>
+        Dispatcher.Invoke(() => Title = url is not null ? $"{BaseTitle} - {url}" : BaseTitle);
+
     void ICommandOutput.RequestExit() =>
         Dispatcher.Invoke(Close);
 
