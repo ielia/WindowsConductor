@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using System.Drawing;
 using System.IO;
 using System.Runtime.InteropServices;
 #pragma warning disable CA2101 // Specify marshaling for P/Invoke string arguments - CharSet.Unicode is set
@@ -11,6 +12,10 @@ using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
+using Brush = System.Windows.Media.Brush;
+using Brushes = System.Windows.Media.Brushes;
+using GdiColor = System.Drawing.Color;
+using WpfColor = System.Windows.Media.Color;
 
 namespace WindowsConductor.InspectorGUI;
 
@@ -27,13 +32,39 @@ public partial class MainWindow : Window, ICommandOutput
     private WindowDimensions? _windowDimensions;
     private Border? _lastFocusedBorder;
     private bool _busy;
+    private Brush _highlightBrush = Brushes.Red;
 
     private const int WM_SYSCOMMAND = 0x0112;
+    private const int WM_MEASUREITEM = 0x002C;
+    private const int WM_DRAWITEM = 0x002B;
     private const int MF_SEPARATOR = 0x800;
     private const int MF_STRING = 0x0;
     private const int MF_CHECKED = 0x8;
     private const int MF_UNCHECKED = 0x0;
+    private const int MF_OWNERDRAW = 0x100;
+    private const int MF_GRAYED = 0x1;
+    private const int MF_BYCOMMAND = 0x0;
+    private const int ODS_SELECTED = 0x0001;
+    private const int ODS_CHECKED = 0x0008;
+
     private const int SC_STOP_ON_ERROR = 0x1000;
+    private const int SC_HIGHLIGHT_TITLE = 0x1100;
+    private const int SC_HIGHLIGHT_RED = 0x1101;
+    private const int SC_HIGHLIGHT_GREEN = 0x1102;
+    private const int SC_HIGHLIGHT_BLUE = 0x1103;
+    private const int SC_HIGHLIGHT_YELLOW = 0x1104;
+    private const int SC_HIGHLIGHT_BLACK = 0x1105;
+    private const int SC_HIGHLIGHT_WHITE = 0x1106;
+
+    private static readonly Dictionary<int, (string Label, GdiColor Color, Brush WpfBrush)> HighlightColors = new()
+    {
+        [SC_HIGHLIGHT_RED] = ("Red", GdiColor.Red, Brushes.Red),
+        [SC_HIGHLIGHT_GREEN] = ("Green", GdiColor.Lime, Brushes.Lime),
+        [SC_HIGHLIGHT_BLUE] = ("Blue", GdiColor.DodgerBlue, Brushes.DodgerBlue),
+        [SC_HIGHLIGHT_YELLOW] = ("Yellow", GdiColor.Yellow, Brushes.Yellow),
+        [SC_HIGHLIGHT_BLACK] = ("Black", GdiColor.Black, Brushes.Black),
+        [SC_HIGHLIGHT_WHITE] = ("White", GdiColor.White, Brushes.White),
+    };
 
     [DllImport("user32.dll")]
     private static extern IntPtr GetSystemMenu(IntPtr hWnd, bool bRevert);
@@ -43,6 +74,94 @@ public partial class MainWindow : Window, ICommandOutput
 
     [DllImport("user32.dll")]
     private static extern int CheckMenuItem(IntPtr hMenu, int uIDCheckItem, int uCheck);
+
+    [DllImport("user32.dll")]
+    private static extern bool CheckMenuRadioItem(IntPtr hMenu, int first, int last, int check, int flags);
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct MEASUREITEMSTRUCT
+    {
+        public int CtlType;
+        public int CtlID;
+        public int itemID;
+        public int itemWidth;
+        public int itemHeight;
+        public IntPtr itemData;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct DRAWITEMSTRUCT
+    {
+        public int CtlType;
+        public int CtlID;
+        public int itemID;
+        public int itemAction;
+        public int itemState;
+        public IntPtr hwndItem;
+        public IntPtr hDC;
+        public int rcLeft, rcTop, rcRight, rcBottom;
+        public IntPtr itemData;
+    }
+
+    [DllImport("gdi32.dll")]
+    private static extern IntPtr CreateSolidBrush(int crColor);
+
+    [DllImport("gdi32.dll")]
+    private static extern IntPtr CreatePen(int fnPenStyle, int nWidth, int crColor);
+
+    [DllImport("gdi32.dll")]
+    private static extern IntPtr SelectObject(IntPtr hdc, IntPtr hgdiobj);
+
+    [DllImport("gdi32.dll")]
+    private static extern bool Rectangle(IntPtr hdc, int left, int top, int right, int bottom);
+
+    [DllImport("gdi32.dll")]
+    private static extern bool Ellipse(IntPtr hdc, int left, int top, int right, int bottom);
+
+    [DllImport("gdi32.dll")]
+    private static extern bool DeleteObject(IntPtr hObject);
+
+    [DllImport("user32.dll")]
+    private static extern int FillRect(IntPtr hDC, ref RECT lprc, IntPtr hbr);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    private static extern int DrawText(IntPtr hDC, string lpString, int nCount, ref RECT lpRect, int uFormat);
+
+    [DllImport("gdi32.dll")]
+    private static extern int SetBkMode(IntPtr hdc, int iBkMode);
+
+    [DllImport("gdi32.dll")]
+    private static extern int SetTextColor(IntPtr hdc, int crColor);
+
+    [DllImport("gdi32.dll", CharSet = CharSet.Unicode)]
+    private static extern IntPtr CreateFontW(int height, int width, int escapement, int orientation,
+        int weight, int italic, int underline, int strikeOut, int charSet, int outputPrecision,
+        int clipPrecision, int quality, int pitchAndFamily, string faceName);
+
+    [DllImport("user32.dll")]
+    private static extern int GetSystemMetrics(int nIndex);
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct RECT
+    {
+        public int Left, Top, Right, Bottom;
+    }
+
+    private const int DT_LEFT = 0x0;
+    private const int DT_VCENTER = 0x4;
+    private const int DT_SINGLELINE = 0x20;
+    private const int TRANSPARENT = 1;
+    private const int SM_CXMENUCHECK = 71;
+    private const int COLOR_HIGHLIGHT = 13;
+    private const int COLOR_MENU = 4;
+    private const int COLOR_MENUTEXT = 7;
+    private const int COLOR_HIGHLIGHTTEXT = 14;
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr GetSysColorBrush(int nIndex);
+
+    [DllImport("user32.dll")]
+    private static extern int GetSysColor(int nIndex);
 
     public MainWindow()
     {
@@ -70,22 +189,154 @@ public partial class MainWindow : Window, ICommandOutput
         var sysMenu = GetSystemMenu(hwnd, false);
         AppendMenu(sysMenu, MF_SEPARATOR, 0, string.Empty);
         AppendMenu(sysMenu, MF_STRING | MF_UNCHECKED, SC_STOP_ON_ERROR, "Stop on error");
+        AppendMenu(sysMenu, MF_SEPARATOR, 0, string.Empty);
+        AppendMenu(sysMenu, MF_OWNERDRAW | MF_GRAYED, SC_HIGHLIGHT_TITLE, string.Empty);
+        foreach (var id in HighlightColors.Keys)
+            AppendMenu(sysMenu, MF_OWNERDRAW, id, string.Empty);
+        CheckMenuRadioItem(sysMenu, SC_HIGHLIGHT_RED, SC_HIGHLIGHT_WHITE, SC_HIGHLIGHT_RED, MF_BYCOMMAND);
         var source = HwndSource.FromHwnd(hwnd);
         source?.AddHook(WndProc);
     }
 
     private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
     {
-        if (msg == WM_SYSCOMMAND && wParam.ToInt32() == SC_STOP_ON_ERROR)
+        switch (msg)
         {
-            _executor.StopChainOnError = !_executor.StopChainOnError;
-            var sysMenu = GetSystemMenu(hwnd, false);
-            CheckMenuItem(sysMenu, SC_STOP_ON_ERROR,
-                _executor.StopChainOnError ? MF_CHECKED : MF_UNCHECKED);
-            handled = true;
+            case WM_SYSCOMMAND:
+                var id = wParam.ToInt32();
+                if (id == SC_STOP_ON_ERROR)
+                {
+                    _executor.StopChainOnError = !_executor.StopChainOnError;
+                    var sysMenu = GetSystemMenu(hwnd, false);
+                    CheckMenuItem(sysMenu, SC_STOP_ON_ERROR,
+                        _executor.StopChainOnError ? MF_CHECKED : MF_UNCHECKED);
+                    handled = true;
+                }
+                else if (HighlightColors.ContainsKey(id))
+                {
+                    SetHighlightColor(hwnd, id);
+                    handled = true;
+                }
+                break;
+
+            case WM_MEASUREITEM:
+                handled = HandleMeasureItem(lParam);
+                break;
+
+            case WM_DRAWITEM:
+                handled = HandleDrawItem(lParam);
+                break;
         }
+
         return IntPtr.Zero;
     }
+
+    private void SetHighlightColor(IntPtr hwnd, int menuId)
+    {
+        _highlightBrush = HighlightColors[menuId].WpfBrush;
+        var sysMenu = GetSystemMenu(hwnd, false);
+        CheckMenuRadioItem(sysMenu, SC_HIGHLIGHT_RED, SC_HIGHLIGHT_WHITE, menuId, MF_BYCOMMAND);
+        if (_currentHighlight is not null)
+            HighlightRect.Stroke = _highlightBrush;
+    }
+
+    private static bool HandleMeasureItem(IntPtr lParam)
+    {
+        var mis = Marshal.PtrToStructure<MEASUREITEMSTRUCT>(lParam);
+        if (mis.itemID < SC_HIGHLIGHT_TITLE || mis.itemID > SC_HIGHLIGHT_WHITE)
+            return false;
+        mis.itemWidth = 120;
+        mis.itemHeight = mis.itemID == SC_HIGHLIGHT_TITLE ? 20 : 22;
+        Marshal.StructureToPtr(mis, lParam, false);
+        return true;
+    }
+
+    private static bool HandleDrawItem(IntPtr lParam)
+    {
+        var dis = Marshal.PtrToStructure<DRAWITEMSTRUCT>(lParam);
+        if (dis.itemID < SC_HIGHLIGHT_TITLE || dis.itemID > SC_HIGHLIGHT_WHITE)
+            return false;
+
+        var hdc = dis.hDC;
+        var rc = new RECT { Left = dis.rcLeft, Top = dis.rcTop, Right = dis.rcRight, Bottom = dis.rcBottom };
+        bool selected = (dis.itemState & ODS_SELECTED) != 0 && dis.itemID != SC_HIGHLIGHT_TITLE;
+
+        // Background
+        var bgBrush = GetSysColorBrush(selected ? COLOR_HIGHLIGHT : COLOR_MENU);
+        FillRect(hdc, ref rc, bgBrush);
+
+        SetBkMode(hdc, TRANSPARENT);
+
+        if (dis.itemID == SC_HIGHLIGHT_TITLE)
+        {
+            // Bold title
+            var font = CreateFontW(-14, 0, 0, 0, 700, 0, 0, 0, 0, 0, 0, 0, 0, "Segoe UI");
+            var oldFont = SelectObject(hdc, font);
+            SetTextColor(hdc, GetSysColor(COLOR_MENUTEXT));
+            var textRc = new RECT { Left = rc.Left + 8, Top = rc.Top, Right = rc.Right, Bottom = rc.Bottom };
+            DrawText(hdc, "Highlight Color", -1, ref textRc, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
+            SelectObject(hdc, oldFont);
+            DeleteObject(font);
+        }
+        else if (HighlightColors.TryGetValue(dis.itemID, out var entry))
+        {
+            int checkWidth = GetSystemMetrics(SM_CXMENUCHECK);
+            bool isChecked = (dis.itemState & ODS_CHECKED) != 0;
+
+            // Radio bullet
+            if (isChecked)
+            {
+                int bulletSize = 6;
+                int bulletLeft = rc.Left + (checkWidth - bulletSize) / 2;
+                int bulletTop = rc.Top + (rc.Bottom - rc.Top - bulletSize) / 2;
+                int textColor = GetSysColor(selected ? COLOR_HIGHLIGHTTEXT : COLOR_MENUTEXT);
+                var bulletBrush = CreateSolidBrush(textColor);
+                var bulletPen = CreatePen(0, 1, textColor);
+                var oldBulletPen = SelectObject(hdc, bulletPen);
+                var oldBulletBrush = SelectObject(hdc, bulletBrush);
+                Ellipse(hdc, bulletLeft, bulletTop, bulletLeft + bulletSize, bulletTop + bulletSize);
+                SelectObject(hdc, oldBulletBrush);
+                SelectObject(hdc, oldBulletPen);
+                DeleteObject(bulletBrush);
+                DeleteObject(bulletPen);
+            }
+
+            // Color square
+            int squareSize = 12;
+            int squareLeft = rc.Left + checkWidth + 2;
+            int squareTop = rc.Top + (rc.Bottom - rc.Top - squareSize) / 2;
+
+            // Color square with 1px black border
+            var pen = CreatePen(0, 1, ColorToInt(GdiColor.Black));
+            var brush = CreateSolidBrush(ColorToInt(entry.Color));
+            var oldPen = SelectObject(hdc, pen);
+            var oldBrush = SelectObject(hdc, brush);
+            Rectangle(hdc, squareLeft, squareTop, squareLeft + squareSize, squareTop + squareSize);
+            SelectObject(hdc, oldBrush);
+            SelectObject(hdc, oldPen);
+            DeleteObject(brush);
+            DeleteObject(pen);
+
+            // Label text
+            var font = CreateFontW(-12, 0, 0, 0, 400, 0, 0, 0, 0, 0, 0, 0, 0, "Segoe UI");
+            var oldFont = SelectObject(hdc, font);
+            SetTextColor(hdc, GetSysColor(selected ? COLOR_HIGHLIGHTTEXT : COLOR_MENUTEXT));
+            var textRc = new RECT
+            {
+                Left = squareLeft + squareSize + 6,
+                Top = rc.Top,
+                Right = rc.Right,
+                Bottom = rc.Bottom
+            };
+            DrawText(hdc, entry.Label, -1, ref textRc, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
+            SelectObject(hdc, oldFont);
+            DeleteObject(font);
+        }
+
+        return true;
+    }
+
+    private static int ColorToInt(GdiColor c) => c.R | (c.G << 8) | (c.B << 16);
 
     private readonly UIElement[] _focusablePanels;
     private readonly Dictionary<UIElement, Border> _panelBorders;
@@ -507,13 +758,13 @@ public partial class MainWindow : Window, ICommandOutput
     {
         StopBlinking();
         _blinkVisible = true;
-        HighlightRect.Stroke = Brushes.Red;
+        HighlightRect.Stroke = _highlightBrush;
         _blinkTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
         _blinkTimer.Tick += (_, _) =>
         {
             _blinkVisible = !_blinkVisible;
             HighlightRect.Stroke = _blinkVisible
-                ? Brushes.Red
+                ? _highlightBrush
                 : Brushes.Transparent;
         };
         _blinkTimer.Start();
@@ -587,12 +838,12 @@ public partial class MainWindow : Window, ICommandOutput
             CommandInput.Focus();
     }
 
-    private static readonly SolidColorBrush InputBrush = Frozen(new(Color.FromRgb(0xFF, 0xFF, 0xFF)));
-    private static readonly SolidColorBrush ResponseBrush = Frozen(new(Color.FromRgb(0xCC, 0xCC, 0xCC)));
-    private static readonly SolidColorBrush CommandBrush = Frozen(new(Color.FromRgb(0x80, 0xC0, 0xFF)));
-    private static readonly SolidColorBrush ErrorBrush = Frozen(new(Color.FromRgb(0xFF, 0x80, 0x80)));
-    private static readonly SolidColorBrush FocusBorderBrush = Frozen(new(Color.FromRgb(0x40, 0xA0, 0xF0)));
-    private static readonly SolidColorBrush DefaultBorderBrush = Frozen(new(Color.FromRgb(0x33, 0x33, 0x33)));
+    private static readonly SolidColorBrush InputBrush = Frozen(new(WpfColor.FromRgb(0xFF, 0xFF, 0xFF)));
+    private static readonly SolidColorBrush ResponseBrush = Frozen(new(WpfColor.FromRgb(0xCC, 0xCC, 0xCC)));
+    private static readonly SolidColorBrush CommandBrush = Frozen(new(WpfColor.FromRgb(0x80, 0xC0, 0xFF)));
+    private static readonly SolidColorBrush ErrorBrush = Frozen(new(WpfColor.FromRgb(0xFF, 0x80, 0x80)));
+    private static readonly SolidColorBrush FocusBorderBrush = Frozen(new(WpfColor.FromRgb(0x40, 0xA0, 0xF0)));
+    private static readonly SolidColorBrush DefaultBorderBrush = Frozen(new(WpfColor.FromRgb(0x33, 0x33, 0x33)));
 
     private static SolidColorBrush Frozen(SolidColorBrush brush) { brush.Freeze(); return brush; }
 
