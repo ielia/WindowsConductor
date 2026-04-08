@@ -23,9 +23,9 @@ internal sealed record AttachCommand(
 internal sealed record AttributeCommand(string AttributeName) : ParsedCommand
 {
     internal override string Name => "attribute";
-    internal override string Usage => "attribute <name>";
-    internal override string Description => "Returns a named UIAutomation property of the currently selected element.";
-    internal override string[] Examples => ["attribute classname"];
+    internal override string Usage => "attribute <name|*>";
+    internal override string Description => "Returns a named UIAutomation property of the currently selected element.\nUse '*' to list all attributes.";
+    internal override string[] Examples => ["attribute classname", "attribute *"];
 }
 
 internal sealed record ClickCommand : ParsedCommand

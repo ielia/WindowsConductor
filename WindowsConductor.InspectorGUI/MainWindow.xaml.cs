@@ -541,6 +541,16 @@ public partial class MainWindow : Window, ICommandOutput
     void ICommandOutput.WriteCommand(string command) =>
         Dispatcher.Invoke(() => AppendLog($"> {command}", italic: true, brush: CommandBrush));
 
+    void ICommandOutput.WriteBulletInfo(string message) =>
+        Dispatcher.Invoke(() =>
+        {
+            var paragraph = new Paragraph();
+            paragraph.Inlines.Add(new Run("* ") { Foreground = CommandBrush, FontStyle = FontStyles.Italic });
+            paragraph.Inlines.Add(new Run(message) { Foreground = ResponseBrush });
+            OutputLog.Document.Blocks.Add(paragraph);
+            OutputLog.ScrollToEnd();
+        });
+
     void ICommandOutput.WriteError(string message) =>
         Dispatcher.Invoke(() => AppendLog($"ERROR: {message}", brush: ErrorBrush));
 

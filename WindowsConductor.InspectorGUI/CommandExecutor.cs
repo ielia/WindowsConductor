@@ -197,8 +197,17 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
 
             case AttributeCommand cmd:
                 RequireElement();
-                var attrValue = await session.GetAttributeAsync(cmd.AttributeName, ct);
-                output.WriteInfo($"{cmd.AttributeName} = {attrValue}");
+                if (cmd.AttributeName == "*")
+                {
+                    var allAttrs = await session.GetAttributesAsync(ct);
+                    foreach (var (key, value) in allAttrs)
+                        output.WriteBulletInfo($"{key} = {value}");
+                }
+                else
+                {
+                    var attrValue = await session.GetAttributeAsync(cmd.AttributeName, ct);
+                    output.WriteInfo($"{cmd.AttributeName} = {attrValue}");
+                }
                 break;
 
             case ClickCommand:

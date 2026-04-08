@@ -5,6 +5,7 @@ internal interface ICommandOutput
     void ClearLog();
     void WriteInfo(string message);
     void WriteCommand(string command);
+    void WriteBulletInfo(string message);
     void WriteError(string message);
     void ShowScreenshot(byte[] imageData, HighlightInfo? highlight = null, WindowDimensions? windowDimensions = null);
     void ClearScreenshot();
