@@ -13,7 +13,7 @@ internal interface ICommandOutput
     void ClearAttributes();
     void UpdateMatchNavigation(int currentIndex, int totalCount);
     void ShowSleepCancel(int totalMilliseconds, Action cancelAction);
-    void HideSleepCancel();
+    Task HideSleepCancelAsync();
     void RequestExit();
 }
 

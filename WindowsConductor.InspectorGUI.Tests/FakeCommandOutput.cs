@@ -45,7 +45,7 @@ internal sealed class FakeCommandOutput : ICommandOutput
     }
 
     public int HideSleepCancelCount { get; private set; }
-    public void HideSleepCancel() => HideSleepCancelCount++;
+    public Task HideSleepCancelAsync() { HideSleepCancelCount++; return Task.CompletedTask; }
 
     public int RequestExitCount { get; private set; }
     public void RequestExit() => RequestExitCount++;

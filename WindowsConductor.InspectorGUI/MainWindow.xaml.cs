@@ -37,6 +37,8 @@ public partial class MainWindow : Window, ICommandOutput
     private DispatcherTimer? _clicklessDebounce;
     private (int X, int Y) _lastClicklessCoords = (-1, -1);
     private bool _clicklessLocated;
+    private bool _sleeping;
+    private Task? _clicklessTask;
 
     private const int WM_SYSCOMMAND = 0x0112;
     private const int WM_MEASUREITEM = 0x002C;
@@ -610,20 +612,26 @@ public partial class MainWindow : Window, ICommandOutput
             _sleepCountdownTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(100) };
             _sleepCountdownTimer.Tick += (_, _) => UpdateSleepButtonLabel();
             _sleepCountdownTimer.Start();
-            SetBusy(true);
+            _sleeping = true;
         });
     }
 
-    void ICommandOutput.HideSleepCancel()
+    async Task ICommandOutput.HideSleepCancelAsync()
     {
         Dispatcher.Invoke(() =>
         {
+            _sleeping = false;
+            _clicklessDebounce?.Stop();
             _sleepCountdownTimer?.Stop();
             _sleepCountdownTimer = null;
             SleepStopButton.Visibility = Visibility.Collapsed;
             _sleepStopAction = null;
-            SetBusy(false);
         });
+        if (_clicklessTask is not null)
+        {
+            await _clicklessTask;
+            _clicklessTask = null;
+        }
     }
 
     private void UpdateSleepButtonLabel()
@@ -850,7 +858,7 @@ public partial class MainWindow : Window, ICommandOutput
 
     private void ScreenshotImage_MouseMove(object sender, MouseEventArgs e)
     {
-        if (!_clicklessMode || _busy) return;
+        if (!_clicklessMode || (_busy && !_sleeping)) return;
 
         var coords = ScreenPointToWindowRelative(e.GetPosition(ScreenshotContainer));
         if (coords is null) return;
@@ -861,30 +869,38 @@ public partial class MainWindow : Window, ICommandOutput
 
         _clicklessDebounce?.Stop();
         _clicklessDebounce = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(300) };
-        _clicklessDebounce.Tick += async (_, _) =>
+        _clicklessDebounce.Tick += (_, _) =>
         {
             _clicklessDebounce?.Stop();
-            if (_busy) return;
+            if (_busy && !_sleeping) return;
+            if (_clicklessTask is { IsCompleted: false }) return;
 
             var (winRelX, winRelY) = (rounded.Item1, rounded.Item2);
             var selector = _executor.IsAtRoot
                 ? FormattableString.Invariant($"/*[at({winRelX}, {winRelY})]")
                 : FormattableString.Invariant($"//frontmost::*[at({winRelX}, {winRelY})]");
 
-            SetBusy(true);
-            try
-            {
-                if (_clicklessLocated && _executor.CanGoBack)
-                    await _executor.GoBackAsync();
-                await _executor.ExecuteAsync($"locate {selector}");
-                _clicklessLocated = true;
-            }
-            finally
-            {
-                SetBusy(false);
-            }
+            _clicklessTask = RunClicklessLocateAsync(selector);
         };
         _clicklessDebounce.Start();
+    }
+
+    private async Task RunClicklessLocateAsync(string selector)
+    {
+        bool wasSleeping = _sleeping;
+        if (!wasSleeping) SetBusy(true);
+        try
+        {
+            if (_clicklessLocated && _executor.CanGoBack)
+                await _executor.GoBackAsync();
+            AppendLog($"> {selector}", italic: true, brush: CommandBrush);
+            await _executor.ExecuteAsync($"locate {selector}");
+            _clicklessLocated = true;
+        }
+        finally
+        {
+            if (!wasSleeping) SetBusy(false);
+        }
     }
 
     private void SetBusy(bool busy)

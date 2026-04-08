@@ -313,7 +313,7 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
                 }
                 finally
                 {
-                    output.HideSleepCancel();
+                    await output.HideSleepCancelAsync();
                 }
                 break;
 
