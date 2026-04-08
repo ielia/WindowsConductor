@@ -509,23 +509,27 @@ public partial class MainWindow : Window, ICommandOutput
         bool isDoubleTab = (now - _lastTabTime).TotalMilliseconds < 500;
         _lastTabTime = now;
 
-        var result = CommandCompleter.Complete(CommandInput.Text);
+        var fullText = CommandInput.Text;
+        var lastSemicolon = fullText.LastIndexOf(';');
+        var prefix = lastSemicolon >= 0 ? fullText[..(lastSemicolon + 1)] : "";
+        var segment = lastSemicolon >= 0 ? fullText[(lastSemicolon + 1)..].TrimStart() : fullText;
+
+        var result = CommandCompleter.Complete(segment);
 
         if (result.Applied)
         {
-            CommandInput.Text = result.Text;
+            CommandInput.Text = prefix + (prefix.Length > 0 ? " " : "") + result.Text;
             CommandInput.CaretIndex = CommandInput.Text.Length;
             return;
         }
 
-        // Update text to longest common prefix (may be unchanged)
-        if (result.Text != CommandInput.Text)
+        var newText = prefix + (prefix.Length > 0 ? " " : "") + result.Text;
+        if (newText != fullText)
         {
-            CommandInput.Text = result.Text;
+            CommandInput.Text = newText;
             CommandInput.CaretIndex = CommandInput.Text.Length;
         }
 
-        // Double-tab: show matching commands
         if (isDoubleTab && result.Matches.Length > 0)
         {
             AppendLog(string.Join("  ", result.Matches));
