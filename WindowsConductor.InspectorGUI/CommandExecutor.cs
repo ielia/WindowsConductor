@@ -469,8 +469,25 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
                 left = left.TrimEnd('/');
             var needsSlash = !left.EndsWith('/') && !right.TrimStart().StartsWith('/');
             var combined = left + (needsSlash ? "/" : "") + right;
+            combined = NormalizeDotSegments(combined);
             return [.. current[..^1], combined, .. incoming[1..]];
         }
         return [.. current ?? [], .. incoming];
+    }
+
+    private static string NormalizeDotSegments(string path)
+    {
+        // Collapse "/./" to "/" and strip trailing "/."
+        string previous;
+        do
+        {
+            previous = path;
+            path = path.Replace("/./", "/");
+        } while (path != previous);
+
+        if (path.EndsWith("/."))
+            path = path[..^2];
+
+        return path;
     }
 }
