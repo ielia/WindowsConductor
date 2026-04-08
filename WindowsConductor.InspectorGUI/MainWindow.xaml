@@ -26,7 +26,7 @@
                 <CheckBox x:Name="ClicklessCheckBox" DockPanel.Dock="Bottom"
                           Content="Click_less" Margin="6,2"
                           FontFamily="Consolas" FontSize="11"
-                          Foreground="#CCCCCC"
+                          Foreground="Black"
                           ToolTip="Toggle clickless hover mode (Alt+L)"
                           Checked="ClicklessCheckBox_Changed"
                           Unchecked="ClicklessCheckBox_Changed" />

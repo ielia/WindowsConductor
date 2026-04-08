@@ -120,6 +120,14 @@ internal sealed record LaunchCommand(
     internal override string[] Examples => ["launch notepad.exe", "launch calc.exe [\"--silent\"] 3000"];
 }
 
+internal sealed record MatchIndexCommand(int Index) : ParsedCommand
+{
+    internal override string Name => "matchindex";
+    internal override string Usage => "matchindex <N>";
+    internal override string Description => "Selects the Nth match (1-based). Errors if N is out of bounds.";
+    internal override string[] Examples => ["matchindex 3"];
+}
+
 internal sealed record LocateCommand(string[] Selectors) : ParsedCommand
 {
     internal override string Name => "locate";
@@ -127,6 +135,22 @@ internal sealed record LocateCommand(string[] Selectors) : ParsedCommand
     internal override string Description =>
         "Finds elements matching the selector chain.\nSelectors are separated by >> for scoped searches.\nXPath selectors relative to the current element are supported.";
     internal override string[] Examples => ["locate [name=OK]", "locate type=Panel >> [automationid=btn1]", "locate //Window[text()$='Edge']"];
+}
+
+internal sealed record NextMatchCommand(int Steps = 1) : ParsedCommand
+{
+    internal override string Name => "nextmatch";
+    internal override string Usage => "nextmatch [N]";
+    internal override string Description => "Moves forward N matches (default 1), cycling around.";
+    internal override string[] Examples => ["nextmatch", "nextmatch 3"];
+}
+
+internal sealed record PrevMatchCommand(int Steps = 1) : ParsedCommand
+{
+    internal override string Name => "prevmatch";
+    internal override string Usage => "prevmatch [N]";
+    internal override string Description => "Moves back N matches (default 1), cycling around.";
+    internal override string[] Examples => ["prevmatch", "prevmatch 2"];
 }
 
 internal sealed record ParentCommand : ParsedCommand

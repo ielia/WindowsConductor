@@ -22,6 +22,9 @@ internal static class CommandParser
             "detach" => new DetachCommand(),
             "disconnect" => new DisconnectCommand(),
             "locate" => ParseLocate(parts),
+            "matchindex" => ParseMatchIndex(parts),
+            "nextmatch" => ParseNextMatch(parts),
+            "prevmatch" => ParsePrevMatch(parts),
             "unselect" => new UnselectCommand(),
             "attribute" => ParseAttribute(parts),
             "click" => new ClickCommand(),
@@ -197,6 +200,35 @@ internal static class CommandParser
             };
         }
         return modifiers;
+    }
+
+    private static MatchIndexCommand ParseMatchIndex(string[] parts)
+    {
+        if (parts.Length < 2 || !int.TryParse(parts[1], out var index))
+            throw new ArgumentException("Usage: matchindex <N>");
+        return new MatchIndexCommand(index);
+    }
+
+    private static NextMatchCommand ParseNextMatch(string[] parts)
+    {
+        if (parts.Length >= 2)
+        {
+            if (!int.TryParse(parts[1], out var steps) || steps < 1)
+                throw new ArgumentException("Usage: nextmatch [N] (N must be a positive integer)");
+            return new NextMatchCommand(steps);
+        }
+        return new NextMatchCommand();
+    }
+
+    private static PrevMatchCommand ParsePrevMatch(string[] parts)
+    {
+        if (parts.Length >= 2)
+        {
+            if (!int.TryParse(parts[1], out var steps) || steps < 1)
+                throw new ArgumentException("Usage: prevmatch [N] (N must be a positive integer)");
+            return new PrevMatchCommand(steps);
+        }
+        return new PrevMatchCommand();
     }
 
     private static SleepCommand ParseSleep(string[] parts)

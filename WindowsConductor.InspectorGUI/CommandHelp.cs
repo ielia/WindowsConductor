@@ -37,6 +37,12 @@ internal static class CommandHelp
                 sb.AppendLine($"    Example: {cmd.Examples[0]}");
             sb.AppendLine();
         }
+
+        sb.AppendLine("Chaining commands:");
+        sb.AppendLine("  ;");
+        sb.AppendLine("  Example: locate \"//button\"; click; sleep 1000; nextmatch; click");
+        sb.AppendLine();
+
         sb.Append(KeyBindingsText);
         return sb.ToString().TrimEnd();
     }
@@ -74,6 +80,7 @@ internal static class CommandHelp
             foreach (var example in cmd.Examples)
                 sb.AppendLine($"    {example}");
         }
+
         return sb.ToString().TrimEnd();
     }
 }

@@ -287,6 +287,29 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
                 await ShowAttributesAsync(ct);
                 break;
 
+            case PrevMatchCommand cmd:
+                RequireElement();
+                if (_matchCount > 1)
+                    await NavigateMatchAsync(-cmd.Steps, ct);
+                break;
+
+            case NextMatchCommand cmd:
+                RequireElement();
+                if (_matchCount > 1)
+                    await NavigateMatchAsync(cmd.Steps, ct);
+                break;
+
+            case MatchIndexCommand cmd:
+                RequireElement();
+                if (cmd.Index < 1 || cmd.Index > _matchCount)
+                    throw new InvalidOperationException($"Match index {cmd.Index} is out of bounds (1–{_matchCount}).");
+                _matchIndex = cmd.Index - 1;
+                await session.SelectMatchAsync(_matchIndex, ct);
+                output.UpdateMatchNavigation(_matchIndex, _matchCount);
+                await ShowWindowScreenshotWithHighlightAsync(ct);
+                await ShowAttributesAsync(ct);
+                break;
+
             case FocusCommand:
                 RequireElement();
                 await session.FocusAsync(ct);
