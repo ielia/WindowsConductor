@@ -22,18 +22,27 @@
             </Grid.ColumnDefinitions>
 
             <!-- Screenshot display with highlight overlay -->
-            <Border x:Name="ScreenshotBorder" Grid.Column="0" Background="#1E1E1E" Margin="4"
-                    BorderThickness="3" BorderBrush="#333333">
-                <Grid x:Name="ScreenshotContainer" SizeChanged="ScreenshotContainer_SizeChanged">
-                    <Image x:Name="ScreenshotImage" Stretch="Uniform" Focusable="True"
-                           MouseLeftButtonDown="ScreenshotImage_MouseLeftButtonDown" />
-                    <Canvas x:Name="HighlightCanvas" IsHitTestVisible="False">
-                        <Rectangle x:Name="HighlightRect"
-                                   Stroke="Red" StrokeThickness="2"
-                                   Visibility="Collapsed" />
-                    </Canvas>
-                </Grid>
-            </Border>
+            <DockPanel Grid.Column="0">
+                <CheckBox x:Name="ClicklessCheckBox" DockPanel.Dock="Bottom"
+                          Content="Click_less" Margin="6,2"
+                          FontFamily="Consolas" FontSize="11"
+                          Foreground="#CCCCCC"
+                          Checked="ClicklessCheckBox_Changed"
+                          Unchecked="ClicklessCheckBox_Changed" />
+                <Border x:Name="ScreenshotBorder" Background="#1E1E1E" Margin="4"
+                        BorderThickness="3" BorderBrush="#333333">
+                    <Grid x:Name="ScreenshotContainer" SizeChanged="ScreenshotContainer_SizeChanged">
+                        <Image x:Name="ScreenshotImage" Stretch="Uniform" Focusable="True"
+                               MouseLeftButtonDown="ScreenshotImage_MouseLeftButtonDown"
+                               MouseMove="ScreenshotImage_MouseMove" />
+                        <Canvas x:Name="HighlightCanvas" IsHitTestVisible="False">
+                            <Rectangle x:Name="HighlightRect"
+                                       Stroke="Red" StrokeThickness="2"
+                                       Visibility="Collapsed" />
+                        </Canvas>
+                    </Grid>
+                </Border>
+            </DockPanel>
 
             <GridSplitter Grid.Column="1" Width="4" HorizontalAlignment="Center"
                           VerticalAlignment="Stretch" Background="#333333" />

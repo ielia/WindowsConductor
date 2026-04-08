@@ -33,6 +33,10 @@ public partial class MainWindow : Window, ICommandOutput
     private Border? _lastFocusedBorder;
     private bool _busy;
     private Brush _highlightBrush = Brushes.Red;
+    private bool _clicklessMode;
+    private DispatcherTimer? _clicklessDebounce;
+    private (int X, int Y) _lastClicklessCoords = (-1, -1);
+    private bool _clicklessLocated;
 
     private const int WM_SYSCOMMAND = 0x0112;
     private const int WM_MEASUREITEM = 0x002C;
@@ -776,19 +780,17 @@ public partial class MainWindow : Window, ICommandOutput
         _blinkTimer = null;
     }
 
-    private async void ScreenshotImage_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    private (double X, double Y)? ScreenPointToWindowRelative(System.Windows.Point pos)
     {
-        if (_busy) return;
-        if (_currentBitmap is null || _windowDimensions is null) return;
+        if (_currentBitmap is null || _windowDimensions is null) return null;
 
         var containerWidth = ScreenshotContainer.ActualWidth;
         var containerHeight = ScreenshotContainer.ActualHeight;
-        if (containerWidth <= 0 || containerHeight <= 0) return;
+        if (containerWidth <= 0 || containerHeight <= 0) return null;
 
         var bitmap = _currentBitmap;
         var winDim = _windowDimensions;
 
-        // Reverse of PositionHighlight: WPF click point → window-relative logical coords
         var scaleX = containerWidth / bitmap.PixelWidth;
         var scaleY = containerHeight / bitmap.PixelHeight;
         var scale = Math.Min(scaleX, scaleY);
@@ -801,14 +803,22 @@ public partial class MainWindow : Window, ICommandOutput
         var dpiScaleX = winDim.Width > 0 ? bitmap.PixelWidth / winDim.Width : 1.0;
         var dpiScaleY = winDim.Height > 0 ? bitmap.PixelHeight / winDim.Height : 1.0;
 
-        var clickPos = e.GetPosition(ScreenshotContainer);
-        var winRelX = (clickPos.X - offsetX) / (dpiScaleX * scale);
-        var winRelY = (clickPos.Y - offsetY) / (dpiScaleY * scale);
+        var winRelX = (pos.X - offsetX) / (dpiScaleX * scale);
+        var winRelY = (pos.Y - offsetY) / (dpiScaleY * scale);
 
-        // Ignore clicks outside the rendered image area
         if (winRelX < 0 || winRelY < 0 || winRelX > winDim.Width || winRelY > winDim.Height)
-            return;
+            return null;
 
+        return (winRelX, winRelY);
+    }
+
+    private async void ScreenshotImage_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (_busy) return;
+        var coords = ScreenPointToWindowRelative(e.GetPosition(ScreenshotContainer));
+        if (coords is null) return;
+
+        var (winRelX, winRelY) = coords.Value;
         var selector = _executor.IsAtRoot
             ? FormattableString.Invariant($"/*[at({winRelX:F0}, {winRelY:F0})]")
             : FormattableString.Invariant($"//frontmost::*[at({winRelX:F0}, {winRelY:F0})]");
@@ -818,11 +828,62 @@ public partial class MainWindow : Window, ICommandOutput
         try
         {
             await _executor.ExecuteAsync($"locate {selector}");
+            _clicklessLocated = true;
         }
         finally
         {
             SetBusy(false);
         }
+    }
+
+    private void ClicklessCheckBox_Changed(object sender, RoutedEventArgs e)
+    {
+        _clicklessMode = ClicklessCheckBox.IsChecked == true;
+        if (!_clicklessMode)
+        {
+            _clicklessDebounce?.Stop();
+            _clicklessDebounce = null;
+            _lastClicklessCoords = (-1, -1);
+        }
+    }
+
+    private void ScreenshotImage_MouseMove(object sender, MouseEventArgs e)
+    {
+        if (!_clicklessMode || _busy) return;
+
+        var coords = ScreenPointToWindowRelative(e.GetPosition(ScreenshotContainer));
+        if (coords is null) return;
+
+        var rounded = ((int)coords.Value.X, (int)coords.Value.Y);
+        if (rounded == _lastClicklessCoords) return;
+        _lastClicklessCoords = rounded;
+
+        _clicklessDebounce?.Stop();
+        _clicklessDebounce = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(300) };
+        _clicklessDebounce.Tick += async (_, _) =>
+        {
+            _clicklessDebounce?.Stop();
+            if (_busy) return;
+
+            var (winRelX, winRelY) = (rounded.Item1, rounded.Item2);
+            var selector = _executor.IsAtRoot
+                ? FormattableString.Invariant($"/*[at({winRelX}, {winRelY})]")
+                : FormattableString.Invariant($"//frontmost::*[at({winRelX}, {winRelY})]");
+
+            SetBusy(true);
+            try
+            {
+                if (_clicklessLocated && _executor.CanGoBack)
+                    await _executor.GoBackAsync();
+                await _executor.ExecuteAsync($"locate {selector}");
+                _clicklessLocated = true;
+            }
+            finally
+            {
+                SetBusy(false);
+            }
+        };
+        _clicklessDebounce.Start();
     }
 
     private void SetBusy(bool busy)

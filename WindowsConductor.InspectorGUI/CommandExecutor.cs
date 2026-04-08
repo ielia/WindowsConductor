@@ -127,7 +127,7 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
                 RequireApp();
                 var firstTrimmed = cmd.Selectors[0].TrimStart();
                 bool isRelative = session.HasSelectedElement
-                    && IsXPath(firstTrimmed) && firstTrimmed != "/";
+                    && IsRelativeXPath(firstTrimmed);
                 var previousSelectors = _currentSelectors;
                 var previousMatchCount = _matchCount;
                 var previousMatchIndex = _matchIndex;
@@ -456,6 +456,12 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
     {
         var s = selector.TrimStart();
         return s.StartsWith('/') || s.StartsWith('.');
+    }
+
+    private static bool IsRelativeXPath(string selector)
+    {
+        var s = selector.TrimStart();
+        return s.StartsWith('.') || s.StartsWith("//");
     }
 
     private static string[] CombineSelectors(string[]? current, string[] incoming)

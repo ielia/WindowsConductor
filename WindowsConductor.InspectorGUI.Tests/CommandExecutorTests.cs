@@ -235,7 +235,7 @@ public class CommandExecutorTests
         _session.HasApp = true;
         await _executor.ExecuteAsync("locate /");
         await _executor.ExecuteAsync("locate //button[@automationid=num3Button]");
-        await _executor.ExecuteAsync("locate /../");
+        await _executor.ExecuteAsync("locate ./..");
         _output.AttributesSets.Clear();
 
         await _executor.ExecuteAsync("locate //button[@automationid=num2Button]");
