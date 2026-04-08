@@ -53,6 +53,7 @@ internal static class CommandHelp
           Alt+C                       Copy attributes
           Alt+L                       Toggle clickless mode
           Alt+R                       Refresh
+          Alt+S                       Stop sleep and remaining commands
         """;
 
     internal static string? GetFor(string commandName)

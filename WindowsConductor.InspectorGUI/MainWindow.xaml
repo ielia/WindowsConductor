@@ -27,6 +27,7 @@
                           Content="Click_less" Margin="6,2"
                           FontFamily="Consolas" FontSize="11"
                           Foreground="#CCCCCC"
+                          ToolTip="Toggle clickless hover mode (Alt+L)"
                           Checked="ClicklessCheckBox_Changed"
                           Unchecked="ClicklessCheckBox_Changed" />
                 <Border x:Name="ScreenshotBorder" Background="#1E1E1E" Margin="4"
@@ -59,6 +60,7 @@
                                 Background="#2D2D2D" Foreground="#CCCCCC"
                                 BorderBrush="#555555" BorderThickness="1"
                                 IsEnabled="False"
+                                ToolTip="Go back to previous locator (Alt+B)"
                                 Click="BackLocatorButton_Click" />
                         <TextBox x:Name="LocatorChainText"
                                  IsReadOnly="True" TextWrapping="Wrap"
@@ -88,6 +90,7 @@
                                 Background="#2D2D2D" Foreground="#CCCCCC"
                                 BorderBrush="#555555" BorderThickness="1"
                                 IsEnabled="False"
+                                ToolTip="Previous match (Alt+Left)"
                                 Click="PrevMatchButton_Click" />
                         <TextBlock Grid.Column="1" x:Name="MatchCountLabel"
                                    Text="" Padding="4,3"
@@ -100,18 +103,21 @@
                                 Background="#2D2D2D" Foreground="#CCCCCC"
                                 BorderBrush="#555555" BorderThickness="1"
                                 IsEnabled="False"
+                                ToolTip="Next match (Alt+Right)"
                                 Click="NextMatchButton_Click" />
                         <Button Grid.Column="4" x:Name="CopyButton"
                                 Content="_Copy" Padding="12,3"
                                 FontFamily="Consolas" FontSize="11"
                                 Background="#2D2D2D" Foreground="#CCCCCC"
                                 BorderBrush="#555555" BorderThickness="1"
+                                ToolTip="Copy attributes to clipboard (Alt+C)"
                                 Click="CopyButton_Click" />
                         <Button Grid.Column="6" x:Name="RefreshButton"
                                 Content="_Refresh" Padding="12,3"
                                 FontFamily="Consolas" FontSize="11"
                                 Background="#2D2D2D" Foreground="#CCCCCC"
                                 BorderBrush="#555555" BorderThickness="1"
+                                ToolTip="Refresh screenshot and attributes (Alt+R)"
                                 Click="RefreshButton_Click" />
                     </Grid>
 
@@ -191,6 +197,7 @@
                         Background="#2D2D2D" Foreground="#CCCCCC"
                         BorderBrush="#555555" BorderThickness="1"
                         Visibility="Collapsed"
+                        ToolTip="Stop sleep and remaining commands (Alt+S)"
                         Click="SleepStopButton_Click" />
             </Grid>
         </Border>

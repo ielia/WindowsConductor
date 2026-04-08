@@ -371,6 +371,13 @@ public partial class MainWindow : Window, ICommandOutput
                 BackLocatorButton_Click(BackLocatorButton, new RoutedEventArgs());
                 return;
             }
+
+            if (e.SystemKey == Key.S && SleepStopButton.Visibility == Visibility.Visible)
+            {
+                e.Handled = true;
+                SleepStopButton_Click(SleepStopButton, new RoutedEventArgs());
+                return;
+            }
         }
 
         if (Keyboard.Modifiers == ModifierKeys.Shift && e.Key is Key.PageUp or Key.PageDown)
