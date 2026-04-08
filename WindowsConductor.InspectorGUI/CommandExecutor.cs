@@ -164,6 +164,31 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
                 await ShowAttributesAsync(ct);
                 break;
 
+            case RefreshCommand:
+                RequireApp();
+                await RefreshAsync(ct);
+                output.WriteInfo("Refreshed.");
+                break;
+
+            case ResetCommand:
+                RequireApp();
+                session.Unselect();
+                _currentSelectors = null;
+                ResetMatchState();
+                var resetSelectors = new[] { "." };
+                var resetCount = await session.LocateAllAsync(resetSelectors, ct);
+                if (resetCount == 0)
+                    throw new InvalidOperationException("No root element found.");
+                _currentSelectors = resetSelectors;
+                _isAtRoot = await session.IsSelectedElementRootAsync(ct);
+                _matchCount = resetCount;
+                _matchIndex = 0;
+                output.WriteInfo("Reset to application root.");
+                output.UpdateMatchNavigation(_matchIndex, _matchCount);
+                await ShowWindowScreenshotWithHighlightAsync(ct);
+                await ShowAttributesAsync(ct);
+                break;
+
             case UnselectCommand:
                 session.Unselect();
                 _currentSelectors = null;

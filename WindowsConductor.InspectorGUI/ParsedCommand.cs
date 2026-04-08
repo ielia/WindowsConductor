@@ -145,6 +145,22 @@ internal sealed record ChildrenCommand : ParsedCommand
     internal override string[] Examples => [];
 }
 
+internal sealed record RefreshCommand : ParsedCommand
+{
+    internal override string Name => "refresh";
+    internal override string Usage => "refresh";
+    internal override string Description => "Refreshes the screenshot and attributes of the current state.";
+    internal override string[] Examples => [];
+}
+
+internal sealed record ResetCommand : ParsedCommand
+{
+    internal override string Name => "reset";
+    internal override string Usage => "reset";
+    internal override string Description => "Unselects the current element and re-selects the application root.";
+    internal override string[] Examples => [];
+}
+
 internal sealed record RightClickCommand : ParsedCommand
 {
     internal override string Name => "rightclick";
