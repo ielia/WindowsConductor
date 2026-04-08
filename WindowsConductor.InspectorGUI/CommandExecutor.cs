@@ -241,6 +241,7 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
             case ParentCommand:
                 RequireElement();
                 BakeMatchIndex();
+                var parentPreviousSelectors = _currentSelectors;
                 ResetMatchState();
                 var parentId = await session.ParentAsync(ct);
                 if (parentId is null)
@@ -249,7 +250,9 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
                     output.WriteInfo("Already at application root.");
                     break;
                 }
-                _currentSelectors = CombineSelectors(_currentSelectors, [".."]);
+                if (parentPreviousSelectors is not null)
+                    _selectorHistory.Push(parentPreviousSelectors);
+                _currentSelectors = CombineSelectors(parentPreviousSelectors, [".."]);
                 _isAtRoot = await session.IsSelectedElementRootAsync(ct);
                 output.WriteInfo($"Navigated to parent: {parentId}");
                 await ShowWindowScreenshotWithHighlightAsync(ct);
@@ -259,11 +262,14 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
             case ChildrenCommand:
                 RequireElement();
                 BakeMatchIndex();
+                var childPreviousSelectors = _currentSelectors;
                 var childSelectors = new[] { "./*" };
                 var childCount = await session.LocateAllFromElementAsync(childSelectors, ct);
                 if (childCount == 0)
                     throw new InvalidOperationException("No children found.");
-                _currentSelectors = CombineSelectors(_currentSelectors, childSelectors);
+                if (childPreviousSelectors is not null)
+                    _selectorHistory.Push(childPreviousSelectors);
+                _currentSelectors = CombineSelectors(childPreviousSelectors, childSelectors);
                 _isAtRoot = false;
                 _matchCount = childCount;
                 _matchIndex = 0;
