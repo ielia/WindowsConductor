@@ -43,6 +43,7 @@ public partial class MainWindow : Window, ICommandOutput
     private bool _snapshotMode;
     private SnapshotCapture? _snapshotCapture;
     private CancellationTokenSource? _snapshotCts;
+    private TaskCompletionSource? _snapshotTcs;
     private string? _preSnapshotTitle;
     private bool _preSnapshotClickless;
 
@@ -682,11 +683,17 @@ public partial class MainWindow : Window, ICommandOutput
 
     // ── Snapshot mode ────────────────────────────────────────────────────
 
-    private async void SnapshotButton_Click(object sender, RoutedEventArgs e)
+    private async void SnapshotButton_Click(object sender, RoutedEventArgs e) =>
+        await StartSnapshotAsync();
+
+    Task ICommandOutput.RunSnapshotAsync() => StartSnapshotAsync();
+
+    private async Task StartSnapshotAsync()
     {
         if (_snapshotMode || !_executor.Session.HasSelectedElement) return;
 
         _snapshotCts = new CancellationTokenSource();
+        _snapshotTcs = new TaskCompletionSource();
         var ct = _snapshotCts.Token;
 
         EnterSnapshotMode();
@@ -727,7 +734,10 @@ public partial class MainWindow : Window, ICommandOutput
         {
             AppendLog($"ERROR: Snapshot failed: {ex.Message}", brush: ErrorBrush);
             ExitSnapshotMode();
+            return;
         }
+
+        await _snapshotTcs.Task;
     }
 
     private async Task<SnapshotNode> BuildSnapshotTreeAsync(
@@ -916,9 +926,7 @@ public partial class MainWindow : Window, ICommandOutput
         SnapshotPanel.Visibility = Visibility.Visible;
         SnapshotColumn.Width = new GridLength(280);
 
-        ScreenshotBorder.Background = new SolidColorBrush(System.Windows.Media.Color.FromRgb(0x24, 0x24, 0x1A));
-        OutputLogBorder.Background = new SolidColorBrush(System.Windows.Media.Color.FromRgb(0x24, 0x24, 0x1A));
-        AttributesBorder.Background = new SolidColorBrush(System.Windows.Media.Color.FromRgb(0x24, 0x24, 0x1A));
+        SetSnapshotTint(true);
     }
 
     private void ExitSnapshotMode()
@@ -927,6 +935,8 @@ public partial class MainWindow : Window, ICommandOutput
         _snapshotCapture = null;
         _snapshotCts?.Dispose();
         _snapshotCts = null;
+        _snapshotTcs?.TrySetResult();
+        _snapshotTcs = null;
 
         SnapshotTree.IsEnabled = false;
         SnapshotTree.Items.Clear();
@@ -936,12 +946,28 @@ public partial class MainWindow : Window, ICommandOutput
         Title = _preSnapshotTitle ?? BaseTitle;
         ClicklessCheckBox.IsEnabled = true;
         if (_preSnapshotClickless) ClicklessCheckBox.IsChecked = true;
-        CommandInput.IsEnabled = true;
+        CommandInput.IsEnabled = !_busy;
         SnapshotButton.IsEnabled = _executor.Session.HasSelectedElement;
 
-        ScreenshotBorder.Background = new SolidColorBrush(System.Windows.Media.Color.FromRgb(0x1E, 0x1E, 0x1E));
-        OutputLogBorder.Background = new SolidColorBrush(System.Windows.Media.Color.FromRgb(0x1E, 0x1E, 0x1E));
-        AttributesBorder.Background = new SolidColorBrush(System.Windows.Media.Color.FromRgb(0x1E, 0x1E, 0x1E));
+        SetSnapshotTint(false);
+    }
+
+    private void SetSnapshotTint(bool tinted)
+    {
+        var bg = tinted
+            ? new SolidColorBrush(WpfColor.FromRgb(0x24, 0x24, 0x1A))
+            : new SolidColorBrush(WpfColor.FromRgb(0x1E, 0x1E, 0x1E));
+        var altBg = tinted
+            ? new SolidColorBrush(WpfColor.FromRgb(0x2B, 0x2B, 0x1F))
+            : new SolidColorBrush(WpfColor.FromRgb(0x25, 0x25, 0x25));
+
+        ScreenshotBorder.Background = bg;
+        OutputLogBorder.Background = bg;
+        OutputLog.Background = bg;
+        AttributesBorder.Background = bg;
+        AttributesGrid.Background = bg;
+        AttributesGrid.RowBackground = bg;
+        AttributesGrid.AlternatingRowBackground = altBg;
     }
 
     private void SnapshotCloseButton_Click(object sender, RoutedEventArgs e)
@@ -956,7 +982,8 @@ public partial class MainWindow : Window, ICommandOutput
 
     private async Task RestoreAfterSnapshotAsync()
     {
-        SetBusy(true);
+        var ownsBusy = !_busy;
+        if (ownsBusy) SetBusy(true);
         try
         {
             await _executor.RefreshAsync();
@@ -967,7 +994,7 @@ public partial class MainWindow : Window, ICommandOutput
         }
         finally
         {
-            SetBusy(false);
+            if (ownsBusy) SetBusy(false);
         }
     }
 

@@ -330,6 +330,11 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
                 output.WriteInfo("Element screenshot captured.");
                 break;
 
+            case SnapshotCommand:
+                RequireElement();
+                await output.RunSnapshotAsync();
+                break;
+
             case SleepCommand sleepCmd:
                 output.ShowSleepCancel(sleepCmd.Milliseconds, () => _chainCts?.Cancel());
                 try

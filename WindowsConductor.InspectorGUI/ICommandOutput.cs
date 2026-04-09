@@ -16,6 +16,7 @@ internal interface ICommandOutput
     void ShowSleepCancel(int totalMilliseconds, Action cancelAction);
     Task HideSleepCancelAsync();
     void SetConnectionUrl(string? url);
+    Task RunSnapshotAsync();
     void RequestExit();
 }
 

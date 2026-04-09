@@ -39,6 +39,7 @@ internal static class CommandParser
             "sleep" => ParseSleep(parts),
             "text" => new TextCommand(),
             "screenshot" => new ScreenshotCommand(),
+            "snapshot" => new SnapshotCommand(),
             "exit" or "quit" => new ExitCommand(),
             "help" => new HelpCommand(parts.Length >= 2 ? parts[1].ToLowerInvariant() : null),
             _ => throw new ArgumentException($"Unknown command: '{parts[0]}'.")

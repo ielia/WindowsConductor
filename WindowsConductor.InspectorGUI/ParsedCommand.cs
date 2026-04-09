@@ -209,6 +209,14 @@ internal sealed record ScreenshotCommand : ParsedCommand
     internal override string[] Examples => [];
 }
 
+internal sealed record SnapshotCommand : ParsedCommand
+{
+    internal override string Name => "snapshot";
+    internal override string Usage => "snapshot";
+    internal override string Description => "Opens snapshot mode for the selected element's subtree.\nBlocks until snapshot mode is closed.";
+    internal override string[] Examples => [];
+}
+
 internal sealed record TextCommand : ParsedCommand
 {
     internal override string Name => "text";

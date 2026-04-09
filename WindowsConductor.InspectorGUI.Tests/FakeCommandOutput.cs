@@ -52,6 +52,9 @@ internal sealed class FakeCommandOutput : ICommandOutput
     public string? ConnectionUrl { get; private set; }
     public void SetConnectionUrl(string? url) => ConnectionUrl = url;
 
+    public int RunSnapshotCount { get; private set; }
+    public Task RunSnapshotAsync() { RunSnapshotCount++; return Task.CompletedTask; }
+
     public int RequestExitCount { get; private set; }
     public void RequestExit() => RequestExitCount++;
 }
