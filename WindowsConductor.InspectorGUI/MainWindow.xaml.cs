@@ -759,7 +759,7 @@ public partial class MainWindow : Window, ICommandOutput
         var children = new List<SnapshotNode>();
         var node = new SnapshotNode(label, rect, attrs, children);
 
-        var treeItem = new TreeViewItem { Header = label, Tag = node, Foreground = ResponseBrush };
+        var treeItem = new TreeViewItem { Header = label, Tag = node, Style = SnapshotTreeItemStyle };
         SnapshotTree.Items.Add(treeItem);
 
 #pragma warning disable CS0162 // Unreachable code — SnapshotGetDescendantsInBulk is a compile-time toggle
@@ -795,7 +795,7 @@ public partial class MainWindow : Window, ICommandOutput
         var children = new List<SnapshotNode>();
         var node = new SnapshotNode(label, rect, attrs, children);
 
-        var treeItem = new TreeViewItem { Header = label, Tag = node, Foreground = ResponseBrush };
+        var treeItem = new TreeViewItem { Header = label, Tag = node, Style = SnapshotTreeItemStyle };
         parentItem.Items.Add(treeItem);
         parentItem.IsExpanded = true;
 
@@ -829,7 +829,7 @@ public partial class MainWindow : Window, ICommandOutput
             var children = new List<SnapshotNode>();
             var node = new SnapshotNode(label, rect, attrs, children);
 
-            var treeItem = new TreeViewItem { Header = label, Tag = node, Foreground = ResponseBrush };
+            var treeItem = new TreeViewItem { Header = label, Tag = node, Style = SnapshotTreeItemStyle };
             parentItem.Items.Add(treeItem);
             parentItem.IsExpanded = true;
 
@@ -1405,6 +1405,20 @@ public partial class MainWindow : Window, ICommandOutput
     private static readonly SolidColorBrush ErrorBrush = Frozen(new(WpfColor.FromRgb(0xFF, 0x80, 0x80)));
     private static readonly SolidColorBrush FocusBorderBrush = Frozen(new(WpfColor.FromRgb(0x40, 0xA0, 0xF0)));
     private static readonly SolidColorBrush DefaultBorderBrush = Frozen(new(WpfColor.FromRgb(0x33, 0x33, 0x33)));
+
+    private static readonly Style SnapshotTreeItemStyle = CreateSnapshotTreeItemStyle();
+
+    private static Style CreateSnapshotTreeItemStyle()
+    {
+        var style = new Style(typeof(TreeViewItem));
+        style.Setters.Add(new Setter(ForegroundProperty, ResponseBrush));
+        style.Setters.Add(new Setter(TreeViewItem.IsExpandedProperty, true));
+        var selectedTrigger = new Trigger { Property = TreeViewItem.IsSelectedProperty, Value = true };
+        selectedTrigger.Setters.Add(new Setter(ForegroundProperty, Brushes.Black));
+        style.Triggers.Add(selectedTrigger);
+        style.Seal();
+        return style;
+    }
 
     private static SolidColorBrush Frozen(SolidColorBrush brush) { brush.Freeze(); return brush; }
 

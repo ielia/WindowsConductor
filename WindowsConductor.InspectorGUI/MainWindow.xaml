@@ -5,6 +5,37 @@
         WindowStartupLocation="CenterScreen"
         PreviewKeyDown="Window_PreviewKeyDown"
         PreviewGotKeyboardFocus="Window_PreviewGotKeyboardFocus">
+    <Window.Resources>
+        <Style TargetType="Button">
+            <Setter Property="Background" Value="#2D2D2D" />
+            <Setter Property="Foreground" Value="#CCCCCC" />
+            <Setter Property="BorderBrush" Value="#555555" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="FontFamily" Value="Consolas" />
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" RecognizesAccessKey="True" />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsFocused" Value="True">
+                    <Setter Property="Background" Value="#40A0F0" />
+                    <Setter Property="Foreground" Value="Black" />
+                </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Foreground" Value="#666666" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+    </Window.Resources>
     <Grid>
         <Grid.ColumnDefinitions>
             <ColumnDefinition x:Name="SnapshotColumn" Width="0" />
@@ -20,9 +51,6 @@
                 <Button x:Name="SnapshotCloseButton" DockPanel.Dock="Top"
                         Content="X" HorizontalAlignment="Right"
                         Margin="4" Padding="6,2"
-                        FontFamily="Consolas" FontSize="11"
-                        Background="#2D2D2D" Foreground="#CCCCCC"
-                        BorderBrush="#555555" BorderThickness="1"
                         ToolTip="Close snapshot and return to normal mode"
                         Click="SnapshotCloseButton_Click" />
                 <TreeView x:Name="SnapshotTree"
@@ -30,17 +58,6 @@
                           FontFamily="Consolas" FontSize="11"
                           BorderThickness="0" IsEnabled="False"
                           SelectedItemChanged="SnapshotTree_SelectedItemChanged">
-                    <TreeView.ItemContainerStyle>
-                        <Style TargetType="TreeViewItem">
-                            <Setter Property="Foreground" Value="#CCCCCC" />
-                            <Setter Property="IsExpanded" Value="True" />
-                            <Style.Triggers>
-                                <Trigger Property="IsEnabled" Value="False">
-                                    <Setter Property="Foreground" Value="#999999" />
-                                </Trigger>
-                            </Style.Triggers>
-                        </Style>
-                    </TreeView.ItemContainerStyle>
                 </TreeView>
             </DockPanel>
         </Border>
@@ -101,9 +118,6 @@
                         <DockPanel x:Name="LocatorChainPanel" DockPanel.Dock="Top" Visibility="Collapsed">
                             <Button x:Name="BackLocatorButton" DockPanel.Dock="Left"
                                     Content="&lt;&lt;" Padding="6,3"
-                                    FontFamily="Consolas" FontSize="11"
-                                    Background="#2D2D2D" Foreground="#CCCCCC"
-                                    BorderBrush="#555555" BorderThickness="1"
                                     IsEnabled="False"
                                     ToolTip="Go back to previous locator (Alt+B)"
                                     Click="BackLocatorButton_Click" />
@@ -133,9 +147,6 @@
                             </Grid.ColumnDefinitions>
                             <Button Grid.Column="0" x:Name="PrevMatchButton"
                                     Content="&lt;" Padding="6,3"
-                                    FontFamily="Consolas" FontSize="11"
-                                    Background="#2D2D2D" Foreground="#CCCCCC"
-                                    BorderBrush="#555555" BorderThickness="1"
                                     IsEnabled="False"
                                     ToolTip="Previous match (Alt+Left)"
                                     Click="PrevMatchButton_Click" />
@@ -146,32 +157,20 @@
                                        VerticalAlignment="Center" />
                             <Button Grid.Column="2" x:Name="NextMatchButton"
                                     Content="&gt;" Padding="6,3"
-                                    FontFamily="Consolas" FontSize="11"
-                                    Background="#2D2D2D" Foreground="#CCCCCC"
-                                    BorderBrush="#555555" BorderThickness="1"
                                     IsEnabled="False"
                                     ToolTip="Next match (Alt+Right)"
                                     Click="NextMatchButton_Click" />
                             <Button Grid.Column="4" x:Name="SnapshotButton"
                                     Content="Snapshot" Padding="12,3"
-                                    FontFamily="Consolas" FontSize="11"
-                                    Background="#2D2D2D" Foreground="#CCCCCC"
-                                    BorderBrush="#555555" BorderThickness="1"
                                     IsEnabled="False"
                                     ToolTip="Capture element tree snapshot with the selected element as root"
                                     Click="SnapshotButton_Click" />
                             <Button Grid.Column="6" x:Name="CopyButton"
                                     Content="_Copy" Padding="12,3"
-                                    FontFamily="Consolas" FontSize="11"
-                                    Background="#2D2D2D" Foreground="#CCCCCC"
-                                    BorderBrush="#555555" BorderThickness="1"
                                     ToolTip="Copy attributes to clipboard (Alt+C)"
                                     Click="CopyButton_Click" />
                             <Button Grid.Column="8" x:Name="RefreshButton"
                                     Content="_Refresh" Padding="12,3"
-                                    FontFamily="Consolas" FontSize="11"
-                                    Background="#2D2D2D" Foreground="#CCCCCC"
-                                    BorderBrush="#555555" BorderThickness="1"
                                     ToolTip="Refresh screenshot and attributes (Alt+R)"
                                     Click="RefreshButton_Click" />
                         </Grid>
@@ -248,9 +247,6 @@
                              PreviewKeyDown="CommandInput_PreviewKeyDown" />
                     <Button Grid.Column="2" x:Name="SleepStopButton"
                             Content="Stop" Padding="12,3"
-                            FontFamily="Consolas" FontSize="11"
-                            Background="#2D2D2D" Foreground="#CCCCCC"
-                            BorderBrush="#555555" BorderThickness="1"
                             Visibility="Collapsed"
                             ToolTip="Stop sleep and remaining commands (Alt+S)"
                             Click="SleepStopButton_Click" />
