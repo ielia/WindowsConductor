@@ -8,12 +8,14 @@
     <Grid>
         <Grid.ColumnDefinitions>
             <ColumnDefinition x:Name="SnapshotColumn" Width="0" />
+            <ColumnDefinition x:Name="SnapshotSplitterColumn" Width="0" />
             <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
 
         <!-- Snapshot panel -->
-        <Border x:Name="SnapshotPanel" Grid.Column="0" Background="#2A2A1E"
-                BorderBrush="#555533" BorderThickness="0,0,3,0" Visibility="Collapsed">
+        <Border x:Name="SnapshotPanel" Grid.Column="0" Background="#1E1E1E" Margin="4"
+                BorderThickness="3" BorderBrush="#333333" Visibility="Collapsed"
+                Focusable="True">
             <DockPanel>
                 <Button x:Name="SnapshotCloseButton" DockPanel.Dock="Top"
                         Content="X" HorizontalAlignment="Right"
@@ -43,8 +45,12 @@
             </DockPanel>
         </Border>
 
+        <GridSplitter x:Name="SnapshotSplitter" Grid.Column="1" Width="4"
+                      HorizontalAlignment="Center" VerticalAlignment="Stretch"
+                      Background="#333333" Visibility="Collapsed" />
+
         <!-- Main content -->
-        <Grid Grid.Column="1">
+        <Grid Grid.Column="2">
             <Grid.RowDefinitions>
                 <RowDefinition Height="*" />
                 <RowDefinition Height="Auto" />

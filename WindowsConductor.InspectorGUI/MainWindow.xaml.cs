@@ -184,13 +184,15 @@ public partial class MainWindow : Window, ICommandOutput
         SourceInitialized += OnSourceInitialized;
         var session = new WcInspectorSession();
         _executor = new CommandExecutor(session, this);
-        _focusablePanels = [CommandInput, OutputLog, ScreenshotImage, AttributesGrid];
+        _normalPanels = [CommandInput, ScreenshotImage, AttributesGrid, OutputLog];
+        _snapshotPanels = [SnapshotTree, ScreenshotImage, AttributesGrid, OutputLog];
         _panelBorders = new Dictionary<UIElement, Border>
         {
             [CommandInput] = CommandInputBorder,
             [OutputLog] = OutputLogBorder,
             [ScreenshotImage] = ScreenshotBorder,
             [AttributesGrid] = AttributesBorder,
+            [SnapshotTree] = SnapshotPanel,
         };
         AppendLog(string.Join("  ", CommandHelp.AllCommandNames));
         AppendLog("");
@@ -353,7 +355,9 @@ public partial class MainWindow : Window, ICommandOutput
 
     private static int ColorToInt(GdiColor c) => c.R | (c.G << 8) | (c.B << 16);
 
-    private readonly UIElement[] _focusablePanels;
+    private readonly UIElement[] _normalPanels;
+    private readonly UIElement[] _snapshotPanels;
+    private UIElement[] _focusablePanels => _snapshotMode ? _snapshotPanels : _normalPanels;
     private readonly Dictionary<UIElement, Border> _panelBorders;
 
     private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
@@ -726,6 +730,8 @@ public partial class MainWindow : Window, ICommandOutput
 
             ShowSnapshotScreenshot(croppedBytes, unionRect);
             SnapshotTree.IsEnabled = true;
+            if (SnapshotTree.Items[0] is TreeViewItem rootItem)
+                rootItem.IsSelected = true;
         }
         catch (OperationCanceledException)
         {
@@ -930,7 +936,10 @@ public partial class MainWindow : Window, ICommandOutput
         LocatorChainPanel.Visibility = Visibility.Collapsed;
 
         SnapshotPanel.Visibility = Visibility.Visible;
+        SnapshotSplitter.Visibility = Visibility.Visible;
         SnapshotColumn.Width = new GridLength(280);
+        SnapshotSplitterColumn.Width = GridLength.Auto;
+        SnapshotPanel.Focus();
 
         SetSnapshotTint(true);
     }
@@ -949,7 +958,9 @@ public partial class MainWindow : Window, ICommandOutput
         SnapshotTree.IsEnabled = false;
         SnapshotTree.Items.Clear();
         SnapshotPanel.Visibility = Visibility.Collapsed;
+        SnapshotSplitter.Visibility = Visibility.Collapsed;
         SnapshotColumn.Width = new GridLength(0);
+        SnapshotSplitterColumn.Width = new GridLength(0);
 
         Title = _preSnapshotTitle ?? BaseTitle;
         ClicklessCheckBox.IsEnabled = true;
@@ -969,6 +980,7 @@ public partial class MainWindow : Window, ICommandOutput
             ? new SolidColorBrush(WpfColor.FromRgb(0x2B, 0x2B, 0x1F))
             : new SolidColorBrush(WpfColor.FromRgb(0x25, 0x25, 0x25));
 
+        SnapshotPanel.Background = bg;
         ScreenshotBorder.Background = bg;
         OutputLogBorder.Background = bg;
         OutputLog.Background = bg;
