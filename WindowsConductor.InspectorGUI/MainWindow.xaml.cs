@@ -836,13 +836,16 @@ public partial class MainWindow : Window, ICommandOutput
 
     private static string ComputeSnapshotLabel(Dictionary<string, object?> attrs)
     {
-        if (attrs.TryGetValue("name", out var name) && name is string ns && !string.IsNullOrEmpty(ns))
-            return ns;
+        var controlType = attrs.TryGetValue("controltype", out var ct) && ct is string ctStr && !string.IsNullOrEmpty(ctStr)
+            ? ctStr : "<Unknown Type>";
+
+        string? identifier = null;
         if (attrs.TryGetValue("automationid", out var aid) && aid is string aidStr && !string.IsNullOrEmpty(aidStr))
-            return aidStr;
-        if (attrs.TryGetValue("controltype", out var ct) && ct is string ctStr && !string.IsNullOrEmpty(ctStr))
-            return ctStr;
-        return "Unknown";
+            identifier = aidStr;
+        else if (attrs.TryGetValue("name", out var name) && name is string ns && !string.IsNullOrEmpty(ns))
+            identifier = ns;
+
+        return identifier is not null ? $"{controlType} [{identifier}]" : controlType;
     }
 
     private static BoundingRect? ComputeUnionRect(SnapshotNode node)
