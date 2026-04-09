@@ -9,6 +9,7 @@
     <AssemblyName>WindowsConductor.DriverFlaUI</AssemblyName>
     <Platforms>AnyCPU;x64</Platforms>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>DriverFlaUI.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>
