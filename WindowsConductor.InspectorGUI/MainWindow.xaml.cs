@@ -46,6 +46,8 @@ public partial class MainWindow : Window, ICommandOutput
     private TaskCompletionSource? _snapshotTcs;
     private string? _preSnapshotTitle;
     private bool _preSnapshotClickless;
+    private List<TreeViewItem> _snapshotHitItems = [];
+    private int _snapshotHitIndex;
 
     private const int WM_SYSCOMMAND = 0x0112;
     private const int WM_MEASUREITEM = 0x002C;
@@ -920,6 +922,7 @@ public partial class MainWindow : Window, ICommandOutput
         BackLocatorButton.IsEnabled = false;
         PrevMatchButton.IsEnabled = false;
         NextMatchButton.IsEnabled = false;
+        MatchCountLabel.Text = "";
 
         LocatorChainPanel.Visibility = Visibility.Collapsed;
 
@@ -937,6 +940,8 @@ public partial class MainWindow : Window, ICommandOutput
         _snapshotCts = null;
         _snapshotTcs?.TrySetResult();
         _snapshotTcs = null;
+        _snapshotHitItems = [];
+        _snapshotHitIndex = 0;
 
         SnapshotTree.IsEnabled = false;
         SnapshotTree.Items.Clear();
@@ -1045,11 +1050,24 @@ public partial class MainWindow : Window, ICommandOutput
             Clipboard.SetText(text);
     }
 
-    private async void PrevMatchButton_Click(object sender, RoutedEventArgs e) =>
+    private async void PrevMatchButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_snapshotMode) { NavigateSnapshotHit(-1); return; }
         await NavigateMatchAsync(-1);
+    }
 
-    private async void NextMatchButton_Click(object sender, RoutedEventArgs e) =>
+    private async void NextMatchButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_snapshotMode) { NavigateSnapshotHit(1); return; }
         await NavigateMatchAsync(1);
+    }
+
+    private void NavigateSnapshotHit(int direction)
+    {
+        if (_snapshotHitItems.Count <= 1) return;
+        _snapshotHitIndex = (_snapshotHitIndex + direction + _snapshotHitItems.Count) % _snapshotHitItems.Count;
+        SelectSnapshotHit();
+    }
 
     private async Task NavigateMatchAsync(int direction)
     {
@@ -1210,7 +1228,13 @@ public partial class MainWindow : Window, ICommandOutput
 
     private async void ScreenshotImage_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
-        if (_busy || _snapshotMode) return;
+        if (_snapshotMode)
+        {
+            HandleSnapshotClick(e);
+            return;
+        }
+
+        if (_busy) return;
         var coords = ScreenPointToWindowRelative(e.GetPosition(ScreenshotContainer));
         if (coords is null) return;
 
@@ -1230,6 +1254,63 @@ public partial class MainWindow : Window, ICommandOutput
         {
             SetBusy(false);
         }
+    }
+
+    private void HandleSnapshotClick(MouseButtonEventArgs e)
+    {
+        if (_snapshotCapture is null || !SnapshotTree.IsEnabled) return;
+
+        var coords = ScreenPointToWindowRelative(e.GetPosition(ScreenshotContainer));
+        if (coords is null) return;
+
+        var (relX, relY) = coords.Value;
+        var union = _snapshotCapture.UnionRect;
+        var absX = relX + union.X;
+        var absY = relY + union.Y;
+
+        var hits = new List<TreeViewItem>();
+        CollectHitItems(SnapshotTree.Items, absX, absY, hits);
+
+        if (hits.Count == 0) return;
+
+        hits.Sort((a, b) =>
+        {
+            var ra = ((SnapshotNode)a.Tag).BoundingRect!;
+            var rb = ((SnapshotNode)b.Tag).BoundingRect!;
+            return (ra.Width * ra.Height).CompareTo(rb.Width * rb.Height);
+        });
+
+        _snapshotHitItems = hits;
+        _snapshotHitIndex = 0;
+        SelectSnapshotHit();
+    }
+
+    private static void CollectHitItems(ItemCollection items, double x, double y, List<TreeViewItem> hits)
+    {
+        foreach (var item in items)
+        {
+            if (item is not TreeViewItem { Tag: SnapshotNode node } tvi) continue;
+            if (node.BoundingRect is { Width: > 0, Height: > 0 } r
+                && x >= r.X && y >= r.Y && x <= r.X + r.Width && y <= r.Y + r.Height)
+            {
+                hits.Add(tvi);
+            }
+            CollectHitItems(tvi.Items, x, y, hits);
+        }
+    }
+
+    private void SelectSnapshotHit()
+    {
+        var tvi = _snapshotHitItems[_snapshotHitIndex];
+        tvi.IsSelected = true;
+        tvi.BringIntoView();
+
+        var hasMultiple = _snapshotHitItems.Count > 1;
+        PrevMatchButton.IsEnabled = hasMultiple;
+        NextMatchButton.IsEnabled = hasMultiple;
+        MatchCountLabel.Text = hasMultiple
+            ? $"{_snapshotHitIndex + 1}/{_snapshotHitItems.Count}"
+            : "";
     }
 
     private void ClicklessCheckBox_Changed(object sender, RoutedEventArgs e)

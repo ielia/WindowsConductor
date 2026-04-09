@@ -417,6 +417,7 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
     internal async Task RefreshAsync(CancellationToken ct = default)
     {
         if (!session.HasApp) return;
+        output.UpdateMatchNavigation(_matchIndex, _matchCount);
         await ShowWindowScreenshotWithHighlightAsync(ct);
         await ShowAttributesAsync(ct);
     }
