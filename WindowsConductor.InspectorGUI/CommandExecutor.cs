@@ -78,7 +78,7 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
             case ConnectCommand cmd:
                 if (session.IsConnected)
                     throw new InvalidOperationException("Already connected. Use 'disconnect' first.");
-                await session.ConnectAsync(cmd.Url, ct);
+                await session.ConnectAsync(cmd.Url, cmd.AuthToken, ct);
                 output.SetConnectionUrl(cmd.Url);
                 output.WriteInfo($"Connected to {cmd.Url}");
                 break;

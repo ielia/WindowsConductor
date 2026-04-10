@@ -15,11 +15,11 @@ internal sealed class WcInspectorSession : IInspectorSession, IAsyncDisposable
     public bool HasApp => _app is not null;
     public bool HasSelectedElement => _selectedElement is not null;
 
-    public async Task ConnectAsync(string url, CancellationToken ct = default)
+    public async Task ConnectAsync(string url, string? authToken = null, CancellationToken ct = default)
     {
         if (_session is not null)
             await DisconnectAsync();
-        _session = await WcSession.ConnectAsync(url, ct);
+        _session = await WcSession.ConnectAsync(url, authToken, ct);
     }
 
     public async Task LaunchAsync(string path, string[] args, string? detachedTitleRegex, uint? mainWindowTimeout, CancellationToken ct = default)

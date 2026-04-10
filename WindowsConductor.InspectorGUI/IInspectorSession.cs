@@ -8,7 +8,7 @@ internal interface IInspectorSession
     bool HasApp { get; }
     bool HasSelectedElement { get; }
 
-    Task ConnectAsync(string url, CancellationToken ct = default);
+    Task ConnectAsync(string url, string? authToken = null, CancellationToken ct = default);
     Task LaunchAsync(string path, string[] args, string? detachedTitleRegex, uint? mainWindowTimeout, CancellationToken ct = default);
     Task AttachAsync(string mainWindowTitleRegex, uint? mainWindowTimeout, CancellationToken ct = default);
     Task CloseAppAsync(CancellationToken ct = default);

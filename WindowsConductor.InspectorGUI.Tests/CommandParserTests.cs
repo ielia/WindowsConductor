@@ -48,6 +48,21 @@ public class CommandParserTests
         Assert.That(cmd, Is.InstanceOf<ConnectCommand>());
     }
 
+    [Test]
+    public void Parse_Connect_WithAuthToken()
+    {
+        var cmd = (ConnectCommand)CommandParser.Parse("connect ws://localhost:8765/ my-secret-token");
+        Assert.That(cmd.Url, Is.EqualTo("ws://localhost:8765/"));
+        Assert.That(cmd.AuthToken, Is.EqualTo("my-secret-token"));
+    }
+
+    [Test]
+    public void Parse_Connect_NoAuthToken_IsNull()
+    {
+        var cmd = (ConnectCommand)CommandParser.Parse("connect ws://localhost:8765/");
+        Assert.That(cmd.AuthToken, Is.Null);
+    }
+
     // ── launch ──────────────────────────────────────────────────────────────
 
     [Test]

@@ -31,9 +31,9 @@ internal sealed class FakeInspectorSession : IInspectorSession
         Calls.Add(new Call(method, args));
     }
 
-    public Task ConnectAsync(string url, CancellationToken ct = default)
+    public Task ConnectAsync(string url, string? authToken = null, CancellationToken ct = default)
     {
-        Record("Connect", url);
+        Record("Connect", url, authToken);
         IsConnected = true;
         return Task.CompletedTask;
     }

@@ -11,6 +11,22 @@ if "%~1"=="--ffmpeg-path" (
     shift
     set EXTRA_ARGS=%EXTRA_ARGS% %1
 )
+if "%~1"=="--auth-token" (
+    shift
+    set EXTRA_ARGS=%EXTRA_ARGS% %1
+)
+if "%~1"=="--auth-token-file" (
+    shift
+    set EXTRA_ARGS=%EXTRA_ARGS% %1
+)
+if "%~1"=="--hash-token" (
+    shift
+    set EXTRA_ARGS=%EXTRA_ARGS% %1
+)
+if "%~1"=="--hash-token-file" (
+    shift
+    set EXTRA_ARGS=%EXTRA_ARGS% %1
+)
 shift
 goto parse
 

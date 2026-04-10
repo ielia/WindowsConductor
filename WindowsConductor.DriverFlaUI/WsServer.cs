@@ -16,16 +16,18 @@ public sealed class WsServer
     private readonly HttpListener _listener = new();
     private readonly bool _confineToApp;
     private readonly string? _ffmpegPath;
+    private readonly AuthTokenValidator _authValidator;
     private readonly JsonSerializerOptions _jsonOpts = new()
     {
         PropertyNameCaseInsensitive = true,
         WriteIndented = false
     };
 
-    public WsServer(string prefix = WcDefaults.HttpPrefix, bool confineToApp = false, string? ffmpegPath = null)
+    public WsServer(string prefix = WcDefaults.HttpPrefix, bool confineToApp = false, string? ffmpegPath = null, AuthTokenValidator? authValidator = null)
     {
         _confineToApp = confineToApp;
         _ffmpegPath = ffmpegPath;
+        _authValidator = authValidator ?? AuthTokenValidator.None();
         _listener.Prefixes.Add(prefix);
     }
 
@@ -51,15 +53,32 @@ public sealed class WsServer
                 break;
             }
 
-            if (ctx.Request.IsWebSocketRequest)
-            {
-                var wsCtx = await ctx.AcceptWebSocketAsync(subProtocol: null);
-                _ = Task.Run(() => HandleClientAsync(wsCtx.WebSocket, ct), ct);
-            }
-            else
+            if (!ctx.Request.IsWebSocketRequest)
             {
                 ctx.Response.StatusCode = 426; // Upgrade Required
                 ctx.Response.Close();
+                continue;
+            }
+
+            if (_authValidator.RequiresAuth)
+            {
+                var authHeader = ctx.Request.Headers["Authorization"];
+                var token = authHeader?.StartsWith("Bearer ", StringComparison.Ordinal) == true
+                    ? authHeader["Bearer ".Length..]
+                    : null;
+
+                if (!_authValidator.Validate(token))
+                {
+                    Console.WriteLine("[!] Rejected client: invalid or missing auth token.");
+                    ctx.Response.StatusCode = 401;
+                    ctx.Response.Close();
+                    continue;
+                }
+            }
+
+            {
+                var wsCtx = await ctx.AcceptWebSocketAsync(subProtocol: null);
+                _ = Task.Run(() => HandleClientAsync(wsCtx.WebSocket, ct), ct);
             }
         }
 

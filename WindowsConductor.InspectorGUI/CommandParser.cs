@@ -49,7 +49,8 @@ internal static class CommandParser
     private static ConnectCommand ParseConnect(string[] parts)
     {
         var url = parts.Length >= 2 ? parts[1] : WcDefaults.WebSocketUrl;
-        return new ConnectCommand(url);
+        var authToken = parts.Length >= 3 ? parts[2] : null;
+        return new ConnectCommand(url, authToken);
     }
 
     private static LaunchCommand ParseLaunch(string[] parts)

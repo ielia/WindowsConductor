@@ -35,11 +35,20 @@ public sealed class WcSession : IWcTransport, IAsyncDisposable
     private WcSession(ClientWebSocket ws) => _ws = ws;
 
     /// <summary>Connects to a WcApp Driver and starts the receive loop.</summary>
-    public static async Task<WcSession> ConnectAsync(
+    public static Task<WcSession> ConnectAsync(
         string wsUri = WcDefaults.WebSocketUrl,
+        CancellationToken ct = default)
+        => ConnectAsync(wsUri, null, ct);
+
+    /// <summary>Connects to a WcApp Driver with an optional bearer token for authentication.</summary>
+    public static async Task<WcSession> ConnectAsync(
+        string wsUri,
+        string? authToken,
         CancellationToken ct = default)
     {
         var ws = new ClientWebSocket();
+        if (authToken is not null)
+            ws.Options.SetRequestHeader("Authorization", $"Bearer {authToken}");
         await ws.ConnectAsync(new Uri(wsUri), ct);
 
         var conn = new WcSession(ws);

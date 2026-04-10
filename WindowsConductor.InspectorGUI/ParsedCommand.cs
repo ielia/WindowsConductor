@@ -52,12 +52,12 @@ internal sealed record CloseCommand : ParsedCommand
     internal override string[] Examples => [];
 }
 
-internal sealed record ConnectCommand(string Url) : ParsedCommand
+internal sealed record ConnectCommand(string Url, string? AuthToken = null) : ParsedCommand
 {
     internal override string Name => "connect";
-    internal override string Usage => "connect [url]";
-    internal override string Description => "Connects to a WindowsConductor driver.\nDefaults to ws://localhost:8765/.";
-    internal override string[] Examples => ["connect", "connect ws://192.168.1.10:9000/"];
+    internal override string Usage => "connect [url] [authToken]";
+    internal override string Description => "Connects to a WindowsConductor driver.\nDefaults to ws://localhost:8765/.\nOptional auth token for bearer authentication.";
+    internal override string[] Examples => ["connect", "connect ws://192.168.1.10:9000/", "connect ws://localhost:8765/ my-secret-token"];
 }
 
 internal sealed record DetachCommand : ParsedCommand

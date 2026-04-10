@@ -44,7 +44,17 @@ public class CommandExecutorTests
         await _executor.ExecuteAsync("connect ws://localhost:8765/");
         Assert.That(_session.Calls[0].Method, Is.EqualTo("Connect"));
         Assert.That(_session.Calls[0].Args[0], Is.EqualTo("ws://localhost:8765/"));
+        Assert.That(_session.Calls[0].Args[1], Is.Null);
         Assert.That(_output.InfoMessages[0], Does.Contain("Connected"));
+    }
+
+    [Test]
+    public async Task Execute_Connect_WithAuthToken_PassesToken()
+    {
+        await _executor.ExecuteAsync("connect ws://localhost:8765/ my-token");
+        Assert.That(_session.Calls[0].Method, Is.EqualTo("Connect"));
+        Assert.That(_session.Calls[0].Args[0], Is.EqualTo("ws://localhost:8765/"));
+        Assert.That(_session.Calls[0].Args[1], Is.EqualTo("my-token"));
     }
 
     // ── launch ──────────────────────────────────────────────────────────────
