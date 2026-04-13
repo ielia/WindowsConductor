@@ -1,68 +1,77 @@
-using System.Net;
 using System.Net.WebSockets;
+using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Text.Json;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using WindowsConductor.Client;
 
 namespace WindowsConductor.DriverFlaUI;
 
 /// <summary>
-/// HTTP/WebSocket server that accepts connections from WindowsConductor Clients.
+/// Kestrel-based WebSocket server that accepts connections from WindowsConductor Clients.
 /// Each connected client gets its own <see cref="AppManager"/> so sessions
 /// are isolated from one another.
 /// </summary>
 public sealed class WsServer
 {
-    private readonly HttpListener _listener = new();
     private readonly bool _confineToApp;
     private readonly string? _ffmpegPath;
     private readonly AuthTokenValidator _authValidator;
+    private readonly int? _httpPort;
+    private readonly int? _httpsPort;
+    private readonly X509Certificate2? _httpsCert;
     private readonly JsonSerializerOptions _jsonOpts = new()
     {
         PropertyNameCaseInsensitive = true,
         WriteIndented = false
     };
 
-    public WsServer(string prefix = WcDefaults.HttpPrefix, bool confineToApp = false, string? ffmpegPath = null, AuthTokenValidator? authValidator = null)
+    public WsServer(
+        int? httpPort = 8765,
+        int? httpsPort = null,
+        X509Certificate2? httpsCert = null,
+        bool confineToApp = false,
+        string? ffmpegPath = null,
+        AuthTokenValidator? authValidator = null)
     {
+        _httpPort = httpPort;
+        _httpsPort = httpsPort;
+        _httpsCert = httpsCert;
         _confineToApp = confineToApp;
         _ffmpegPath = ffmpegPath;
         _authValidator = authValidator ?? AuthTokenValidator.None();
-        _listener.Prefixes.Add(prefix);
     }
 
     public async Task StartAsync(CancellationToken ct = default)
     {
-        _listener.Start();
-        Console.WriteLine($"Listening on {string.Join(", ", _listener.Prefixes)}");
-        Console.WriteLine("Press Ctrl+C to stop.");
-
-        while (!ct.IsCancellationRequested)
+        var builder = WebApplication.CreateSlimBuilder();
+        builder.Logging.ClearProviders();
+        builder.WebHost.ConfigureKestrel(options =>
         {
-            HttpListenerContext ctx;
-            try
-            {
-                ctx = await _listener.GetContextAsync().WaitAsync(ct);
-            }
-            catch (OperationCanceledException)
-            {
-                break;
-            }
-            catch (HttpListenerException) when (ct.IsCancellationRequested)
-            {
-                break;
-            }
+            if (_httpPort is not null)
+                options.ListenLocalhost(_httpPort.Value);
+            if (_httpsPort is not null && _httpsCert is not null)
+                options.ListenLocalhost(_httpsPort.Value, lo => lo.UseHttps(_httpsCert));
+        });
 
-            if (!ctx.Request.IsWebSocketRequest)
+        await using var app = builder.Build();
+        app.UseWebSockets();
+
+        app.Run(async context =>
+        {
+            if (!context.WebSockets.IsWebSocketRequest)
             {
-                ctx.Response.StatusCode = 426; // Upgrade Required
-                ctx.Response.Close();
-                continue;
+                context.Response.StatusCode = 426; // Upgrade Required
+                return;
             }
 
             if (_authValidator.RequiresAuth)
             {
-                var authHeader = ctx.Request.Headers["Authorization"];
+                var authHeader = context.Request.Headers.Authorization.FirstOrDefault();
                 var token = authHeader?.StartsWith("Bearer ", StringComparison.Ordinal) == true
                     ? authHeader["Bearer ".Length..]
                     : null;
@@ -70,19 +79,22 @@ public sealed class WsServer
                 if (!_authValidator.Validate(token))
                 {
                     Console.WriteLine("[!] Rejected client: invalid or missing auth token.");
-                    ctx.Response.StatusCode = 401;
-                    ctx.Response.Close();
-                    continue;
+                    context.Response.StatusCode = 401;
+                    return;
                 }
             }
 
-            {
-                var wsCtx = await ctx.AcceptWebSocketAsync(subProtocol: null);
-                _ = Task.Run(() => HandleClientAsync(wsCtx.WebSocket, ct), ct);
-            }
-        }
+            using var ws = await context.WebSockets.AcceptWebSocketAsync();
+            await HandleClientAsync(ws, ct);
+        });
 
-        _listener.Stop();
+        var endpoints = new List<string>();
+        if (_httpPort is not null) endpoints.Add($"http://localhost:{_httpPort}");
+        if (_httpsPort is not null) endpoints.Add($"https://localhost:{_httpsPort}");
+        Console.WriteLine($"Listening on {string.Join(", ", endpoints)}");
+        Console.WriteLine("Press Ctrl+C to stop.");
+
+        await ((IHost)app).RunAsync(ct);
     }
 
     private async Task HandleClientAsync(WebSocket ws, CancellationToken ct)

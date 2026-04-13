@@ -11,6 +11,7 @@ internal sealed class FakeInspectorSession : IInspectorSession
     public bool IsConnected { get; set; }
     public bool HasApp { get; set; }
     public bool HasSelectedElement { get; set; }
+    public bool AllowSelfSignedCerts { get; set; } = true;
 
     // Configurable return values
     public byte[] WindowScreenshotResult { get; set; } = [0x89, 0x50, 0x4E, 0x47];

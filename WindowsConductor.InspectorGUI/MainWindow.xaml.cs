@@ -63,6 +63,7 @@ public partial class MainWindow : Window, ICommandOutput
     private const int ODS_CHECKED = 0x0008;
 
     private const int SC_STOP_ON_ERROR = 0x1000;
+    private const int SC_ALLOW_SELF_SIGNED = 0x1001;
     private const int SC_HIGHLIGHT_TITLE = 0x1100;
     private const int SC_HIGHLIGHT_RED = 0x1101;
     private const int SC_HIGHLIGHT_GREEN = 0x1102;
@@ -206,6 +207,7 @@ public partial class MainWindow : Window, ICommandOutput
         var sysMenu = GetSystemMenu(hwnd, false);
         AppendMenu(sysMenu, MF_SEPARATOR, 0, string.Empty);
         AppendMenu(sysMenu, MF_STRING | MF_UNCHECKED, SC_STOP_ON_ERROR, "Stop on error");
+        AppendMenu(sysMenu, MF_STRING | MF_CHECKED, SC_ALLOW_SELF_SIGNED, "Allow self-signed certs");
         AppendMenu(sysMenu, MF_SEPARATOR, 0, string.Empty);
         AppendMenu(sysMenu, MF_OWNERDRAW | MF_GRAYED, SC_HIGHLIGHT_TITLE, string.Empty);
         foreach (var id in HighlightColors.Keys)
@@ -227,6 +229,15 @@ public partial class MainWindow : Window, ICommandOutput
                     var sysMenu = GetSystemMenu(hwnd, false);
                     CheckMenuItem(sysMenu, SC_STOP_ON_ERROR,
                         _executor.StopChainOnError ? MF_CHECKED : MF_UNCHECKED);
+                    handled = true;
+                }
+                else if (id == SC_ALLOW_SELF_SIGNED)
+                {
+                    var session = _executor.Session;
+                    session.AllowSelfSignedCerts = !session.AllowSelfSignedCerts;
+                    var sysMenu = GetSystemMenu(hwnd, false);
+                    CheckMenuItem(sysMenu, SC_ALLOW_SELF_SIGNED,
+                        session.AllowSelfSignedCerts ? MF_CHECKED : MF_UNCHECKED);
                     handled = true;
                 }
                 else if (HighlightColors.ContainsKey(id))

@@ -38,17 +38,27 @@ public sealed class WcSession : IWcTransport, IAsyncDisposable
     public static Task<WcSession> ConnectAsync(
         string wsUri = WcDefaults.WebSocketUrl,
         CancellationToken ct = default)
-        => ConnectAsync(wsUri, null, ct);
+        => ConnectAsync(wsUri, null, false, ct);
 
     /// <summary>Connects to a WcApp Driver with an optional bearer token for authentication.</summary>
+    public static Task<WcSession> ConnectAsync(
+        string wsUri,
+        string? authToken,
+        CancellationToken ct = default)
+        => ConnectAsync(wsUri, authToken, false, ct);
+
+    /// <summary>Connects to a WcApp Driver with optional auth token and self-signed certificate support.</summary>
     public static async Task<WcSession> ConnectAsync(
         string wsUri,
         string? authToken,
+        bool allowSelfSignedCerts,
         CancellationToken ct = default)
     {
         var ws = new ClientWebSocket();
         if (authToken is not null)
             ws.Options.SetRequestHeader("Authorization", $"Bearer {authToken}");
+        if (allowSelfSignedCerts)
+            ws.Options.RemoteCertificateValidationCallback = (_, _, _, _) => true;
         await ws.ConnectAsync(new Uri(wsUri), ct);
 
         var conn = new WcSession(ws);

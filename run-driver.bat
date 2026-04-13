@@ -27,8 +27,32 @@ if "%~1"=="--hash-token-file" (
     shift
     set EXTRA_ARGS=%EXTRA_ARGS% %1
 )
+if "%~1"=="--tls-port" (
+    shift
+    set EXTRA_ARGS=%EXTRA_ARGS% %1
+)
+if "%~1"=="--cert" (
+    shift
+    set EXTRA_ARGS=%EXTRA_ARGS% %1
+)
+if "%~1"=="--cert-key" (
+    shift
+    set EXTRA_ARGS=%EXTRA_ARGS% %1
+)
+if "%~1"=="--cert-password" (
+    shift
+    set EXTRA_ARGS=%EXTRA_ARGS% %1
+)
+if "%~1"=="--cert-password-file" (
+    shift
+    set EXTRA_ARGS=%EXTRA_ARGS% %1
+)
+if "%~1"=="--cert-thumbprint" (
+    shift
+    set EXTRA_ARGS=%EXTRA_ARGS% %1
+)
 shift
 goto parse
 
 :run
-dotnet run --project WindowsConductor.DriverFlaUI -- "http://localhost:%PORT%/" %EXTRA_ARGS%
+dotnet run --project WindowsConductor.DriverFlaUI -- %PORT% %EXTRA_ARGS%

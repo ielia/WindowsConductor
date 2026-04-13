@@ -25,4 +25,8 @@
     <PackageReference Include="FlaUI.UIA3" Version="5.0.0" />
   </ItemGroup>
 
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
 </Project>
