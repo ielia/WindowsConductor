@@ -420,9 +420,6 @@ public class XPathEngineValidationTests
     [TestCase("//Button[position() = 1 or position() = last()]")]
     [TestCase("//Button[string-length(@Name) > 5]")]
     [TestCase("//Window[text()='Calculator']")]
-    [TestCase("//Window[text()$='- Microsoft Edge']")]
-    [TestCase("//Window[text()^='Calculator']")]
-    [TestCase("//Window[text()*='Edge']")]
     [TestCase("//Window[text()='foo' and @ClassName='bar']")]
     public void ParseXPath_FunctionExpression_DoesNotThrow(string xpath)
     {
@@ -438,31 +435,6 @@ public class XPathEngineValidationTests
         Assert.That(steps[0].Predicates, Has.Count.EqualTo(1));
         Assert.That(steps[0].Predicates[0].Attribute, Is.EqualTo("text"));
         Assert.That(steps[0].Predicates[0].Values, Is.EqualTo(new[] { "Calculator" }));
-        Assert.That(steps[0].Predicates[0].MatchMode, Is.EqualTo(AttributeMatchMode.Exact));
-    }
-
-    [Test]
-    public void ParseXPath_TextFunction_EndsWith_ParsesCorrectly()
-    {
-        var steps = XPathEngine.ParseXPath("//Window[text()$='- Microsoft Edge']");
-        Assert.That(steps[0].Predicates, Has.Count.EqualTo(1));
-        Assert.That(steps[0].Predicates[0].Attribute, Is.EqualTo("text"));
-        Assert.That(steps[0].Predicates[0].MatchMode, Is.EqualTo(AttributeMatchMode.EndsWith));
-        Assert.That(steps[0].Predicates[0].Values, Is.EqualTo(new[] { "- Microsoft Edge" }));
-    }
-
-    [Test]
-    public void ParseXPath_TextFunction_StartsWith_ParsesCorrectly()
-    {
-        var steps = XPathEngine.ParseXPath("//Window[text()^='Calc']");
-        Assert.That(steps[0].Predicates[0].MatchMode, Is.EqualTo(AttributeMatchMode.StartsWith));
-    }
-
-    [Test]
-    public void ParseXPath_TextFunction_Contains_ParsesCorrectly()
-    {
-        var steps = XPathEngine.ParseXPath("//Window[text()*='Edge']");
-        Assert.That(steps[0].Predicates[0].MatchMode, Is.EqualTo(AttributeMatchMode.Contains));
     }
 
     [Test]
@@ -474,52 +446,24 @@ public class XPathEngineValidationTests
         Assert.That(steps[0].Predicates[1].Attribute, Is.EqualTo("ClassName"));
     }
 
-    // ── String comparison operators ──────────────────────────────────────────
+    // ── Removed operators ^=, *=, $= now throw ─────────────────────────────
 
     [TestCase("//Button[@Name^='Start']")]
     [TestCase("//Button[@Name*='thing']")]
     [TestCase("//Button[@Name$='End']")]
-    public void ParseXPath_StringOperator_DoesNotThrow(string xpath)
+    [TestCase("//Window[text()$='- Microsoft Edge']")]
+    [TestCase("//Window[text()^='Calculator']")]
+    [TestCase("//Window[text()*='Edge']")]
+    public void ParseXPath_RemovedStringOperator_Throws(string xpath)
     {
-        Assert.DoesNotThrow(() => XPathEngine.Validate(xpath));
-    }
-
-    [Test]
-    public void ParseXPath_StartsWithOperator_ParsesCorrectly()
-    {
-        var steps = XPathEngine.ParseXPath("//Button[@Name^='Start']");
-        Assert.That(steps[0].Predicates, Has.Count.EqualTo(1));
-        Assert.That(steps[0].Predicates[0].Attribute, Is.EqualTo("Name"));
-        Assert.That(steps[0].Predicates[0].Values, Is.EqualTo(new[] { "Start" }));
-        Assert.That(steps[0].Predicates[0].MatchMode, Is.EqualTo(AttributeMatchMode.StartsWith));
-    }
-
-    [Test]
-    public void ParseXPath_ContainsOperator_ParsesCorrectly()
-    {
-        var steps = XPathEngine.ParseXPath("//Button[@Name*='thing']");
-        Assert.That(steps[0].Predicates[0].MatchMode, Is.EqualTo(AttributeMatchMode.Contains));
-    }
-
-    [Test]
-    public void ParseXPath_EndsWithOperator_ParsesCorrectly()
-    {
-        var steps = XPathEngine.ParseXPath("//Button[@Name$='End']");
-        Assert.That(steps[0].Predicates[0].MatchMode, Is.EqualTo(AttributeMatchMode.EndsWith));
-    }
-
-    [Test]
-    public void ParseXPath_ExactOperator_DefaultMatchMode()
-    {
-        var steps = XPathEngine.ParseXPath("//Button[@Name='OK']");
-        Assert.That(steps[0].Predicates[0].MatchMode, Is.EqualTo(AttributeMatchMode.Exact));
+        Assert.Throws<ArgumentException>(() => XPathEngine.Validate(xpath));
     }
 
     // ── and/or in attribute predicates ───────────────────────────────────────
 
     [TestCase("//Button[@Name='foo' and @AutomationId='bar']")]
     [TestCase("//Button[@Name='foo' or @Name='bar']")]
-    [TestCase("//Button[@Name^='Start' and @ClassName='Panel']")]
+    [TestCase("//Button[starts-with(@Name, 'Start') and @ClassName='Panel']")]
     public void ParseXPath_CompoundAttributePredicate_DoesNotThrow(string xpath)
     {
         Assert.DoesNotThrow(() => XPathEngine.Validate(xpath));
@@ -595,9 +539,6 @@ public class XPathEngineValidationTests
 
     // ── Valid expressions list (extended) ─────────────────────────────────────
 
-    [TestCase("//Button[@Name^='Start']")]
-    [TestCase("//Button[@Name*='thing']")]
-    [TestCase("//Button[@Name$='End']")]
     [TestCase("//Button[@Name='foo' and @AutomationId='bar']")]
     [TestCase("//Button[@Name='a' or @Name='b']")]
     [TestCase("//Button[@Name=concat('foo', 'bar')]")]
@@ -607,35 +548,67 @@ public class XPathEngineValidationTests
     [TestCase("//Button[position() > 2 and position() < last()]")]
     [TestCase("//Button[position() = 1 or position() = last()]")]
     [TestCase("//Window[text()='Calculator']")]
-    [TestCase("//Window[text()$='- Microsoft Edge']")]
     public void ParseXPath_ExtendedValidExpression_DoesNotThrow(string xpath)
     {
         Assert.DoesNotThrow(() => XPathEngine.Validate(xpath));
     }
 
-    // ── contains(bounds(), point()) ──────────────────────────────────────────
+    // ── contains-point(bounds(), point()) ────────────────────────────────────
 
-    [TestCase("//Button[contains(bounds(), point(10, 50))]")]
-    [TestCase("//*[contains(bounds(), point(0.5, 100.25))]")]
-    [TestCase("//Button[contains(bounds(), point(10, 50)) and @Name='OK']")]
-    [TestCase("//Button[contains(@Name, 'foo')]")]
-    [TestCase("//Button[contains(text(), 'bar')]")]
-    [TestCase("//Button[contains('hello world', 'world')]")]
-    public void ParseXPath_ContainsPredicate_DoesNotThrow(string xpath)
+    [TestCase("//Button[contains-point(bounds(), point(10, 50))]")]
+    [TestCase("//*[contains-point(bounds(), point(0.5, 100.25))]")]
+    [TestCase("//Button[contains-point(bounds(), point(10, 50)) and @Name='OK']")]
+    public void ParseXPath_ContainsPointPredicate_DoesNotThrow(string xpath)
     {
         Assert.DoesNotThrow(() => XPathEngine.Validate(xpath));
     }
 
     [Test]
-    public void ParseXPath_ContainsBoundsPoint_ParsesCorrectly()
+    public void ParseXPath_ContainsPointBounds_ParsesCorrectly()
     {
-        var steps = XPathEngine.ParseXPath("//Button[contains(bounds(), point(10, 50))]");
+        var steps = XPathEngine.ParseXPath("//Button[contains-point(bounds(), point(10, 50))]");
         Assert.That(steps, Has.Count.EqualTo(1));
         Assert.That(steps[0].ContainsPredicates, Has.Count.EqualTo(1));
         var cp = steps[0].ContainsPredicates![0] as ContainsBoundsPoint;
         Assert.That(cp, Is.Not.Null);
         Assert.That(cp!.X, Is.EqualTo(10));
         Assert.That(cp.Y, Is.EqualTo(50));
+    }
+
+    [Test]
+    public void ParseXPath_ContainsPointWithAnd_ParsesBoth()
+    {
+        var steps = XPathEngine.ParseXPath("//Button[contains-point(bounds(), point(5, 10)) and @Name='OK']");
+        Assert.That(steps[0].ContainsPredicates, Has.Count.EqualTo(1));
+        Assert.That(steps[0].Predicates, Has.Count.EqualTo(1));
+        Assert.That(steps[0].Predicates[0].Attribute, Is.EqualTo("Name"));
+    }
+
+    [TestCase("//Button[contains-point()]")]
+    [TestCase("//Button[contains-point(bounds())]")]
+    [TestCase("//Button[contains-point(bounds(), point())]")]
+    [TestCase("//Button[contains-point(bounds(), point(10))]")]
+    [TestCase("//Button[contains-point(@Name, point(10, 50))]")]
+    [TestCase("//Button[contains-point(bounds(), 'foo')]")]
+    public void ParseXPath_MalformedContainsPoint_Throws(string xpath)
+    {
+        Assert.Throws<ArgumentException>(() => XPathEngine.Validate(xpath));
+    }
+
+    // ── contains() / starts-with() / ends-with() ────────────────────────────
+
+    [TestCase("//Button[contains(@Name, 'foo')]")]
+    [TestCase("//Button[contains(text(), 'bar')]")]
+    [TestCase("//Button[contains('hello world', 'world')]")]
+    [TestCase("//Button[starts-with(@Name, 'Start')]")]
+    [TestCase("//Button[starts-with(text(), 'Calc')]")]
+    [TestCase("//Button[starts-with('hello', 'hel')]")]
+    [TestCase("//Button[ends-with(@Name, 'End')]")]
+    [TestCase("//Button[ends-with(text(), 'Edge')]")]
+    [TestCase("//Button[ends-with('hello', 'llo')]")]
+    public void ParseXPath_StringFunctionPredicate_DoesNotThrow(string xpath)
+    {
+        Assert.DoesNotThrow(() => XPathEngine.Validate(xpath));
     }
 
     [Test]
@@ -650,6 +623,35 @@ public class XPathEngineValidationTests
         Assert.That(cp.HaystackIsAttr, Is.True);
         Assert.That(cp.Needle, Is.EqualTo("foo"));
         Assert.That(cp.NeedleIsAttr, Is.False);
+        Assert.That(cp.Mode, Is.EqualTo(StringMatchMode.Contains));
+    }
+
+    [Test]
+    public void ParseXPath_StartsWithFunction_ParsesCorrectly()
+    {
+        var steps = XPathEngine.ParseXPath("//Button[starts-with(@Name, 'Start')]");
+        Assert.That(steps[0].ContainsPredicates, Has.Count.EqualTo(1));
+        var cp = steps[0].ContainsPredicates![0] as ContainsSubstring;
+        Assert.That(cp, Is.Not.Null);
+        Assert.That(cp!.Haystack, Is.EqualTo("Name"));
+        Assert.That(cp.HaystackIsAttr, Is.True);
+        Assert.That(cp.Needle, Is.EqualTo("Start"));
+        Assert.That(cp.NeedleIsAttr, Is.False);
+        Assert.That(cp.Mode, Is.EqualTo(StringMatchMode.StartsWith));
+    }
+
+    [Test]
+    public void ParseXPath_EndsWithFunction_ParsesCorrectly()
+    {
+        var steps = XPathEngine.ParseXPath("//Button[ends-with(@Name, 'End')]");
+        Assert.That(steps[0].ContainsPredicates, Has.Count.EqualTo(1));
+        var cp = steps[0].ContainsPredicates![0] as ContainsSubstring;
+        Assert.That(cp, Is.Not.Null);
+        Assert.That(cp!.Haystack, Is.EqualTo("Name"));
+        Assert.That(cp.HaystackIsAttr, Is.True);
+        Assert.That(cp.Needle, Is.EqualTo("End"));
+        Assert.That(cp.NeedleIsAttr, Is.False);
+        Assert.That(cp.Mode, Is.EqualTo(StringMatchMode.EndsWith));
     }
 
     [Test]
@@ -662,30 +664,44 @@ public class XPathEngineValidationTests
     }
 
     [Test]
-    public void ParseXPath_ContainsBoundsPointWithAnd_ParsesBoth()
+    public void ParseXPath_StartsWithTextFunction_ParsesAsName()
     {
-        var steps = XPathEngine.ParseXPath("//Button[contains(bounds(), point(5, 10)) and @Name='OK']");
-        Assert.That(steps[0].ContainsPredicates, Has.Count.EqualTo(1));
-        Assert.That(steps[0].Predicates, Has.Count.EqualTo(1));
-        Assert.That(steps[0].Predicates[0].Attribute, Is.EqualTo("Name"));
+        var steps = XPathEngine.ParseXPath("//Window[starts-with(text(), 'Calc')]");
+        var cp = steps[0].ContainsPredicates![0] as ContainsSubstring;
+        Assert.That(cp!.Haystack, Is.EqualTo("text"));
+        Assert.That(cp.HaystackIsAttr, Is.True);
+        Assert.That(cp.Mode, Is.EqualTo(StringMatchMode.StartsWith));
+    }
+
+    [Test]
+    public void ParseXPath_EndsWithTextFunction_ParsesAsName()
+    {
+        var steps = XPathEngine.ParseXPath("//Window[ends-with(text(), '- Microsoft Edge')]");
+        var cp = steps[0].ContainsPredicates![0] as ContainsSubstring;
+        Assert.That(cp!.Haystack, Is.EqualTo("text"));
+        Assert.That(cp.HaystackIsAttr, Is.True);
+        Assert.That(cp.Needle, Is.EqualTo("- Microsoft Edge"));
+        Assert.That(cp.Mode, Is.EqualTo(StringMatchMode.EndsWith));
     }
 
     [TestCase("//Button[contains()]")]
-    [TestCase("//Button[contains(bounds())]")]
-    [TestCase("//Button[contains(bounds(), point())]")]
-    [TestCase("//Button[contains(bounds(), point(10))]")]
-    public void ParseXPath_MalformedContains_Throws(string xpath)
+    [TestCase("//Button[contains(@Name)]")]
+    [TestCase("//Button[starts-with()]")]
+    [TestCase("//Button[starts-with(@Name)]")]
+    [TestCase("//Button[ends-with()]")]
+    [TestCase("//Button[ends-with(@Name)]")]
+    public void ParseXPath_MalformedStringFunction_Throws(string xpath)
     {
         Assert.Throws<ArgumentException>(() => XPathEngine.Validate(xpath));
     }
 
     // ── frontmost:: axis ────────────────────────────────────────────────────
 
-    [TestCase("//Window//frontmost::Button[contains(bounds(), point(10, 50))]")]
+    [TestCase("//Window//frontmost::Button[contains-point(bounds(), point(10, 50))]")]
     [TestCase("//frontmost::Button")]
     [TestCase("//frontmost::Button[@Name='OK']")]
     [TestCase("/frontmost::Button")]
-    [TestCase("//Window/frontmost::Button[contains(bounds(), point(5, 5))]")]
+    [TestCase("//Window/frontmost::Button[contains-point(bounds(), point(5, 5))]")]
     public void ParseXPath_FrontmostAxis_DoesNotThrow(string xpath)
     {
         Assert.DoesNotThrow(() => XPathEngine.Validate(xpath));
@@ -707,7 +723,7 @@ public class XPathEngineValidationTests
     [Test]
     public void ParseXPath_FrontmostWithContains_ParsesCorrectly()
     {
-        var steps = XPathEngine.ParseXPath("//frontmost::Button[contains(bounds(), point(10, 50))]");
+        var steps = XPathEngine.ParseXPath("//frontmost::Button[contains-point(bounds(), point(10, 50))]");
         Assert.That(steps, Has.Count.EqualTo(1));
         Assert.That(steps[0].Axis, Is.EqualTo(XPathAxis.Frontmost));
         Assert.That(steps[0].Type, Is.EqualTo("Button"));

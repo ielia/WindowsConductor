@@ -316,68 +316,61 @@ public class XPathMatchingTests
         Assert.That(accessed, Is.EqualTo(new[] { "name" }));
     }
 
-    // ── String comparison operators ──────────────────────────────────────────
+    // ── String function predicates (starts-with, contains, ends-with) ───────
 
     [Test]
     public void MatchesStep_StartsWith_Matches()
     {
-        var step = new XPathStep(XPathAxis.Descendant, "*",
-            [new XPathPredicate("Name", ["Calc"], AttributeMatchMode.StartsWith)]);
-        Assert.That(XPathEngine.MatchesStep(step,
+        var steps = XPathEngine.ParseXPath("//*[starts-with(@Name, 'Calc')]");
+        Assert.That(XPathEngine.MatchesStep(steps[0],
             Props(name: "Calculator", controlType: "Window")), Is.True);
     }
 
     [Test]
     public void MatchesStep_StartsWith_Mismatch()
     {
-        var step = new XPathStep(XPathAxis.Descendant, "*",
-            [new XPathPredicate("Name", ["Foo"], AttributeMatchMode.StartsWith)]);
-        Assert.That(XPathEngine.MatchesStep(step,
+        var steps = XPathEngine.ParseXPath("//*[starts-with(@Name, 'Foo')]");
+        Assert.That(XPathEngine.MatchesStep(steps[0],
             Props(name: "Calculator", controlType: "Window")), Is.False);
     }
 
     [Test]
     public void MatchesStep_Contains_Matches()
     {
-        var step = new XPathStep(XPathAxis.Descendant, "*",
-            [new XPathPredicate("Name", ["culat"], AttributeMatchMode.Contains)]);
-        Assert.That(XPathEngine.MatchesStep(step,
+        var steps = XPathEngine.ParseXPath("//*[contains(@Name, 'culat')]");
+        Assert.That(XPathEngine.MatchesStep(steps[0],
             Props(name: "Calculator", controlType: "Window")), Is.True);
     }
 
     [Test]
     public void MatchesStep_Contains_Mismatch()
     {
-        var step = new XPathStep(XPathAxis.Descendant, "*",
-            [new XPathPredicate("Name", ["xyz"], AttributeMatchMode.Contains)]);
-        Assert.That(XPathEngine.MatchesStep(step,
+        var steps = XPathEngine.ParseXPath("//*[contains(@Name, 'xyz')]");
+        Assert.That(XPathEngine.MatchesStep(steps[0],
             Props(name: "Calculator", controlType: "Window")), Is.False);
     }
 
     [Test]
     public void MatchesStep_EndsWith_Matches()
     {
-        var step = new XPathStep(XPathAxis.Descendant, "*",
-            [new XPathPredicate("Name", ["ator"], AttributeMatchMode.EndsWith)]);
-        Assert.That(XPathEngine.MatchesStep(step,
+        var steps = XPathEngine.ParseXPath("//*[ends-with(@Name, 'ator')]");
+        Assert.That(XPathEngine.MatchesStep(steps[0],
             Props(name: "Calculator", controlType: "Window")), Is.True);
     }
 
     [Test]
     public void MatchesStep_EndsWith_Mismatch()
     {
-        var step = new XPathStep(XPathAxis.Descendant, "*",
-            [new XPathPredicate("Name", ["xyz"], AttributeMatchMode.EndsWith)]);
-        Assert.That(XPathEngine.MatchesStep(step,
+        var steps = XPathEngine.ParseXPath("//*[ends-with(@Name, 'xyz')]");
+        Assert.That(XPathEngine.MatchesStep(steps[0],
             Props(name: "Calculator", controlType: "Window")), Is.False);
     }
 
     [Test]
     public void MatchesStep_StartsWith_CaseInsensitive()
     {
-        var step = new XPathStep(XPathAxis.Descendant, "*",
-            [new XPathPredicate("Name", ["calc"], AttributeMatchMode.StartsWith)]);
-        Assert.That(XPathEngine.MatchesStep(step,
+        var steps = XPathEngine.ParseXPath("//*[starts-with(@Name, 'calc')]");
+        Assert.That(XPathEngine.MatchesStep(steps[0],
             Props(name: "Calculator", controlType: "Window")), Is.True);
     }
 
@@ -482,7 +475,7 @@ public class XPathMatchingTests
     [Test]
     public void MatchesStep_TextFunction_EndsWith_Matches()
     {
-        var steps = XPathEngine.ParseXPath("//Window[text()$='- Microsoft Edge']");
+        var steps = XPathEngine.ParseXPath("//Window[ends-with(text(), '- Microsoft Edge')]");
         Assert.That(XPathEngine.MatchesStep(steps[0],
             Props(text: "Google - Microsoft Edge", controlType: "Window")), Is.True);
     }
@@ -490,20 +483,9 @@ public class XPathMatchingTests
     [Test]
     public void MatchesStep_TextFunction_EndsWith_Mismatch()
     {
-        var steps = XPathEngine.ParseXPath("//Window[text()$='- Microsoft Edge']");
+        var steps = XPathEngine.ParseXPath("//Window[ends-with(text(), '- Microsoft Edge')]");
         Assert.That(XPathEngine.MatchesStep(steps[0],
             Props(name: "Calculator", controlType: "Window")), Is.False);
-    }
-
-    [Test]
-    public void MatchesStep_Concat_WithMatchMode_StartsWith()
-    {
-        var step = new XPathStep(XPathAxis.Descendant, "*",
-            [new XPathPredicate("Name", [], AttributeMatchMode.StartsWith, [
-                new StringConcatArg("Calc")
-            ])]);
-        Assert.That(XPathEngine.MatchesStep(step,
-            Props(name: "Calculator", controlType: "Window")), Is.True);
     }
 }
 

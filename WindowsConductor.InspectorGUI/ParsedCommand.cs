@@ -134,7 +134,7 @@ internal sealed record LocateCommand(string[] Selectors) : ParsedCommand
     internal override string Usage => "locate <selector> [>> <selector> ...]";
     internal override string Description =>
         "Finds elements matching the selector chain.\nSelectors are separated by >> for scoped searches.\nXPath selectors relative to the current element are supported.";
-    internal override string[] Examples => ["locate [name=OK]", "locate type=Panel >> [automationid=btn1]", "locate //Window[text()$='Edge']"];
+    internal override string[] Examples => ["locate [name=OK]", "locate type=Panel >> [automationid=btn1]", "locate //Window[ends-with(text(), 'Edge')]"];
 }
 
 internal sealed record NextMatchCommand(int Steps = 1) : ParsedCommand

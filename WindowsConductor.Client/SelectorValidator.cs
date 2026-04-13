@@ -84,8 +84,10 @@ public static class SelectorValidator
             // Allow function expressions and compound predicates with and/or
             if (content.Contains("position(") || content.Contains("last(") || content.Contains("string-length("))
                 continue;
-            // Allow contains() and at() function predicates (spatial or substring)
-            if (content.Contains("contains(") || content.StartsWith("at("))
+            // Allow function predicates: contains(), starts-with(), ends-with(), contains-point(), at()
+            if (content.Contains("contains(") || content.Contains("starts-with(")
+                || content.Contains("ends-with(") || content.Contains("contains-point(")
+                || content.StartsWith("at("))
                 continue;
             // Allow compound attribute predicates: @a='x' and @b='y', @a='x' or @b='y'
             if (content.Contains(" and ") || content.Contains(" or "))

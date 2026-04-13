@@ -159,9 +159,9 @@ public class SelectorValidatorTests
     [TestCase("//Button[position() <= last() - 2]")]         // XPath <=
     [TestCase("//Button[last() / 2 = position()]")]          // XPath division
     [TestCase("//Button[position() >= 2]")]                  // XPath >=
-    [TestCase("//Button[@Name^='Start']")]                   // starts with
-    [TestCase("//Button[@Name*='thing']")]                   // contains
-    [TestCase("//Button[@Name$='End']")]                     // ends with
+    [TestCase("//Button[starts-with(@Name, 'Start')]")]       // starts with
+    [TestCase("//Button[contains(@Name, 'thing')]")]         // contains
+    [TestCase("//Button[ends-with(@Name, 'End')]")]          // ends with
     [TestCase("//Button[@Name='foo' and @AutomationId='bar']")] // and
     [TestCase("//Button[@Name='a' or @Name='b']")]           // or
     [TestCase("//Button[@Name=concat('foo', 'bar')]")]       // concat
@@ -171,14 +171,14 @@ public class SelectorValidatorTests
     [TestCase("//Button[position() > 2 and position() < last()]")] // and in function expr
     [TestCase("//Button[position() = 1 or position() = last()]")] // or in function expr
     [TestCase("//Window[text()='Calculator']")]                    // text() exact
-    [TestCase("//Window[text()$='- Microsoft Edge']")]             // text() ends with
-    [TestCase("//Window[text()^='Calc']")]                         // text() starts with
-    [TestCase("//Window[text()*='Edge']")]                         // text() contains
-    [TestCase("//Button[contains(bounds(), point(10, 50))]")]    // spatial contains
+    [TestCase("//Window[ends-with(text(), '- Microsoft Edge')]")]   // text() ends with
+    [TestCase("//Window[starts-with(text(), 'Calc')]")]            // text() starts with
+    [TestCase("//Window[contains(text(), 'Edge')]")]               // text() contains
+    [TestCase("//Button[contains-point(bounds(), point(10, 50))]")]    // spatial contains-point
     [TestCase("//Button[contains(@Name, 'foo')]")]               // substring contains
     [TestCase("//Button[contains(text(), 'bar')]")]              // text() substring
-    [TestCase("//*[contains(bounds(), point(0, 0)) and @Name='OK']")] // spatial with and
-    [TestCase("//frontmost::Button[contains(bounds(), point(10, 50))]")]  // frontmost axis
+    [TestCase("//*[contains-point(bounds(), point(0, 0)) and @Name='OK']")] // spatial with and
+    [TestCase("//frontmost::Button[contains-point(bounds(), point(10, 50))]")]  // frontmost axis
     [TestCase("//Window//frontmost::Button[@Name='OK']")]                 // frontmost in multi-step
     [TestCase("/frontmost::Button")]                                      // frontmost with child axis
     [TestCase("//Button[at(10, 50)]")]                                    // at() shorthand

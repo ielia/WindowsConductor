@@ -492,11 +492,11 @@ public class CommandParserTests
     public void SplitCommands_ComplexExample_PreservesSemicolonsInQuotes()
     {
         var result = CommandParser.SplitCommands(
-            "sleep 1000; locate \"//*[text()*='some; text; as one; text']\"; text");
+            "sleep 1000; locate \"//*[contains(text(), 'some; text; as one; text')]\"; text");
         Assert.That(result, Is.EqualTo(new[]
         {
             "sleep 1000",
-            "locate \"//*[text()*='some; text; as one; text']\"",
+            "locate \"//*[contains(text(), 'some; text; as one; text')]\"",
             "text"
         }));
     }
