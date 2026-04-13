@@ -1,4 +1,5 @@
 using System.Net.WebSockets;
+using System.Security.Authentication;
 using System.Text;
 using System.Text.Json;
 using SkiaSharp;
@@ -59,7 +60,18 @@ public sealed class WcSession : IWcTransport, IAsyncDisposable
             ws.Options.SetRequestHeader("Authorization", $"Bearer {authToken}");
         if (allowSelfSignedCerts)
             ws.Options.RemoteCertificateValidationCallback = (_, _, _, _) => true;
-        await ws.ConnectAsync(new Uri(wsUri), ct);
+
+        try
+        {
+            await ws.ConnectAsync(new Uri(wsUri), ct);
+        }
+        catch (WebSocketException ex) when (ContainsAuthenticationException(ex))
+        {
+            ws.Dispose();
+            throw new WcException(
+                "TLS connection failed — the server certificate is not trusted. "
+                + "If the server uses a self-signed certificate, set allowSelfSignedCerts to true.");
+        }
 
         var conn = new WcSession(ws);
         _ = Task.Run(() => conn.ReceiveLoopAsync(ct), ct);
@@ -243,6 +255,16 @@ public sealed class WcSession : IWcTransport, IAsyncDisposable
         }
         _ws.Dispose();
         _writeLock.Dispose();
+    }
+
+    private static bool ContainsAuthenticationException(Exception ex)
+    {
+        for (var current = ex.InnerException; current is not null; current = current.InnerException)
+        {
+            if (current is AuthenticationException)
+                return true;
+        }
+        return false;
     }
 }
 
