@@ -279,4 +279,82 @@ public class XPathExprEvaluatorTests
     {
         Assert.Throws<Superpower.ParseException>(() => Tokenize("position() & 3"));
     }
+
+    // ── Sub-path expression evaluation ────────────────────────────────────────
+
+    [Test]
+    public void Evaluate_SubPathExpr_ReturnsTrueWhenEvaluatorReturnsTrue()
+    {
+        var subPath = new SubPathExpr([new XPathStep(XPathAxis.Descendant, "Button", [])], false);
+        var ctx = new EvalContext(_ => null, 1, 1, null, _ => true);
+        var result = XPathFunctions.Evaluate(subPath, ctx);
+        Assert.That(result.AsBool(), Is.True);
+    }
+
+    [Test]
+    public void Evaluate_SubPathExpr_ReturnsFalseWhenEvaluatorReturnsFalse()
+    {
+        var subPath = new SubPathExpr([new XPathStep(XPathAxis.Descendant, "Button", [])], false);
+        var ctx = new EvalContext(_ => null, 1, 1, null, _ => false);
+        var result = XPathFunctions.Evaluate(subPath, ctx);
+        Assert.That(result.AsBool(), Is.False);
+    }
+
+    [Test]
+    public void Evaluate_NotSubPathExpr_InvertsResult()
+    {
+        var subPath = new SubPathExpr([new XPathStep(XPathAxis.Descendant, "Button", [])], false);
+        var notExpr = new FunctionCallExpr("not", [subPath]);
+        var ctx = new EvalContext(_ => null, 1, 1, null, _ => true);
+        var result = XPathFunctions.Evaluate(notExpr, ctx);
+        Assert.That(result.AsBool(), Is.False);
+    }
+
+    [Test]
+    public void Evaluate_SubPathExpr_WithoutEvaluator_Throws()
+    {
+        var subPath = new SubPathExpr([new XPathStep(XPathAxis.Descendant, "Button", [])], false);
+        var ctx = new EvalContext(_ => null, 1, 1, null);
+        Assert.Throws<InvalidOperationException>(() => XPathFunctions.Evaluate(subPath, ctx));
+    }
+
+    [Test]
+    public void Evaluate_SubPathAndAttr_BothTrue()
+    {
+        var subPath = new SubPathExpr([new XPathStep(XPathAxis.Descendant, "Button", [])], false);
+        var attrExpr = new BinaryExpr(new AttrRefExpr("Name"), XPathBinaryOp.Eq, new LiteralStringExpr("foo"));
+        var andExpr = new BinaryExpr(subPath, XPathBinaryOp.And, attrExpr);
+        Func<string, string?> props = k => k == "name" ? "foo" : null;
+        var ctx = new EvalContext(props, 1, 1, null, _ => true);
+        Assert.That(XPathFunctions.Evaluate(andExpr, ctx).AsBool(), Is.True);
+    }
+
+    [Test]
+    public void Evaluate_SubPathAndAttr_SubPathFalse()
+    {
+        var subPath = new SubPathExpr([new XPathStep(XPathAxis.Descendant, "Button", [])], false);
+        var attrExpr = new BinaryExpr(new AttrRefExpr("Name"), XPathBinaryOp.Eq, new LiteralStringExpr("foo"));
+        var andExpr = new BinaryExpr(subPath, XPathBinaryOp.And, attrExpr);
+        Func<string, string?> props = k => k == "name" ? "foo" : null;
+        var ctx = new EvalContext(props, 1, 1, null, _ => false);
+        Assert.That(XPathFunctions.Evaluate(andExpr, ctx).AsBool(), Is.False);
+    }
+
+    [Test]
+    public void Evaluate_SubPathEvaluator_ReceivesCorrectExpr()
+    {
+        var expectedStep = new XPathStep(XPathAxis.Descendant, "Edit", []);
+        var subPath = new SubPathExpr([expectedStep], false);
+        SubPathExpr? received = null;
+        var ctx = new EvalContext(_ => null, 1, 1, null, sp =>
+        {
+            received = sp;
+            return true;
+        });
+        XPathFunctions.Evaluate(subPath, ctx);
+        Assert.That(received, Is.Not.Null);
+        Assert.That(received!.Steps, Has.Count.EqualTo(1));
+        Assert.That(received.Steps[0].Type, Is.EqualTo("Edit"));
+        Assert.That(received.IsAbsolute, Is.False);
+    }
 }

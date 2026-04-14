@@ -19,6 +19,7 @@ public sealed record FunctionCallExpr(string Name, IReadOnlyList<XPathExpr> Args
 public sealed record BinaryExpr(XPathExpr Left, XPathBinaryOp Op, XPathExpr Right) : XPathExpr;
 public sealed record UnaryMinusExpr(XPathExpr Operand) : XPathExpr;
 public sealed record SequenceExpr(IReadOnlyList<XPathExpr> Items) : XPathExpr;
+public sealed record SubPathExpr(IReadOnlyList<XPathStep> Steps, bool IsAbsolute) : XPathExpr;
 
 // ── Step filters ────────────────────────────────────────────────────────────
 
@@ -97,4 +98,5 @@ public sealed record EvalContext(
     Func<string, string?> GetProperty,
     int Position,
     int Last,
-    object? Element);
+    object? Element,
+    Func<SubPathExpr, bool>? SubPathEvaluator = null);

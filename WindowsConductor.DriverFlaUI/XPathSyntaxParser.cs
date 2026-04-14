@@ -64,8 +64,85 @@ internal static class XPathSyntaxParser
             ? first
             : (XPathExpr)new SequenceExpr(new[] { first }.Concat(rest).ToList());
 
+    // Sub-path expression used inside predicates.
+    // Supports all valid XPath path starts: /type (absolute), //type, ./type, .//type, ../type, etc.
+    private static readonly TokenListParser<XPathToken, XPathExpr> SubPathPrimary =
+        ParseSubPathExpression;
+
+    private static TokenListParserResult<XPathToken, XPathExpr> ParseSubPathExpression(TokenList<XPathToken> input)
+    {
+        if (input.IsAtEnd) return TokenListParserResult.Empty<XPathToken, XPathExpr>(input);
+
+        var allTokens = CollectRemainingTokens(input);
+        if (allTokens.Length == 0) return TokenListParserResult.Empty<XPathToken, XPathExpr>(input);
+
+        // Sub-path must start with a path-like token
+        var firstKind = allTokens[0].Kind;
+        if (firstKind is not (XPathToken.DoubleSlash or XPathToken.Slash or XPathToken.Dot or XPathToken.DoubleDot))
+            return TokenListParserResult.Empty<XPathToken, XPathExpr>(input);
+
+        // Bare . is not a sub-path — must be ./ or .//
+        if (firstKind == XPathToken.Dot
+            && (allTokens.Length < 2 || allTokens[1].Kind is not (XPathToken.Slash or XPathToken.DoubleSlash)))
+            return TokenListParserResult.Empty<XPathToken, XPathExpr>(input);
+
+        bool isAbsolute = firstKind == XPathToken.Slash;
+
+        try
+        {
+            int pos = 0;
+            var steps = new List<XPathStep>();
+
+            // First step — ParseStep handles axis prefix (/, //, ., ..)
+            var firstStep = ParseStep(allTokens, ref pos, "<sub-path>");
+            if (firstStep is not null)
+                steps.Add(firstStep);
+
+            // Additional steps only when preceded by / or //
+            while (pos < allTokens.Length
+                   && allTokens[pos].Kind is XPathToken.Slash or XPathToken.DoubleSlash)
+            {
+                var nextStep = ParseStep(allTokens, ref pos, "<sub-path>");
+                if (nextStep is null) break;
+                steps.Add(nextStep);
+            }
+
+            // Remove no-op Self steps (produced by . prefix in ./type or .//type)
+            steps.RemoveAll(s => s.Axis == XPathAxis.Self);
+
+            if (steps.Count == 0)
+                return TokenListParserResult.Empty<XPathToken, XPathExpr>(input);
+
+            // Advance TokenList past consumed tokens
+            var remaining = input;
+            for (int i = 0; i < pos; i++)
+                remaining = remaining.ConsumeToken().Remainder;
+
+            return TokenListParserResult.Value<XPathToken, XPathExpr>(
+                new SubPathExpr(steps, isAbsolute), input, remaining);
+        }
+        catch
+        {
+            return TokenListParserResult.Empty<XPathToken, XPathExpr>(input);
+        }
+    }
+
+    private static Token<XPathToken>[] CollectRemainingTokens(TokenList<XPathToken> input)
+    {
+        var tokens = new List<Token<XPathToken>>();
+        var current = input;
+        while (!current.IsAtEnd)
+        {
+            var result = current.ConsumeToken();
+            if (!result.HasValue) break;
+            tokens.Add(result.Value);
+            current = result.Remainder;
+        }
+        return tokens.ToArray();
+    }
+
     private static readonly TokenListParser<XPathToken, XPathExpr> Primary =
-        FuncCall.Or(NumberExpr).Or(StringExpr).Or(AttrRef).Or(ParenExpr);
+        FuncCall.Or(NumberExpr).Or(StringExpr).Or(AttrRef).Or(SubPathPrimary).Or(ParenExpr);
 
     // ── Unary minus ─────────────────────────────────────────────────────────
 
@@ -313,6 +390,8 @@ internal static class XPathSyntaxParser
         int start = tokens[0].Span.Position.Absolute;
         var last = tokens[^1];
         int end = last.Span.Position.Absolute + last.Span.Length;
-        return xpath[start..end];
+        if (start >= 0 && end <= xpath.Length && start < end)
+            return xpath[start..end];
+        return string.Join("", tokens.Select(t => t.Span.ToStringValue()));
     }
 }

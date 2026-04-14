@@ -10,9 +10,10 @@ public sealed class XPathEngine
     {
         var steps = XPathSyntaxParser.Parse(xpath);
         IReadOnlyList<AutomationElement> current = [root];
+        var subPathCache = new Dictionary<SubPathExpr, bool>();
 
         foreach (var step in steps)
-            current = ApplyStep(current, step);
+            current = ApplyStep(current, step, subPathCache);
 
         return current;
     }
@@ -26,7 +27,8 @@ public sealed class XPathEngine
     // ── Step evaluation ──────────────────────────────────────────────────────
 
     private static IReadOnlyList<AutomationElement> ApplyStep(
-        IReadOnlyList<AutomationElement> roots, XPathStep step)
+        IReadOnlyList<AutomationElement> roots, XPathStep step,
+        Dictionary<SubPathExpr, bool> subPathCache)
     {
         if (step.Axis == XPathAxis.Self)
             return roots;
@@ -68,7 +70,7 @@ public sealed class XPathEngine
             results = filter switch
             {
                 IndexFilter idx => ApplyIndexFilter(results, idx.Index),
-                ExpressionFilter expr => ApplyExpressionFilter(results, expr, step.Type),
+                ExpressionFilter expr => ApplyExpressionFilter(results, expr, step.Type, subPathCache),
                 _ => results
             };
         }
@@ -94,24 +96,23 @@ public sealed class XPathEngine
     }
 
     private static IReadOnlyList<AutomationElement> ApplyExpressionFilter(
-        IReadOnlyList<AutomationElement> elements, ExpressionFilter filter, string stepType)
+        IReadOnlyList<AutomationElement> elements, ExpressionFilter filter, string stepType,
+        Dictionary<SubPathExpr, bool> subPathCache)
     {
         var results = new List<AutomationElement>();
-        int last = elements.Count;
 
         for (int i = 0; i < elements.Count; i++)
         {
             var el = elements[i];
-            int position = i + 1;
 
-            // Compute sibling-aware position/last if expression uses position()/last()
             var (sibPos, sibLast) = GetSiblingPosition(el, stepType);
 
             var ctx = new EvalContext(
                 k => ElementProperties.Resolve(el, k),
                 sibPos,
                 sibLast,
-                el);
+                el,
+                sp => EvaluateSubPath(el, sp, subPathCache));
 
             var value = XPathFunctions.Evaluate(filter.Expr, ctx);
             if (value.AsBool())
@@ -170,6 +171,36 @@ public sealed class XPathEngine
         }
 
         return true;
+    }
+
+    private static bool EvaluateSubPath(
+        AutomationElement contextElement, SubPathExpr subPath,
+        Dictionary<SubPathExpr, bool> subPathCache)
+    {
+        if (subPath.IsAbsolute && subPathCache.TryGetValue(subPath, out var cached))
+            return cached;
+
+        var root = subPath.IsAbsolute ? GetDesktopRoot(contextElement) : contextElement;
+        IReadOnlyList<AutomationElement> current = [root];
+        foreach (var step in subPath.Steps)
+            current = ApplyStep(current, step, subPathCache);
+        var result = current.Count > 0;
+
+        if (subPath.IsAbsolute)
+            subPathCache[subPath] = result;
+
+        return result;
+    }
+
+    private static AutomationElement GetDesktopRoot(AutomationElement element)
+    {
+        var current = element;
+        while (true)
+        {
+            var parent = SafeGetParent(current);
+            if (parent is null) return current;
+            current = parent;
+        }
     }
 
     private static AutomationElement? SafeGetParent(AutomationElement el)

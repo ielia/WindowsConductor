@@ -91,6 +91,9 @@ internal static class XPathFunctions
         AttrRefExpr a => new XPathString(ctx.GetProperty(a.Name.ToLowerInvariant()) ?? ""),
         FunctionCallExpr f => InvokeFunction(f, ctx),
         UnaryMinusExpr u => new XPathNumber(-Evaluate(u.Operand, ctx).AsNumber()),
+        SubPathExpr sp => ctx.SubPathEvaluator is not null
+            ? new XPathBool(ctx.SubPathEvaluator(sp))
+            : throw new InvalidOperationException("Sub-path expressions require an element context for evaluation."),
         SequenceExpr => throw new ArgumentException("Sequence expressions can only appear in comparisons."),
         BinaryExpr b => EvaluateBinary(b, ctx),
         _ => throw new ArgumentException($"Unknown expression type: {expr.GetType().Name}")
