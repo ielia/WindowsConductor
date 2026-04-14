@@ -44,16 +44,15 @@ public class SelectorEngineValidationTests
         Assert.That(ex!.Message, Does.Contain("[key=value]"));
     }
 
-    // ── Unknown attribute ────────────────────────────────────────────────────
+    // ── Custom attributes are now accepted ──────────────────────────────────
 
-    [TestCase("[invalid=foo]")]
+    [TestCase("[custom=foo]")]
     [TestCase("[href=bar]")]
-    [TestCase("invalid=foo")]
+    [TestCase("custom=foo")]
     [TestCase("[id=something]")]
-    public void Validate_UnknownAttribute_Throws(string selector)
+    public void Validate_CustomAttribute_DoesNotThrow(string selector)
     {
-        var ex = Assert.Throws<ArgumentException>(() => SelectorEngine.Validate(selector));
-        Assert.That(ex!.Message, Does.Contain("Unknown selector attribute"));
+        Assert.DoesNotThrow(() => SelectorEngine.Validate(selector));
     }
 
     // ── Unexpected closing bracket ───────────────────────────────────────────
@@ -75,11 +74,10 @@ public class SelectorEngineValidationTests
         Assert.That(ex!.Message, Does.Contain("missing an element type"));
     }
 
-    // ── Compound selector with one invalid part ──────────────────────────────
+    // ── Compound selector with syntax error ──────────────────────────────────
 
-    [TestCase("[automationid=foo]&&[invalid=bar]")]
     [TestCase("[automationid=foo]&&[=bar]")]
-    public void Validate_CompoundWithInvalidPart_Throws(string selector)
+    public void Validate_CompoundWithSyntaxError_Throws(string selector)
     {
         Assert.Throws<ArgumentException>(() => SelectorEngine.Validate(selector));
     }
@@ -94,20 +92,21 @@ public class SelectorEngineValidationTests
     [TestCase("controltype=Edit")]
     [TestCase("[automationid=okBtn]&&type=Button")]
     [TestCase("[name=Text editor]&&type=Document")]
-    [TestCase("Hello")]                              // bare text → name=Hello
-    [TestCase("//Button[@AutomationId='num7']")]     // valid XPath
-    [TestCase("//*[@Name='Cancel']")]                // valid XPath
+    [TestCase("Hello")]
+    [TestCase("//Button[@AutomationId='num7']")]
+    [TestCase("//*[@Name='Cancel']")]
     [TestCase("[isenabled=true]")]
     [TestCase("[isoffscreen=false]")]
     [TestCase("[frameworkid=Win32]")]
     [TestCase("[processid=1234]")]
     [TestCase("[helptext=Click me]")]
     [TestCase("[isenabled=true]&&type=Button")]
-    [TestCase("[ariarole=button]")]                  // auto-discovered via reflection
+    [TestCase("[ariarole=button]")]
     [TestCase("[headinglevel=1]")]
-    [TestCase("./Button")]                             // XPath self child axis
-    [TestCase(".//Button[@Name='OK']")]                // XPath self descendant axis
-    [TestCase("../Button")]                             // XPath parent at start
+    [TestCase("./Button")]
+    [TestCase(".//Button[@Name='OK']")]
+    [TestCase("../Button")]
+    [TestCase("[automationid=foo]&&[custom=bar]")]
     public void Validate_ValidSelector_DoesNotThrow(string selector)
     {
         Assert.DoesNotThrow(() => SelectorEngine.Validate(selector));

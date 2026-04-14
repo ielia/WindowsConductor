@@ -23,6 +23,7 @@
   <ItemGroup>
     <!-- FlaUI wraps UIAutomation v3 (UIA3) for .NET; brings FlaUI.Core as transitive dep. -->
     <PackageReference Include="FlaUI.UIA3" Version="5.0.0" />
+    <PackageReference Include="Superpower" Version="3.1.0" />
   </ItemGroup>
 
   <ItemGroup>

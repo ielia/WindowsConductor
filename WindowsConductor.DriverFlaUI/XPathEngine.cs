@@ -1,62 +1,15 @@
-using System.Text.RegularExpressions;
 using FlaUI.Core.AutomationElements;
 using FlaUI.Core.Definitions;
 
 namespace WindowsConductor.DriverFlaUI;
 
-// ── Data model ───────────────────────────────────────────────────────────────
-
-public enum XPathAxis { Child, Descendant, Parent, Self, Frontmost }
-
-public enum StringMatchMode { Contains, StartsWith, EndsWith }
-
-public abstract record ConcatArg;
-public sealed record StringConcatArg(string Value) : ConcatArg;
-public sealed record AttrConcatArg(string Attribute) : ConcatArg;
-
-/// <summary>A single attribute predicate such as <c>@Attr='value'</c>.</summary>
-public sealed record XPathPredicate(
-    string Attribute,
-    IReadOnlyList<string> Values,
-    IReadOnlyList<ConcatArg>? ConcatArgs = null);
-
-/// <summary>A predicate using the <c>contains()</c> function.</summary>
-public abstract record ContainsPredicate;
-
-/// <summary><c>contains(bounds(), point(x, y))</c> — spatial containment check.</summary>
-public sealed record ContainsBoundsPoint(double X, double Y) : ContainsPredicate;
-
-/// <summary>String function predicate: <c>contains()</c>, <c>starts-with()</c>, or <c>ends-with()</c>.</summary>
-public sealed record ContainsSubstring(string Haystack, string Needle, bool HaystackIsAttr, bool NeedleIsAttr, StringMatchMode Mode = StringMatchMode.Contains) : ContainsPredicate;
-
-/// <summary>One step of an XPath expression: axis + element type + predicates + optional 1-based positional index.</summary>
-/// <param name="Index">Result-set index from <c>[N]</c> — selects the Nth overall match.</param>
-/// <param name="FunctionPredicates">Expressions containing <c>position()</c>, <c>last()</c>, or <c>string-length()</c> that must all evaluate to truthy.</param>
-/// <param name="OrPredicateGroups">Predicate groups joined by <c>or</c> — for each group, at least one predicate must match.</param>
-/// <param name="ContainsPredicates"><c>contains()</c> function predicates — spatial or substring checks.</param>
-public sealed record XPathStep(
-    XPathAxis Axis,
-    string Type,
-    IReadOnlyList<XPathPredicate> Predicates,
-    int? Index = null,
-    IReadOnlyList<string>? FunctionPredicates = null,
-    IReadOnlyList<IReadOnlyList<XPathPredicate>>? OrPredicateGroups = null,
-    IReadOnlyList<ContainsPredicate>? ContainsPredicates = null);
-
-// ── Engine ───────────────────────────────────────────────────────────────────
-
 public sealed class XPathEngine
 {
-    // Extracts individual quoted values from a list like  'v1','v2','v3'
-    private static readonly Regex ListItemRx = new(
-        @"['""](?<item>[^'""]*)['""]",
-        RegexOptions.Compiled | RegexOptions.CultureInvariant);
-
     public IReadOnlyList<AutomationElement> Evaluate(
         AutomationElement root, string xpath)
     {
-        var steps = ParseXPath(xpath);
-        IReadOnlyList<AutomationElement> current = new[] { root };
+        var steps = XPathSyntaxParser.Parse(xpath);
+        IReadOnlyList<AutomationElement> current = [root];
 
         foreach (var step in steps)
             current = ApplyStep(current, step);
@@ -68,7 +21,7 @@ public sealed class XPathEngine
     /// Validates an XPath expression without evaluating it.
     /// Throws <see cref="ArgumentException"/> if the expression is malformed.
     /// </summary>
-    public static void Validate(string xpath) => ParseXPath(xpath);
+    public static void Validate(string xpath) => XPathSyntaxParser.Parse(xpath);
 
     // ── Step evaluation ──────────────────────────────────────────────────────
 
@@ -90,105 +43,106 @@ public sealed class XPathEngine
             return parents;
         }
 
-        var results = new List<AutomationElement>();
+        var candidates = new List<AutomationElement>();
 
         foreach (var root in roots)
         {
-            var candidates = step.Axis is XPathAxis.Descendant or XPathAxis.Frontmost
+            var children = step.Axis is XPathAxis.Descendant or XPathAxis.Frontmost
                 ? root.FindAllDescendants()
                 : root.FindAllChildren();
 
-            foreach (var el in candidates)
+            foreach (var el in children)
             {
-                Func<string, string?> getProp = k => ElementProperties.Resolve(el, k);
-                if (MatchesStep(step, getProp) && MatchesFunctionPredicates(el, step) && MatchesContainsPredicates(el, step, getProp))
-                    results.Add(el);
+                if (MatchesType(step.Type, el))
+                    candidates.Add(el);
             }
         }
 
         if (step.Axis == XPathAxis.Frontmost)
-            results = ElementFilter.Frontmost(results);
+            candidates = ElementFilter.Frontmost(candidates);
 
-        if (step.Index is { } idx)
+        // Apply filters sequentially — each filter narrows the result set
+        IReadOnlyList<AutomationElement> results = candidates;
+        foreach (var filter in step.Filters)
         {
-            if (idx < 1 || idx > results.Count)
-                return [];
-            return [results[idx - 1]];
+            results = filter switch
+            {
+                IndexFilter idx => ApplyIndexFilter(results, idx.Index),
+                ExpressionFilter expr => ApplyExpressionFilter(results, expr, step.Type),
+                _ => results
+            };
         }
 
         return results;
     }
 
-    private static bool MatchesFunctionPredicates(AutomationElement element, XPathStep step)
+    private static bool MatchesType(string type, AutomationElement el)
     {
-        if (step.FunctionPredicates is not { Count: > 0 }) return true;
-
-        Func<string, string?> getProp = k => ElementProperties.Resolve(element, k);
-
-        int position = 1;
-        int lastCount = 1;
-
-        var parent = element.Parent;
-        if (parent is not null)
-        {
-            var siblings = parent.FindAllChildren();
-            position = 0;
-            lastCount = 0;
-            foreach (var sibling in siblings)
-            {
-                if (step.Type == "*" || string.Equals(
-                        sibling.Properties.ControlType.ValueOrDefault.ToString(),
-                        element.Properties.ControlType.ValueOrDefault.ToString(),
-                        StringComparison.InvariantCulture))
-                {
-                    lastCount++;
-                    if (sibling.Equals(element))
-                        position = lastCount;
-                }
-            }
-            if (position == 0) return false;
-        }
-
-        foreach (var expr in step.FunctionPredicates)
-        {
-            if (!XPathExprEvaluator.Evaluate(expr, position, lastCount, getProp))
-                return false;
-        }
-
-        return true;
+        if (type == "*") return true;
+        if (!Enum.TryParse<ControlType>(type, ignoreCase: true, out var ct))
+            return false;
+        string? controlType = ElementProperties.Resolve(el, "controltype");
+        return string.Equals(controlType, ct.ToString(), StringComparison.InvariantCulture);
     }
 
-    private static bool MatchesContainsPredicates(
-        AutomationElement element, XPathStep step, Func<string, string?> getProperty)
+    private static IReadOnlyList<AutomationElement> ApplyIndexFilter(
+        IReadOnlyList<AutomationElement> elements, int index)
     {
-        if (step.ContainsPredicates is not { Count: > 0 }) return true;
+        if (index < 1 || index > elements.Count)
+            return [];
+        return [elements[index - 1]];
+    }
 
-        foreach (var cp in step.ContainsPredicates)
+    private static IReadOnlyList<AutomationElement> ApplyExpressionFilter(
+        IReadOnlyList<AutomationElement> elements, ExpressionFilter filter, string stepType)
+    {
+        var results = new List<AutomationElement>();
+        int last = elements.Count;
+
+        for (int i = 0; i < elements.Count; i++)
         {
-            switch (cp)
-            {
-                case ContainsBoundsPoint bp:
-                    var relRect = GetTopContainerRelativeBounds(element);
-                    if (!relRect.Contains(new System.Drawing.Point((int)bp.X, (int)bp.Y)))
-                        return false;
-                    break;
-                case ContainsSubstring cs:
-                    var haystack = cs.HaystackIsAttr ? getProperty(cs.Haystack.ToLowerInvariant()) ?? "" : cs.Haystack;
-                    var needle = cs.NeedleIsAttr ? getProperty(cs.Needle.ToLowerInvariant()) ?? "" : cs.Needle;
-                    bool matched = cs.Mode switch
-                    {
-                        StringMatchMode.Contains => haystack.Contains(needle, StringComparison.InvariantCultureIgnoreCase),
-                        StringMatchMode.StartsWith => haystack.StartsWith(needle, StringComparison.InvariantCultureIgnoreCase),
-                        StringMatchMode.EndsWith => haystack.EndsWith(needle, StringComparison.InvariantCultureIgnoreCase),
-                        _ => false
-                    };
-                    if (!matched)
-                        return false;
-                    break;
-            }
+            var el = elements[i];
+            int position = i + 1;
+
+            // Compute sibling-aware position/last if expression uses position()/last()
+            var (sibPos, sibLast) = GetSiblingPosition(el, stepType);
+
+            var ctx = new EvalContext(
+                k => ElementProperties.Resolve(el, k),
+                sibPos,
+                sibLast,
+                el);
+
+            var value = XPathFunctions.Evaluate(filter.Expr, ctx);
+            if (value.AsBool())
+                results.Add(el);
         }
 
-        return true;
+        return results;
+    }
+
+    private static (int Position, int Last) GetSiblingPosition(AutomationElement element, string stepType)
+    {
+        var parent = SafeGetParent(element);
+        if (parent is null)
+            return (1, 1);
+
+        var siblings = parent.FindAllChildren();
+        int position = 0;
+        int lastCount = 0;
+        foreach (var sibling in siblings)
+        {
+            if (stepType == "*" || string.Equals(
+                    sibling.Properties.ControlType.ValueOrDefault.ToString(),
+                    element.Properties.ControlType.ValueOrDefault.ToString(),
+                    StringComparison.InvariantCulture))
+            {
+                lastCount++;
+                if (sibling.Equals(element))
+                    position = lastCount;
+            }
+        }
+        return position == 0 ? (1, 1) : (position, lastCount);
     }
 
     internal static bool MatchesStep(XPathStep step, Func<string, string?> getProperty)
@@ -203,603 +157,19 @@ public sealed class XPathEngine
                 return false;
         }
 
-        // AND predicates (all must pass)
-        foreach (var pred in step.Predicates)
+        // Evaluate all expression filters
+        foreach (var filter in step.Filters)
         {
-            if (!MatchesPredicate(pred, getProperty))
-                return false;
-        }
-
-        // OR predicate groups (for each group, at least one must pass)
-        if (step.OrPredicateGroups is { Count: > 0 })
-        {
-            foreach (var group in step.OrPredicateGroups)
+            if (filter is ExpressionFilter ef)
             {
-                if (!group.Any(pred => MatchesPredicate(pred, getProperty)))
+                var ctx = new EvalContext(getProperty, 1, 1, null);
+                var value = XPathFunctions.Evaluate(ef.Expr, ctx);
+                if (!value.AsBool())
                     return false;
             }
         }
 
-        // String-only contains predicates (substring checks that don't need an element)
-        if (step.ContainsPredicates is { Count: > 0 })
-        {
-            foreach (var cp in step.ContainsPredicates)
-            {
-                if (cp is not ContainsSubstring cs) continue;
-                var haystack = cs.HaystackIsAttr ? getProperty(cs.Haystack.ToLowerInvariant()) ?? "" : cs.Haystack;
-                var needle = cs.NeedleIsAttr ? getProperty(cs.Needle.ToLowerInvariant()) ?? "" : cs.Needle;
-                bool matched = cs.Mode switch
-                {
-                    StringMatchMode.Contains => haystack.Contains(needle, StringComparison.InvariantCultureIgnoreCase),
-                    StringMatchMode.StartsWith => haystack.StartsWith(needle, StringComparison.InvariantCultureIgnoreCase),
-                    StringMatchMode.EndsWith => haystack.EndsWith(needle, StringComparison.InvariantCultureIgnoreCase),
-                    _ => false
-                };
-                if (!matched) return false;
-            }
-        }
-
         return true;
-    }
-
-    private static bool MatchesPredicate(XPathPredicate pred, Func<string, string?> getProperty)
-    {
-        string? actual = getProperty(pred.Attribute.ToLowerInvariant());
-
-        if (pred.ConcatArgs is { Count: > 0 })
-        {
-            string concatValue = string.Concat(pred.ConcatArgs.Select(a => a switch
-            {
-                StringConcatArg s => s.Value,
-                AttrConcatArg attr => getProperty(attr.Attribute.ToLowerInvariant()) ?? "",
-                _ => ""
-            }));
-            return string.Equals(actual, concatValue, StringComparison.InvariantCultureIgnoreCase);
-        }
-
-        return pred.Values.Any(v => string.Equals(actual, v, StringComparison.InvariantCultureIgnoreCase));
-    }
-
-    // ── XPath parser ─────────────────────────────────────────────────────────
-
-    internal static List<XPathStep> ParseXPath(string xpath)
-    {
-        if (string.IsNullOrWhiteSpace(xpath))
-            throw new ArgumentException("XPath expression must not be empty.", nameof(xpath));
-
-        var steps = new List<XPathStep>();
-        int pos = 0;
-        int len = xpath.Length;
-
-        while (pos < len)
-        {
-            // ── Axis ─────────────────────────────────────────────────────────
-            bool isDescendant = false;
-            bool isFrontmost = false;
-            int axisStart = pos;
-
-            if (pos < len && xpath[pos] == '/')
-            {
-                pos++;
-                if (pos < len && xpath[pos] == '/')
-                {
-                    isDescendant = true;
-                    pos++;
-                }
-            }
-
-            if (pos >= len)
-            {
-                if (axisStart == 0 && pos == 1)
-                    steps.Add(new XPathStep(XPathAxis.Self, ".", []));
-                break;
-            }
-
-            // ── Named axis (e.g. frontmost::) ───────────────────────────────
-            const string frontmostPrefix = "frontmost::";
-            if (pos + frontmostPrefix.Length <= len
-                && xpath[pos..(pos + frontmostPrefix.Length)].Equals(frontmostPrefix, StringComparison.OrdinalIgnoreCase))
-            {
-                isFrontmost = true;
-                pos += frontmostPrefix.Length;
-            }
-
-            // ── Element type ─────────────────────────────────────────────────
-            int typeStart = pos;
-            while (pos < len && xpath[pos] != '[' && xpath[pos] != '/')
-                pos++;
-
-            string type = xpath[typeStart..pos].Trim();
-
-            if (string.IsNullOrEmpty(type))
-            {
-                if (pos < len && xpath[pos] == '[')
-                    throw new ArgumentException(
-                        $"XPath is missing an element type before predicate at position {typeStart}: '{xpath}'",
-                        nameof(xpath));
-                continue;
-            }
-
-            if (type == ".")
-            {
-                steps.Add(new XPathStep(XPathAxis.Self, ".", []));
-                continue;
-            }
-
-            if (type == "..")
-            {
-                steps.Add(new XPathStep(XPathAxis.Parent, "..", []));
-                continue;
-            }
-
-            // ── Predicates ───────────────────────────────────────────────────
-            var predicates = new List<XPathPredicate>();
-            int? index = null;
-            List<string>? functionPredicates = null;
-            List<IReadOnlyList<XPathPredicate>>? orGroups = null;
-            List<ContainsPredicate>? containsPredicates = null;
-
-            while (pos < len && xpath[pos] == '[')
-            {
-                pos++;
-                int predStart = pos;
-                int depth = 1;
-
-                while (pos < len && depth > 0)
-                {
-                    if (xpath[pos] == '[') depth++;
-                    else if (xpath[pos] == ']') depth--;
-                    pos++;
-                }
-
-                if (depth != 0)
-                    throw new ArgumentException(
-                        $"Unclosed predicate bracket in XPath expression: '{xpath}'",
-                        nameof(xpath));
-
-                string predContent = xpath[predStart..(pos - 1)];
-
-                if (string.IsNullOrWhiteSpace(predContent))
-                    throw new ArgumentException(
-                        $"Empty predicate '[]' in XPath expression: '{xpath}'",
-                        nameof(xpath));
-
-                // Positional index predicate: [3]
-                if (int.TryParse(predContent.Trim(), out int parsedIndex))
-                {
-                    if (parsedIndex < 1)
-                        throw new ArgumentException(
-                            $"Index predicate must be >= 1, got '{predContent}' in XPath expression: '{xpath}'",
-                            nameof(xpath));
-                    index = parsedIndex;
-                    continue;
-                }
-
-                // Try to split on 'and'/'or' for compound predicates
-                var (parts, logicOp) = SplitOnLogicalOperator(predContent);
-
-                if (logicOp is not null && parts.Count > 1)
-                {
-                    // Classify parts
-                    var attrParts = new List<XPathPredicate>();
-                    var funcParts = new List<string>();
-                    var containsParts = new List<ContainsPredicate>();
-
-                    foreach (var rawPart in parts)
-                    {
-                        var part = NormalizeAtFunction(NormalizeTextFunction(rawPart));
-                        if (TryParseStringFunctionPredicate(part.Trim(), xpath, out var sfp))
-                            containsParts.Add(sfp);
-                        else if (XPathExprEvaluator.IsFunctionExpression(part))
-                            funcParts.Add(part);
-                        else if (part.TrimStart().StartsWith('@'))
-                            attrParts.Add(ParseAttributePredicate(part, xpath));
-                        else
-                            throw new ArgumentException(
-                                $"Invalid predicate syntax '{rawPart}' in XPath expression: '{xpath}'",
-                                nameof(xpath));
-                    }
-
-                    if (logicOp == "and")
-                    {
-                        predicates.AddRange(attrParts);
-                        foreach (var fp in funcParts)
-                        {
-                            XPathExprEvaluator.Validate(fp);
-                            functionPredicates ??= [];
-                            functionPredicates.Add(fp.Trim());
-                        }
-                        if (containsParts.Count > 0)
-                        {
-                            containsPredicates ??= [];
-                            containsPredicates.AddRange(containsParts);
-                        }
-                    }
-                    else // "or"
-                    {
-                        if (funcParts.Count > 0 && attrParts.Count > 0)
-                            throw new ArgumentException(
-                                $"Mixed attribute and function predicates with 'or' is not supported: '{predContent}'",
-                                nameof(xpath));
-
-                        if (funcParts.Count > 0)
-                        {
-                            string joined = string.Join(" or ", funcParts);
-                            XPathExprEvaluator.Validate(joined);
-                            functionPredicates ??= [];
-                            functionPredicates.Add(joined);
-                        }
-                        else
-                        {
-                            orGroups ??= [];
-                            orGroups.Add(attrParts);
-                        }
-                    }
-                    continue;
-                }
-
-                // Single predicate (no and/or split)
-                string trimmed = NormalizeAtFunction(NormalizeTextFunction(predContent.Trim()));
-
-                if (XPathExprEvaluator.IsFunctionExpression(trimmed))
-                {
-                    XPathExprEvaluator.Validate(trimmed);
-                    functionPredicates ??= [];
-                    functionPredicates.Add(trimmed);
-                    continue;
-                }
-
-                if (TryParseStringFunctionPredicate(trimmed, xpath, out var stringFuncPred))
-                {
-                    containsPredicates ??= [];
-                    containsPredicates.Add(stringFuncPred);
-                    continue;
-                }
-
-                if (trimmed.StartsWith('@'))
-                {
-                    predicates.Add(ParseAttributePredicate(trimmed, xpath));
-                    continue;
-                }
-
-                throw new ArgumentException(
-                    $"Invalid predicate syntax '{predContent}' in XPath expression: '{xpath}'. " +
-                    "Expected format: @Attribute='value' or @Attribute=('v1','v2') or positional index",
-                    nameof(xpath));
-            }
-
-            steps.Add(new XPathStep(
-                isFrontmost ? XPathAxis.Frontmost
-                    : isDescendant ? XPathAxis.Descendant : XPathAxis.Child,
-                type,
-                predicates,
-                index,
-                functionPredicates,
-                orGroups,
-                containsPredicates));
-        }
-
-        if (steps.Count == 0)
-            throw new ArgumentException(
-                $"XPath expression produced no valid steps: '{xpath}'",
-                nameof(xpath));
-
-        return steps;
-    }
-
-    // ── Attribute predicate parser ───────────────────────────────────────────
-
-    private static XPathPredicate ParseAttributePredicate(string content, string xpath)
-    {
-        content = content.Trim();
-        if (!content.StartsWith('@'))
-            throw new ArgumentException(
-                $"Invalid predicate syntax '{content}' in XPath expression: '{xpath}'. Predicates must start with '@'.",
-                nameof(xpath));
-
-        // Find the '=' operator
-        int i = 1;
-        while (i < content.Length && content[i] != '=')
-            i++;
-
-        if (i >= content.Length)
-            throw new ArgumentException(
-                $"Invalid predicate syntax '{content}' in XPath expression: '{xpath}'.",
-                nameof(xpath));
-
-        string attr = content[1..i].Trim();
-
-        // Reject removed CSS-like operators (^=, *=, $=)
-        if (attr.EndsWith('^') || attr.EndsWith('*') || attr.EndsWith('$'))
-            throw new ArgumentException(
-                $"Operator '{attr[^1]}=' is not supported. Use starts-with(), contains(), or ends-with() functions instead, in XPath expression: '{xpath}'.",
-                nameof(xpath));
-
-        int valStart = i + 1;
-
-        string valueStr = content[valStart..].Trim();
-
-        // concat() function
-        if (valueStr.StartsWith("concat(", StringComparison.Ordinal) && valueStr.EndsWith(')'))
-        {
-            string argsStr = valueStr[7..^1];
-            var concatArgs = ParseConcatArgs(argsStr, xpath);
-            return new XPathPredicate(attr, [], concatArgs);
-        }
-
-        // Multi-value list: ('v1','v2')
-        if (valueStr.StartsWith('(') && valueStr.EndsWith(')'))
-        {
-            var values = ListItemRx.Matches(valueStr)
-                .Select(m => m.Groups["item"].Value)
-                .ToList();
-            return new XPathPredicate(attr, values);
-        }
-
-        // Single quoted value: 'value' or "value"
-        if ((valueStr.StartsWith('\'') && valueStr.EndsWith('\'')) ||
-            (valueStr.StartsWith('"') && valueStr.EndsWith('"')))
-        {
-            return new XPathPredicate(attr, [valueStr[1..^1]]);
-        }
-
-        throw new ArgumentException(
-            $"Invalid value syntax in predicate '{content}' in XPath expression: '{xpath}'.",
-            nameof(xpath));
-    }
-
-    private static readonly (string Prefix, StringMatchMode Mode)[] StringFunctions =
-    [
-        ("contains(", StringMatchMode.Contains),
-        ("starts-with(", StringMatchMode.StartsWith),
-        ("ends-with(", StringMatchMode.EndsWith),
-    ];
-
-    private static bool TryParseStringFunctionPredicate(
-        string content, string xpath, out ContainsPredicate result)
-    {
-        // contains-point(area, point(x, y)) — spatial containment
-        if (content.StartsWith("contains-point(", StringComparison.Ordinal))
-        {
-            result = ParseContainsPointPredicate(content, xpath);
-            return true;
-        }
-
-        // String functions: contains(), starts-with(), ends-with()
-        foreach (var (prefix, mode) in StringFunctions)
-        {
-            if (content.StartsWith(prefix, StringComparison.Ordinal))
-            {
-                result = ParseStringFunctionPredicate(content, prefix.Length, mode, xpath);
-                return true;
-            }
-        }
-        result = default!;
-        return false;
-    }
-
-    private static ContainsPredicate ParseStringFunctionPredicate(
-        string content, int prefixLen, StringMatchMode mode, string xpath)
-    {
-        string funcName = content[..(prefixLen - 1)]; // e.g. "contains"
-        if (!content.EndsWith(')'))
-            throw new ArgumentException(
-                $"Malformed {funcName}() predicate in XPath expression: '{xpath}'", nameof(xpath));
-
-        string inner = content[prefixLen..^1];
-        var args = SplitContainsArgs(inner);
-        if (args.Count != 2)
-            throw new ArgumentException(
-                $"{funcName}() requires exactly 2 arguments in XPath expression: '{xpath}'", nameof(xpath));
-
-        string arg1 = args[0].Trim();
-        string arg2 = args[1].Trim();
-
-        var (haystack, haystackIsAttr) = ParseStringArg(arg1, funcName, xpath);
-        var (needle, needleIsAttr) = ParseStringArg(arg2, funcName, xpath);
-        return new ContainsSubstring(haystack, needle, haystackIsAttr, needleIsAttr, mode);
-    }
-
-    private static ContainsBoundsPoint ParseContainsPointPredicate(string content, string xpath)
-    {
-        const string prefix = "contains-point(";
-        if (!content.EndsWith(')'))
-            throw new ArgumentException(
-                $"Malformed contains-point() predicate in XPath expression: '{xpath}'", nameof(xpath));
-
-        string inner = content[prefix.Length..^1];
-        var args = SplitContainsArgs(inner);
-        if (args.Count != 2)
-            throw new ArgumentException(
-                $"contains-point() requires exactly 2 arguments in XPath expression: '{xpath}'", nameof(xpath));
-
-        string arg1 = args[0].Trim();
-        string arg2 = args[1].Trim();
-
-        if (!string.Equals(arg1, "bounds()", StringComparison.OrdinalIgnoreCase))
-            throw new ArgumentException(
-                $"First argument of contains-point() must be an area function (e.g. bounds()) in XPath expression: '{xpath}'", nameof(xpath));
-
-        if (!arg2.StartsWith("point(", StringComparison.OrdinalIgnoreCase) || !arg2.EndsWith(')'))
-            throw new ArgumentException(
-                $"Second argument of contains-point() must be point(x, y) in XPath expression: '{xpath}'", nameof(xpath));
-
-        string pointArgs = arg2[6..^1];
-        var coords = pointArgs.Split(',', StringSplitOptions.TrimEntries);
-        if (coords.Length != 2
-            || !double.TryParse(coords[0], System.Globalization.CultureInfo.InvariantCulture, out double x)
-            || !double.TryParse(coords[1], System.Globalization.CultureInfo.InvariantCulture, out double y))
-            throw new ArgumentException(
-                $"Invalid point() arguments in XPath expression: '{xpath}'", nameof(xpath));
-
-        return new ContainsBoundsPoint(x, y);
-    }
-
-    private static (string Value, bool IsAttr) ParseStringArg(string arg, string funcName, string xpath)
-    {
-        if (arg.StartsWith('@'))
-            return (arg[1..], true);
-        if (arg.StartsWith("text()", StringComparison.Ordinal))
-            return ("text", true);
-        if ((arg.StartsWith('\'') && arg.EndsWith('\'')) || (arg.StartsWith('"') && arg.EndsWith('"')))
-            return (arg[1..^1], false);
-        throw new ArgumentException(
-            $"Invalid {funcName}() argument '{arg}' in XPath expression: '{xpath}'", nameof(xpath));
-    }
-
-    private static List<string> SplitContainsArgs(string inner)
-    {
-        var args = new List<string>();
-        int depth = 0;
-        int start = 0;
-        for (int i = 0; i < inner.Length; i++)
-        {
-            char c = inner[i];
-            if (c == '(') depth++;
-            else if (c == ')') depth--;
-            else if (c == ',' && depth == 0)
-            {
-                args.Add(inner[start..i]);
-                start = i + 1;
-            }
-        }
-        args.Add(inner[start..]);
-        return args;
-    }
-
-    private static List<ConcatArg> ParseConcatArgs(string argsStr, string xpath)
-    {
-        var args = new List<ConcatArg>();
-        int i = 0;
-        int len = argsStr.Length;
-
-        while (i < len)
-        {
-            while (i < len && (argsStr[i] == ' ' || argsStr[i] == ',')) i++;
-            if (i >= len) break;
-
-            if (argsStr[i] == '\'' || argsStr[i] == '"')
-            {
-                char quote = argsStr[i];
-                i++;
-                int start = i;
-                while (i < len && argsStr[i] != quote) i++;
-                args.Add(new StringConcatArg(argsStr[start..i]));
-                if (i < len) i++; // skip closing quote
-            }
-            else if (argsStr[i] == '@')
-            {
-                i++;
-                int start = i;
-                while (i < len && char.IsLetterOrDigit(argsStr[i])) i++;
-                args.Add(new AttrConcatArg(argsStr[start..i]));
-            }
-            else
-            {
-                throw new ArgumentException(
-                    $"Invalid concat argument at position {i} in XPath expression: '{xpath}'",
-                    nameof(xpath));
-            }
-        }
-
-        return args;
-    }
-
-    /// <summary>
-    /// Rewrites <c>text()</c> at the start of a predicate part to <c>@text</c>
-    /// so the existing attribute-predicate pipeline handles it transparently.
-    /// </summary>
-    private static string NormalizeTextFunction(string part)
-    {
-        var trimmed = part.TrimStart();
-        return trimmed.StartsWith("text()", StringComparison.Ordinal)
-            ? "@text" + trimmed[6..]
-            : part;
-    }
-
-    /// <summary>
-    /// Rewrites <c>at(x, y)</c> to <c>contains(bounds(), point(x, y))</c>.
-    /// </summary>
-    private static string NormalizeAtFunction(string part)
-    {
-        var trimmed = part.TrimStart();
-        if (trimmed.StartsWith("at(", StringComparison.Ordinal) && trimmed.EndsWith(')'))
-            return "contains-point(bounds(), point(" + trimmed[3..^1] + "))";
-        return part;
-    }
-
-    // ── Logical operator splitter ────────────────────────────────────────────
-
-    private static (List<string> parts, string? op) SplitOnLogicalOperator(string content)
-    {
-        var parts = new List<string>();
-        string? foundOp = null;
-        int start = 0;
-        bool inSingleQuote = false, inDoubleQuote = false;
-        int parenDepth = 0;
-
-        for (int i = 0; i < content.Length; i++)
-        {
-            char c = content[i];
-            if (c == '\'' && !inDoubleQuote) inSingleQuote = !inSingleQuote;
-            else if (c == '"' && !inSingleQuote) inDoubleQuote = !inDoubleQuote;
-            else if (c == '(' && !inSingleQuote && !inDoubleQuote) parenDepth++;
-            else if (c == ')' && !inSingleQuote && !inDoubleQuote) parenDepth--;
-
-            if (inSingleQuote || inDoubleQuote || parenDepth > 0) continue;
-
-            if (i + 4 < content.Length && content[i] == ' '
-                && content[i + 1] == 'a' && content[i + 2] == 'n' && content[i + 3] == 'd'
-                && content[i + 4] == ' ')
-            {
-                parts.Add(content[start..i].Trim());
-                foundOp = "and";
-                start = i + 5;
-                i += 4;
-            }
-            else if (i + 3 < content.Length && content[i] == ' '
-                && content[i + 1] == 'o' && content[i + 2] == 'r'
-                && content[i + 3] == ' ')
-            {
-                parts.Add(content[start..i].Trim());
-                foundOp = "or";
-                start = i + 4;
-                i += 3;
-            }
-        }
-
-        parts.Add(content[start..].Trim());
-
-        return parts.Count > 1 ? (parts, foundOp) : (parts, null);
-    }
-
-    private static System.Drawing.Rectangle GetTopContainerRelativeBounds(AutomationElement element)
-    {
-        var rect = element.BoundingRectangle;
-        var origin = GetTopContainerOrigin(element);
-        return new System.Drawing.Rectangle(
-            rect.X - origin.X, rect.Y - origin.Y,
-            rect.Width, rect.Height);
-    }
-
-    private static System.Drawing.Point GetTopContainerOrigin(AutomationElement element)
-    {
-        var current = element;
-        var parent = SafeGetParent(current);
-        while (parent is not null)
-        {
-            var grandparent = SafeGetParent(parent);
-            if (grandparent is null)
-                break;
-            current = parent;
-            parent = grandparent;
-        }
-
-        if (parent is null)
-            return System.Drawing.Point.Empty;
-
-        var r = current.BoundingRectangle;
-        return new System.Drawing.Point(r.X, r.Y);
     }
 
     private static AutomationElement? SafeGetParent(AutomationElement el)

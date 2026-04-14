@@ -163,17 +163,10 @@ public class LocatorChainingTests
     // ── Validation at every level of the chain ───────────────────────────────
 
     [Test]
-    public void Chain_InvalidSelectorAtSecondLevel_Throws()
+    public void Chain_CustomAttributeAtSecondLevel_DoesNotThrow()
     {
         var parent = MakeLocator("type=Window");
-        Assert.Throws<ArgumentException>(() => parent.Locator("[invalid=foo]"));
-    }
-
-    [Test]
-    public void Chain_InvalidSelectorAtThirdLevel_Throws()
-    {
-        var chain = MakeLocator("type=Window").GetByControlType("Panel");
-        Assert.Throws<ArgumentException>(() => chain.Locator("[bad=value]"));
+        Assert.DoesNotThrow(() => parent.Locator("[custom=foo]"));
     }
 
     [Test]

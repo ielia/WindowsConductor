@@ -14,9 +14,9 @@ public class WcLocatorTests
     // ── Constructor validation ───────────────────────────────────────────────
 
     [Test]
-    public void Constructor_InvalidSelector_Throws()
+    public void Constructor_CustomAttribute_DoesNotThrow()
     {
-        Assert.Throws<ArgumentException>(() => MakeLocator("[invalid=foo]"));
+        Assert.DoesNotThrow(() => MakeLocator("[custom=foo]"));
     }
 
     [Test]

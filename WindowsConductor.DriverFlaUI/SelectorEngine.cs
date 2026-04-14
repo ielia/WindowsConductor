@@ -140,7 +140,6 @@ public sealed class SelectorEngine
                     $"Bracket selector must have the format [key=value]: '{part}'", nameof(part));
 
             var key = inner[..eq].Trim();
-            ValidateKey(key, part);
             return (ElementProperties.Normalize(key), inner[(eq + 1)..].Trim());
         }
 
@@ -154,20 +153,11 @@ public sealed class SelectorEngine
         if (sep > 0)
         {
             var key2 = part[..sep].Trim();
-            ValidateKey(key2, part);
             return (ElementProperties.Normalize(key2), part[(sep + 1)..].Trim());
         }
 
         // bare value → treat as name
         return ("name", part);
-    }
-
-    private static void ValidateKey(string key, string context)
-    {
-        if (!ElementProperties.IsSupported(key))
-            throw new ArgumentException(
-                $"Unknown selector attribute '{key}' in '{context}'.",
-                nameof(context));
     }
 
     private static AutomationElement[] Filter(

@@ -151,10 +151,15 @@ public class XPathMatchingTests
 
     private static XPathStep MakeStep(string type, params (string attr, string[] values)[] preds)
     {
-        var predicates = preds
-            .Select(p => new XPathPredicate(p.attr, p.values))
-            .ToList();
-        return new XPathStep(XPathAxis.Descendant, type, predicates);
+        var filters = preds.Select(p =>
+        {
+            XPathExpr valueExpr = p.values.Length == 1
+                ? new LiteralStringExpr(p.values[0])
+                : (XPathExpr)new SequenceExpr(p.values.Select(v => (XPathExpr)new LiteralStringExpr(v)).ToList());
+            return (XPathFilter)new ExpressionFilter(new BinaryExpr(
+                new AttrRefExpr(p.attr), XPathBinaryOp.Eq, valueExpr));
+        }).ToList();
+        return new XPathStep(XPathAxis.Descendant, type, filters);
     }
 
     // ── Type matching ─────────────────────────────────────────────────────────
@@ -321,7 +326,7 @@ public class XPathMatchingTests
     [Test]
     public void MatchesStep_StartsWith_Matches()
     {
-        var steps = XPathEngine.ParseXPath("//*[starts-with(@Name, 'Calc')]");
+        var steps = XPathSyntaxParser.Parse("//*[starts-with(@Name, 'Calc')]");
         Assert.That(XPathEngine.MatchesStep(steps[0],
             Props(name: "Calculator", controlType: "Window")), Is.True);
     }
@@ -329,7 +334,7 @@ public class XPathMatchingTests
     [Test]
     public void MatchesStep_StartsWith_Mismatch()
     {
-        var steps = XPathEngine.ParseXPath("//*[starts-with(@Name, 'Foo')]");
+        var steps = XPathSyntaxParser.Parse("//*[starts-with(@Name, 'Foo')]");
         Assert.That(XPathEngine.MatchesStep(steps[0],
             Props(name: "Calculator", controlType: "Window")), Is.False);
     }
@@ -337,7 +342,7 @@ public class XPathMatchingTests
     [Test]
     public void MatchesStep_Contains_Matches()
     {
-        var steps = XPathEngine.ParseXPath("//*[contains(@Name, 'culat')]");
+        var steps = XPathSyntaxParser.Parse("//*[contains(@Name, 'culat')]");
         Assert.That(XPathEngine.MatchesStep(steps[0],
             Props(name: "Calculator", controlType: "Window")), Is.True);
     }
@@ -345,7 +350,7 @@ public class XPathMatchingTests
     [Test]
     public void MatchesStep_Contains_Mismatch()
     {
-        var steps = XPathEngine.ParseXPath("//*[contains(@Name, 'xyz')]");
+        var steps = XPathSyntaxParser.Parse("//*[contains(@Name, 'xyz')]");
         Assert.That(XPathEngine.MatchesStep(steps[0],
             Props(name: "Calculator", controlType: "Window")), Is.False);
     }
@@ -353,7 +358,7 @@ public class XPathMatchingTests
     [Test]
     public void MatchesStep_EndsWith_Matches()
     {
-        var steps = XPathEngine.ParseXPath("//*[ends-with(@Name, 'ator')]");
+        var steps = XPathSyntaxParser.Parse("//*[ends-with(@Name, 'ator')]");
         Assert.That(XPathEngine.MatchesStep(steps[0],
             Props(name: "Calculator", controlType: "Window")), Is.True);
     }
@@ -361,7 +366,7 @@ public class XPathMatchingTests
     [Test]
     public void MatchesStep_EndsWith_Mismatch()
     {
-        var steps = XPathEngine.ParseXPath("//*[ends-with(@Name, 'xyz')]");
+        var steps = XPathSyntaxParser.Parse("//*[ends-with(@Name, 'xyz')]");
         Assert.That(XPathEngine.MatchesStep(steps[0],
             Props(name: "Calculator", controlType: "Window")), Is.False);
     }
@@ -369,7 +374,7 @@ public class XPathMatchingTests
     [Test]
     public void MatchesStep_StartsWith_CaseInsensitive()
     {
-        var steps = XPathEngine.ParseXPath("//*[starts-with(@Name, 'calc')]");
+        var steps = XPathSyntaxParser.Parse("//*[starts-with(@Name, 'calc')]");
         Assert.That(XPathEngine.MatchesStep(steps[0],
             Props(name: "Calculator", controlType: "Window")), Is.True);
     }
@@ -379,11 +384,12 @@ public class XPathMatchingTests
     [Test]
     public void MatchesStep_OrGroup_FirstMatches()
     {
-        var step = new XPathStep(XPathAxis.Descendant, "*", [],
-            OrPredicateGroups: [[
-                new XPathPredicate("Name", ["OK"]),
-                new XPathPredicate("Name", ["Cancel"])
-            ]]);
+        var step = new XPathStep(XPathAxis.Descendant, "*", [
+            new ExpressionFilter(new BinaryExpr(
+                new BinaryExpr(new AttrRefExpr("Name"), XPathBinaryOp.Eq, new LiteralStringExpr("OK")),
+                XPathBinaryOp.Or,
+                new BinaryExpr(new AttrRefExpr("Name"), XPathBinaryOp.Eq, new LiteralStringExpr("Cancel"))))
+        ]);
         Assert.That(XPathEngine.MatchesStep(step,
             Props(name: "OK", controlType: "Button")), Is.True);
     }
@@ -391,11 +397,12 @@ public class XPathMatchingTests
     [Test]
     public void MatchesStep_OrGroup_SecondMatches()
     {
-        var step = new XPathStep(XPathAxis.Descendant, "*", [],
-            OrPredicateGroups: [[
-                new XPathPredicate("Name", ["OK"]),
-                new XPathPredicate("Name", ["Cancel"])
-            ]]);
+        var step = new XPathStep(XPathAxis.Descendant, "*", [
+            new ExpressionFilter(new BinaryExpr(
+                new BinaryExpr(new AttrRefExpr("Name"), XPathBinaryOp.Eq, new LiteralStringExpr("OK")),
+                XPathBinaryOp.Or,
+                new BinaryExpr(new AttrRefExpr("Name"), XPathBinaryOp.Eq, new LiteralStringExpr("Cancel"))))
+        ]);
         Assert.That(XPathEngine.MatchesStep(step,
             Props(name: "Cancel", controlType: "Button")), Is.True);
     }
@@ -403,11 +410,12 @@ public class XPathMatchingTests
     [Test]
     public void MatchesStep_OrGroup_NoneMatches()
     {
-        var step = new XPathStep(XPathAxis.Descendant, "*", [],
-            OrPredicateGroups: [[
-                new XPathPredicate("Name", ["OK"]),
-                new XPathPredicate("Name", ["Cancel"])
-            ]]);
+        var step = new XPathStep(XPathAxis.Descendant, "*", [
+            new ExpressionFilter(new BinaryExpr(
+                new BinaryExpr(new AttrRefExpr("Name"), XPathBinaryOp.Eq, new LiteralStringExpr("OK")),
+                XPathBinaryOp.Or,
+                new BinaryExpr(new AttrRefExpr("Name"), XPathBinaryOp.Eq, new LiteralStringExpr("Cancel"))))
+        ]);
         Assert.That(XPathEngine.MatchesStep(step,
             Props(name: "Apply", controlType: "Button")), Is.False);
     }
@@ -415,11 +423,12 @@ public class XPathMatchingTests
     [Test]
     public void MatchesStep_OrGroup_DifferentAttributes()
     {
-        var step = new XPathStep(XPathAxis.Descendant, "*", [],
-            OrPredicateGroups: [[
-                new XPathPredicate("Name", ["OK"]),
-                new XPathPredicate("AutomationId", ["btnApply"])
-            ]]);
+        var step = new XPathStep(XPathAxis.Descendant, "*", [
+            new ExpressionFilter(new BinaryExpr(
+                new BinaryExpr(new AttrRefExpr("Name"), XPathBinaryOp.Eq, new LiteralStringExpr("OK")),
+                XPathBinaryOp.Or,
+                new BinaryExpr(new AttrRefExpr("AutomationId"), XPathBinaryOp.Eq, new LiteralStringExpr("btnApply"))))
+        ]);
         Assert.That(XPathEngine.MatchesStep(step,
             Props(automationId: "btnApply", name: "Apply", controlType: "Button")), Is.True);
     }
@@ -429,11 +438,11 @@ public class XPathMatchingTests
     [Test]
     public void MatchesStep_Concat_StringArgs_Matches()
     {
-        var step = new XPathStep(XPathAxis.Descendant, "*",
-            [new XPathPredicate("Name", [], ConcatArgs: [
-                new StringConcatArg("Calc"),
-                new StringConcatArg("ulator")
-            ])]);
+        var step = new XPathStep(XPathAxis.Descendant, "*", [
+            new ExpressionFilter(new BinaryExpr(
+                new AttrRefExpr("Name"), XPathBinaryOp.Eq,
+                new FunctionCallExpr("concat", [new LiteralStringExpr("Calc"), new LiteralStringExpr("ulator")])))
+        ]);
         Assert.That(XPathEngine.MatchesStep(step,
             Props(name: "Calculator", controlType: "Window")), Is.True);
     }
@@ -441,11 +450,11 @@ public class XPathMatchingTests
     [Test]
     public void MatchesStep_Concat_StringArgs_Mismatch()
     {
-        var step = new XPathStep(XPathAxis.Descendant, "*",
-            [new XPathPredicate("Name", [], ConcatArgs: [
-                new StringConcatArg("foo"),
-                new StringConcatArg("bar")
-            ])]);
+        var step = new XPathStep(XPathAxis.Descendant, "*", [
+            new ExpressionFilter(new BinaryExpr(
+                new AttrRefExpr("Name"), XPathBinaryOp.Eq,
+                new FunctionCallExpr("concat", [new LiteralStringExpr("foo"), new LiteralStringExpr("bar")])))
+        ]);
         Assert.That(XPathEngine.MatchesStep(step,
             Props(name: "Calculator", controlType: "Window")), Is.False);
     }
@@ -453,11 +462,11 @@ public class XPathMatchingTests
     [Test]
     public void MatchesStep_Concat_AttrRef_Matches()
     {
-        var step = new XPathStep(XPathAxis.Descendant, "*",
-            [new XPathPredicate("Name", [], ConcatArgs: [
-                new StringConcatArg("btn-"),
-                new AttrConcatArg("AutomationId")
-            ])]);
+        var step = new XPathStep(XPathAxis.Descendant, "*", [
+            new ExpressionFilter(new BinaryExpr(
+                new AttrRefExpr("Name"), XPathBinaryOp.Eq,
+                new FunctionCallExpr("concat", [new LiteralStringExpr("btn-"), new AttrRefExpr("AutomationId")])))
+        ]);
         Assert.That(XPathEngine.MatchesStep(step,
             Props(automationId: "OK", name: "btn-OK", controlType: "Button")), Is.True);
     }
@@ -467,7 +476,7 @@ public class XPathMatchingTests
     [Test]
     public void MatchesStep_TextFunction_ExactMatch()
     {
-        var steps = XPathEngine.ParseXPath("//Window[text()='Calculator']");
+        var steps = XPathSyntaxParser.Parse("//Window[text()='Calculator']");
         Assert.That(XPathEngine.MatchesStep(steps[0],
             Props(text: "Calculator", controlType: "Window")), Is.True);
     }
@@ -475,7 +484,7 @@ public class XPathMatchingTests
     [Test]
     public void MatchesStep_TextFunction_EndsWith_Matches()
     {
-        var steps = XPathEngine.ParseXPath("//Window[ends-with(text(), '- Microsoft Edge')]");
+        var steps = XPathSyntaxParser.Parse("//Window[ends-with(text(), '- Microsoft Edge')]");
         Assert.That(XPathEngine.MatchesStep(steps[0],
             Props(text: "Google - Microsoft Edge", controlType: "Window")), Is.True);
     }
@@ -483,9 +492,43 @@ public class XPathMatchingTests
     [Test]
     public void MatchesStep_TextFunction_EndsWith_Mismatch()
     {
-        var steps = XPathEngine.ParseXPath("//Window[ends-with(text(), '- Microsoft Edge')]");
+        var steps = XPathSyntaxParser.Parse("//Window[ends-with(text(), '- Microsoft Edge')]");
         Assert.That(XPathEngine.MatchesStep(steps[0],
             Props(name: "Calculator", controlType: "Window")), Is.False);
+    }
+
+    // ── Previously-failing expressions: matching ─────────────────────────────
+
+    [Test]
+    public void MatchesStep_ContainsWithTwoLiterals_Matches()
+    {
+        var steps = XPathSyntaxParser.Parse("//button[contains('Memory', 'Memory')]");
+        Assert.That(XPathEngine.MatchesStep(steps[0],
+            Props(controlType: "Button")), Is.True);
+    }
+
+    [Test]
+    public void MatchesStep_ContainsWithConcatHaystack_Matches()
+    {
+        var steps = XPathSyntaxParser.Parse("//button[contains(concat('Mem ', @name), 'Mem')]");
+        Assert.That(XPathEngine.MatchesStep(steps[0],
+            Props(name: "Store", controlType: "Button")), Is.True);
+    }
+
+    [Test]
+    public void MatchesStep_ReversedEquality_Matches()
+    {
+        var steps = XPathSyntaxParser.Parse("//button['num3Button'=@automationid]");
+        Assert.That(XPathEngine.MatchesStep(steps[0],
+            Props(automationId: "num3Button", controlType: "Button")), Is.True);
+    }
+
+    [Test]
+    public void MatchesStep_ReversedEquality_Mismatch()
+    {
+        var steps = XPathSyntaxParser.Parse("//button['num3Button'=@automationid]");
+        Assert.That(XPathEngine.MatchesStep(steps[0],
+            Props(automationId: "otherButton", controlType: "Button")), Is.False);
     }
 }
 
@@ -538,7 +581,7 @@ public class ElementPropertiesTests
     [TestCase("nativewindowhandle")]
     [TestCase("orientation")]
     [TestCase("boundingrectangle")]
-    [TestCase("ariaproperties")]   // auto-discovered via reflection
+    [TestCase("ariaproperties")]
     [TestCase("ariarole")]
     [TestCase("headinglevel")]
     [TestCase("culture")]
@@ -547,9 +590,9 @@ public class ElementPropertiesTests
     public void IsSupported_KnownKey_ReturnsTrue(string key) =>
         Assert.That(ElementProperties.IsSupported(key), Is.True);
 
-    [TestCase("text")]   // alias for name
-    [TestCase("class")]  // alias for classname
-    [TestCase("type")]   // alias for controltype
+    [TestCase("text")]
+    [TestCase("class")]
+    [TestCase("type")]
     [TestCase("TEXT")]
     [TestCase("Class")]
     [TestCase("Type")]

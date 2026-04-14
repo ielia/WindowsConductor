@@ -44,7 +44,7 @@ public class XPathEngineValidationTests
     public void ParseXPath_BareSlash_ParsesAsSelfStep()
     {
         Assert.DoesNotThrow(() => XPathEngine.Validate("/"));
-        var steps = XPathEngine.ParseXPath("/");
+        var steps = XPathSyntaxParser.Parse("/");
         Assert.That(steps, Has.Count.EqualTo(1));
         Assert.That(steps[0].Axis, Is.EqualTo(XPathAxis.Self));
     }
@@ -78,8 +78,6 @@ public class XPathEngineValidationTests
             () => XPathEngine.Validate("//Button[@Name='foo'"));
         Assert.That(ex!.Message, Does.Contain("Unclosed predicate bracket"));
     }
-
-    // ── Valid expressions should NOT throw ───────────────────────────────────
 
     // ── Index predicate: zero or negative ────────────────────────────────────
 
@@ -121,7 +119,7 @@ public class XPathEngineValidationTests
     [TestCase("//Button[position()-1 = 3]")]
     [TestCase("//Button[position() = last() - 1]")]
     [TestCase("//Button[position() != last()]")]
-    [TestCase("//Button[last() / 2 = position()]")]
+    [TestCase("//Button[last() div 2 = position()]")]
     [TestCase("//Button[position() >= 2]")]
     public void ParseXPath_ValidExpression_DoesNotThrow(string xpath)
     {
@@ -133,27 +131,28 @@ public class XPathEngineValidationTests
     [Test]
     public void ParseXPath_SimpleDescendant_ReturnsOneStep()
     {
-        var steps = XPathEngine.ParseXPath("//Button");
+        var steps = XPathSyntaxParser.Parse("//Button");
         Assert.That(steps, Has.Count.EqualTo(1));
         Assert.That(steps[0].Axis, Is.EqualTo(XPathAxis.Descendant));
         Assert.That(steps[0].Type, Is.EqualTo("Button"));
-        Assert.That(steps[0].Predicates, Is.Empty);
+        Assert.That(steps[0].Filters, Is.Empty);
     }
 
     [Test]
     public void ParseXPath_WithPredicate_ParsesCorrectly()
     {
-        var steps = XPathEngine.ParseXPath("//Button[@AutomationId='num7']");
+        var steps = XPathSyntaxParser.Parse("//Button[@AutomationId='num7']");
         Assert.That(steps, Has.Count.EqualTo(1));
-        Assert.That(steps[0].Predicates, Has.Count.EqualTo(1));
-        Assert.That(steps[0].Predicates[0].Attribute, Is.EqualTo("AutomationId"));
-        Assert.That(steps[0].Predicates[0].Values, Is.EqualTo(new[] { "num7" }));
+        Assert.That(steps[0].Filters, Has.Count.EqualTo(1));
+        var (attr, value) = GetAttrEqLiteral(steps[0].Filters[0]);
+        Assert.That(attr, Is.EqualTo("AutomationId"));
+        Assert.That(value, Is.EqualTo("num7"));
     }
 
     [Test]
     public void ParseXPath_MultiStep_ParsesAll()
     {
-        var steps = XPathEngine.ParseXPath("//Window[@Name='Calc']//Button[@Name='7']");
+        var steps = XPathSyntaxParser.Parse("//Window[@Name='Calc']//Button[@Name='7']");
         Assert.That(steps, Has.Count.EqualTo(2));
         Assert.That(steps[0].Type, Is.EqualTo("Window"));
         Assert.That(steps[1].Type, Is.EqualTo("Button"));
@@ -162,7 +161,7 @@ public class XPathEngineValidationTests
     [Test]
     public void ParseXPath_Wildcard_ParsesCorrectly()
     {
-        var steps = XPathEngine.ParseXPath("//*[@Name='Cancel']");
+        var steps = XPathSyntaxParser.Parse("//*[@Name='Cancel']");
         Assert.That(steps, Has.Count.EqualTo(1));
         Assert.That(steps[0].Type, Is.EqualTo("*"));
     }
@@ -170,7 +169,7 @@ public class XPathEngineValidationTests
     [Test]
     public void ParseXPath_ChildAxis_ParsesCorrectly()
     {
-        var steps = XPathEngine.ParseXPath("/Window/Button");
+        var steps = XPathSyntaxParser.Parse("/Window/Button");
         Assert.That(steps, Has.Count.EqualTo(2));
         Assert.That(steps[0].Axis, Is.EqualTo(XPathAxis.Child));
         Assert.That(steps[1].Axis, Is.EqualTo(XPathAxis.Child));
@@ -179,9 +178,10 @@ public class XPathEngineValidationTests
     [Test]
     public void ParseXPath_MultiValuePredicate_ParsesAll()
     {
-        var steps = XPathEngine.ParseXPath("//Button[@AutomationId=('a','b','c')]");
+        var steps = XPathSyntaxParser.Parse("//Button[@AutomationId=('a','b','c')]");
         Assert.That(steps, Has.Count.EqualTo(1));
-        Assert.That(steps[0].Predicates[0].Values, Is.EqualTo(new[] { "a", "b", "c" }));
+        var values = GetSequenceValues(steps[0].Filters[0]);
+        Assert.That(values, Is.EqualTo(new[] { "a", "b", "c" }));
     }
 
     // ── Index predicate parsing ──────────────────────────────────────────────
@@ -189,37 +189,42 @@ public class XPathEngineValidationTests
     [Test]
     public void ParseXPath_IndexPredicate_ParsesCorrectly()
     {
-        var steps = XPathEngine.ParseXPath("//Button[3]");
+        var steps = XPathSyntaxParser.Parse("//Button[3]");
         Assert.That(steps, Has.Count.EqualTo(1));
         Assert.That(steps[0].Type, Is.EqualTo("Button"));
-        Assert.That(steps[0].Index, Is.EqualTo(3));
-        Assert.That(steps[0].Predicates, Is.Empty);
+        Assert.That(steps[0].Filters, Has.Count.EqualTo(1));
+        Assert.That(steps[0].Filters[0], Is.InstanceOf<IndexFilter>());
+        Assert.That(((IndexFilter)steps[0].Filters[0]).Index, Is.EqualTo(3));
     }
 
     [Test]
     public void ParseXPath_IndexWithAttributePredicate_ParsesBoth()
     {
-        var steps = XPathEngine.ParseXPath("//Button[@Name='OK'][2]");
+        var steps = XPathSyntaxParser.Parse("//Button[@Name='OK'][2]");
         Assert.That(steps, Has.Count.EqualTo(1));
-        Assert.That(steps[0].Predicates, Has.Count.EqualTo(1));
-        Assert.That(steps[0].Predicates[0].Attribute, Is.EqualTo("Name"));
-        Assert.That(steps[0].Index, Is.EqualTo(2));
+        Assert.That(steps[0].Filters, Has.Count.EqualTo(2));
+        Assert.That(steps[0].Filters[0], Is.InstanceOf<ExpressionFilter>());
+        var (attr, _) = GetAttrEqLiteral(steps[0].Filters[0]);
+        Assert.That(attr, Is.EqualTo("Name"));
+        Assert.That(steps[0].Filters[1], Is.InstanceOf<IndexFilter>());
+        Assert.That(((IndexFilter)steps[0].Filters[1]).Index, Is.EqualTo(2));
     }
 
     [Test]
     public void ParseXPath_IndexInMultiStep_ParsesCorrectly()
     {
-        var steps = XPathEngine.ParseXPath("//Window[@Name='Calc']//Button[1]");
+        var steps = XPathSyntaxParser.Parse("//Window[@Name='Calc']//Button[1]");
         Assert.That(steps, Has.Count.EqualTo(2));
-        Assert.That(steps[0].Index, Is.Null);
-        Assert.That(steps[1].Index, Is.EqualTo(1));
+        Assert.That(steps[0].Filters[0], Is.InstanceOf<ExpressionFilter>());
+        Assert.That(steps[1].Filters[0], Is.InstanceOf<IndexFilter>());
+        Assert.That(((IndexFilter)steps[1].Filters[0]).Index, Is.EqualTo(1));
     }
 
     [Test]
-    public void ParseXPath_NoIndex_IndexIsNull()
+    public void ParseXPath_NoIndex_NoIndexFilter()
     {
-        var steps = XPathEngine.ParseXPath("//Button[@Name='OK']");
-        Assert.That(steps[0].Index, Is.Null);
+        var steps = XPathSyntaxParser.Parse("//Button[@Name='OK']");
+        Assert.That(steps[0].Filters.All(f => f is ExpressionFilter), Is.True);
     }
 
     // ── Parent axis (..) parsing ─────────────────────────────────────────────
@@ -227,13 +232,13 @@ public class XPathEngineValidationTests
     [Test]
     public void ParseXPath_ParentAxis_ParsesCorrectly()
     {
-        var steps = XPathEngine.ParseXPath("//Button/..");
+        var steps = XPathSyntaxParser.Parse("//Button/..");
         Assert.That(steps, Has.Count.EqualTo(2));
         Assert.That(steps[0].Type, Is.EqualTo("Button"));
         Assert.That(steps[0].Axis, Is.EqualTo(XPathAxis.Descendant));
         Assert.That(steps[1].Type, Is.EqualTo(".."));
         Assert.That(steps[1].Axis, Is.EqualTo(XPathAxis.Parent));
-        Assert.That(steps[1].Predicates, Is.Empty);
+        Assert.That(steps[1].Filters, Is.Empty);
     }
 
     // ── Self axis (.) parsing ───────────────────────────────────────────────
@@ -241,7 +246,7 @@ public class XPathEngineValidationTests
     [Test]
     public void ParseXPath_SelfChildAxis_ParsesSelfThenChild()
     {
-        var steps = XPathEngine.ParseXPath("./Button");
+        var steps = XPathSyntaxParser.Parse("./Button");
         Assert.That(steps, Has.Count.EqualTo(2));
         Assert.That(steps[0].Axis, Is.EqualTo(XPathAxis.Self));
         Assert.That(steps[0].Type, Is.EqualTo("."));
@@ -252,7 +257,7 @@ public class XPathEngineValidationTests
     [Test]
     public void ParseXPath_SelfDescendantAxis_ParsesSelfThenDescendant()
     {
-        var steps = XPathEngine.ParseXPath(".//Button");
+        var steps = XPathSyntaxParser.Parse(".//Button");
         Assert.That(steps, Has.Count.EqualTo(2));
         Assert.That(steps[0].Axis, Is.EqualTo(XPathAxis.Self));
         Assert.That(steps[0].Type, Is.EqualTo("."));
@@ -263,18 +268,19 @@ public class XPathEngineValidationTests
     [Test]
     public void ParseXPath_SelfWithPredicates_ParsesCorrectly()
     {
-        var steps = XPathEngine.ParseXPath(".//Button[@Name='OK']");
+        var steps = XPathSyntaxParser.Parse(".//Button[@Name='OK']");
         Assert.That(steps, Has.Count.EqualTo(2));
         Assert.That(steps[0].Axis, Is.EqualTo(XPathAxis.Self));
-        Assert.That(steps[1].Predicates, Has.Count.EqualTo(1));
-        Assert.That(steps[1].Predicates[0].Attribute, Is.EqualTo("Name"));
-        Assert.That(steps[1].Predicates[0].Values, Is.EqualTo(new[] { "OK" }));
+        Assert.That(steps[1].Filters, Has.Count.EqualTo(1));
+        var (attr, value) = GetAttrEqLiteral(steps[1].Filters[0]);
+        Assert.That(attr, Is.EqualTo("Name"));
+        Assert.That(value, Is.EqualTo("OK"));
     }
 
     [Test]
     public void ParseXPath_SelfMultiStep_ParsesAll()
     {
-        var steps = XPathEngine.ParseXPath("./Panel/Button");
+        var steps = XPathSyntaxParser.Parse("./Panel/Button");
         Assert.That(steps, Has.Count.EqualTo(3));
         Assert.That(steps[0].Axis, Is.EqualTo(XPathAxis.Self));
         Assert.That(steps[1].Axis, Is.EqualTo(XPathAxis.Child));
@@ -286,8 +292,7 @@ public class XPathEngineValidationTests
     [Test]
     public void ParseXPath_SelfInMiddleOfPath_ParsesCorrectly()
     {
-        // //Button[..] / . / .. / . / Button[..]
-        var steps = XPathEngine.ParseXPath("//Button[@AutomationId='num3Button']/./.././Button[@AutomationId='num3Button']");
+        var steps = XPathSyntaxParser.Parse("//Button[@AutomationId='num3Button']/./.././Button[@AutomationId='num3Button']");
         Assert.That(steps, Has.Count.EqualTo(5));
         Assert.That(steps[0].Axis, Is.EqualTo(XPathAxis.Descendant));
         Assert.That(steps[0].Type, Is.EqualTo("Button"));
@@ -301,16 +306,16 @@ public class XPathEngineValidationTests
     [Test]
     public void ParseXPath_ParentAfterPredicate_ParsesCorrectly()
     {
-        var steps = XPathEngine.ParseXPath("//Button[@Name='OK']/..");
+        var steps = XPathSyntaxParser.Parse("//Button[@Name='OK']/..");
         Assert.That(steps, Has.Count.EqualTo(2));
-        Assert.That(steps[0].Predicates, Has.Count.EqualTo(1));
+        Assert.That(steps[0].Filters, Has.Count.EqualTo(1));
         Assert.That(steps[1].Axis, Is.EqualTo(XPathAxis.Parent));
     }
 
     [Test]
     public void ParseXPath_ParentInMiddleOfChain_ParsesCorrectly()
     {
-        var steps = XPathEngine.ParseXPath("//Panel/Button/../Edit");
+        var steps = XPathSyntaxParser.Parse("//Panel/Button/../Edit");
         Assert.That(steps, Has.Count.EqualTo(4));
         Assert.That(steps[0].Type, Is.EqualTo("Panel"));
         Assert.That(steps[1].Type, Is.EqualTo("Button"));
@@ -322,7 +327,7 @@ public class XPathEngineValidationTests
     [Test]
     public void ParseXPath_ParentAtStart_ParsesCorrectly()
     {
-        var steps = XPathEngine.ParseXPath("../Button");
+        var steps = XPathSyntaxParser.Parse("../Button");
         Assert.That(steps, Has.Count.EqualTo(2));
         Assert.That(steps[0].Axis, Is.EqualTo(XPathAxis.Parent));
         Assert.That(steps[0].Type, Is.EqualTo(".."));
@@ -333,7 +338,7 @@ public class XPathEngineValidationTests
     [Test]
     public void ParseXPath_DoubleParentAtStart_ParsesCorrectly()
     {
-        var steps = XPathEngine.ParseXPath("../../Button");
+        var steps = XPathSyntaxParser.Parse("../../Button");
         Assert.That(steps, Has.Count.EqualTo(3));
         Assert.That(steps[0].Axis, Is.EqualTo(XPathAxis.Parent));
         Assert.That(steps[1].Axis, Is.EqualTo(XPathAxis.Parent));
@@ -344,62 +349,56 @@ public class XPathEngineValidationTests
     // ── Function predicates: position() and last() ─────────────────────────
 
     [Test]
-    public void ParseXPath_PositionPredicate_ParsesCorrectly()
+    public void ParseXPath_PositionPredicate_ParsesAsExpressionFilter()
     {
-        var steps = XPathEngine.ParseXPath("//Button[position()=5]");
+        var steps = XPathSyntaxParser.Parse("//Button[position()=5]");
         Assert.That(steps, Has.Count.EqualTo(1));
         Assert.That(steps[0].Type, Is.EqualTo("Button"));
-        Assert.That(steps[0].FunctionPredicates, Has.Count.EqualTo(1));
-        Assert.That(steps[0].FunctionPredicates![0], Is.EqualTo("position()=5"));
-        Assert.That(steps[0].Index, Is.Null);
-        Assert.That(steps[0].Predicates, Is.Empty);
-    }
-
-    [Test]
-    public void ParseXPath_PositionWithWhitespace_ParsesCorrectly()
-    {
-        var steps = XPathEngine.ParseXPath("//Button[ position() = 3 ]");
-        Assert.That(steps[0].FunctionPredicates, Has.Count.EqualTo(1));
-        Assert.That(steps[0].FunctionPredicates![0], Is.EqualTo("position() = 3"));
+        Assert.That(steps[0].Filters, Has.Count.EqualTo(1));
+        Assert.That(steps[0].Filters[0], Is.InstanceOf<ExpressionFilter>());
     }
 
     [Test]
     public void ParseXPath_PositionWithAttributePredicate_ParsesBoth()
     {
-        var steps = XPathEngine.ParseXPath("//Button[@Name='OK'][position()=2]");
-        Assert.That(steps[0].Predicates, Has.Count.EqualTo(1));
-        Assert.That(steps[0].Predicates[0].Attribute, Is.EqualTo("Name"));
-        Assert.That(steps[0].FunctionPredicates, Has.Count.EqualTo(1));
+        var steps = XPathSyntaxParser.Parse("//Button[@Name='OK'][position()=2]");
+        Assert.That(steps[0].Filters, Has.Count.EqualTo(2));
+        Assert.That(steps[0].Filters[0], Is.InstanceOf<ExpressionFilter>());
+        Assert.That(steps[0].Filters[1], Is.InstanceOf<ExpressionFilter>());
     }
 
     [Test]
     public void ParseXPath_PositionAndIndex_ParsesBoth()
     {
-        var steps = XPathEngine.ParseXPath("//Button[position()=2][3]");
-        Assert.That(steps[0].FunctionPredicates, Has.Count.EqualTo(1));
-        Assert.That(steps[0].Index, Is.EqualTo(3));
+        var steps = XPathSyntaxParser.Parse("//Button[position()=2][3]");
+        Assert.That(steps[0].Filters, Has.Count.EqualTo(2));
+        Assert.That(steps[0].Filters[0], Is.InstanceOf<ExpressionFilter>());
+        Assert.That(steps[0].Filters[1], Is.InstanceOf<IndexFilter>());
+        Assert.That(((IndexFilter)steps[0].Filters[1]).Index, Is.EqualTo(3));
     }
 
     [Test]
-    public void ParseXPath_ArithmeticExpression_ParsesCorrectly()
+    public void ParseXPath_ArithmeticExpression_ParsesAsExpressionFilter()
     {
-        var steps = XPathEngine.ParseXPath("//Button[position()-1=3]");
-        Assert.That(steps[0].FunctionPredicates, Has.Count.EqualTo(1));
-        Assert.That(steps[0].FunctionPredicates![0], Is.EqualTo("position()-1=3"));
+        var steps = XPathSyntaxParser.Parse("//Button[position()-1=3]");
+        Assert.That(steps[0].Filters, Has.Count.EqualTo(1));
+        Assert.That(steps[0].Filters[0], Is.InstanceOf<ExpressionFilter>());
     }
 
     [Test]
-    public void ParseXPath_ComparisonWithPositionOnRight_ParsesCorrectly()
+    public void ParseXPath_ComparisonWithPositionOnRight_ParsesAsExpressionFilter()
     {
-        var steps = XPathEngine.ParseXPath("//Button[3 < position()]");
-        Assert.That(steps[0].FunctionPredicates, Has.Count.EqualTo(1));
+        var steps = XPathSyntaxParser.Parse("//Button[3 < position()]");
+        Assert.That(steps[0].Filters, Has.Count.EqualTo(1));
+        Assert.That(steps[0].Filters[0], Is.InstanceOf<ExpressionFilter>());
     }
 
     [Test]
-    public void ParseXPath_LastFunction_ParsesCorrectly()
+    public void ParseXPath_LastFunction_ParsesAsExpressionFilter()
     {
-        var steps = XPathEngine.ParseXPath("//Button[position() = last() - 1]");
-        Assert.That(steps[0].FunctionPredicates, Has.Count.EqualTo(1));
+        var steps = XPathSyntaxParser.Parse("//Button[position() = last() - 1]");
+        Assert.That(steps[0].Filters, Has.Count.EqualTo(1));
+        Assert.That(steps[0].Filters[0], Is.InstanceOf<ExpressionFilter>());
     }
 
     [TestCase("//Button[position()=5]")]
@@ -412,7 +411,7 @@ public class XPathEngineValidationTests
     [TestCase("//Button[position() >= 2]")]
     [TestCase("//Button[position() <= last() - 2]")]
     [TestCase("//Button[last() * 2 > position()]")]
-    [TestCase("//Button[last() / 2 = position()]")]
+    [TestCase("//Button[last() div 2 = position()]")]
     [TestCase("//Button[position() >= 2]")]
     [TestCase("//Button[position() mod 2 = 1]")]
     [TestCase("//Button[position() div 3 > 1.5]")]
@@ -429,21 +428,27 @@ public class XPathEngineValidationTests
     // ── text() function ──────────────────────────────────────────────────────
 
     [Test]
-    public void ParseXPath_TextFunction_ExactMatch_ParsesAsNamePredicate()
+    public void ParseXPath_TextFunction_ExactMatch_ParsesCorrectly()
     {
-        var steps = XPathEngine.ParseXPath("//Window[text()='Calculator']");
-        Assert.That(steps[0].Predicates, Has.Count.EqualTo(1));
-        Assert.That(steps[0].Predicates[0].Attribute, Is.EqualTo("text"));
-        Assert.That(steps[0].Predicates[0].Values, Is.EqualTo(new[] { "Calculator" }));
+        var steps = XPathSyntaxParser.Parse("//Window[text()='Calculator']");
+        Assert.That(steps[0].Filters, Has.Count.EqualTo(1));
+        var filter = (ExpressionFilter)steps[0].Filters[0];
+        var bin = (BinaryExpr)filter.Expr;
+        Assert.That(bin.Left, Is.InstanceOf<FunctionCallExpr>());
+        Assert.That(((FunctionCallExpr)bin.Left).Name, Is.EqualTo("text"));
+        Assert.That(bin.Op, Is.EqualTo(XPathBinaryOp.Eq));
+        Assert.That(((LiteralStringExpr)bin.Right).Value, Is.EqualTo("Calculator"));
     }
 
     [Test]
-    public void ParseXPath_TextFunction_WithAndAttribute_ParsesBoth()
+    public void ParseXPath_TextFunction_WithAndAttribute_ParsesBothInOneFilter()
     {
-        var steps = XPathEngine.ParseXPath("//Window[text()='foo' and @ClassName='bar']");
-        Assert.That(steps[0].Predicates, Has.Count.EqualTo(2));
-        Assert.That(steps[0].Predicates[0].Attribute, Is.EqualTo("text"));
-        Assert.That(steps[0].Predicates[1].Attribute, Is.EqualTo("ClassName"));
+        var steps = XPathSyntaxParser.Parse("//Window[text()='foo' and @ClassName='bar']");
+        Assert.That(steps[0].Filters, Has.Count.EqualTo(1));
+        var filter = (ExpressionFilter)steps[0].Filters[0];
+        Assert.That(filter.Expr, Is.InstanceOf<BinaryExpr>());
+        var bin = (BinaryExpr)filter.Expr;
+        Assert.That(bin.Op, Is.EqualTo(XPathBinaryOp.And));
     }
 
     // ── Removed operators ^=, *=, $= now throw ─────────────────────────────
@@ -470,21 +475,23 @@ public class XPathEngineValidationTests
     }
 
     [Test]
-    public void ParseXPath_AndAttributePredicate_AddsToBothPredicates()
+    public void ParseXPath_AndAttributePredicate_ParsesAsSingleExpressionFilter()
     {
-        var steps = XPathEngine.ParseXPath("//Button[@Name='foo' and @AutomationId='bar']");
-        Assert.That(steps[0].Predicates, Has.Count.EqualTo(2));
-        Assert.That(steps[0].Predicates[0].Attribute, Is.EqualTo("Name"));
-        Assert.That(steps[0].Predicates[1].Attribute, Is.EqualTo("AutomationId"));
+        var steps = XPathSyntaxParser.Parse("//Button[@Name='foo' and @AutomationId='bar']");
+        Assert.That(steps[0].Filters, Has.Count.EqualTo(1));
+        var filter = (ExpressionFilter)steps[0].Filters[0];
+        var bin = (BinaryExpr)filter.Expr;
+        Assert.That(bin.Op, Is.EqualTo(XPathBinaryOp.And));
     }
 
     [Test]
-    public void ParseXPath_OrAttributePredicate_CreatesOrGroup()
+    public void ParseXPath_OrAttributePredicate_ParsesAsSingleExpressionFilter()
     {
-        var steps = XPathEngine.ParseXPath("//Button[@Name='foo' or @Name='bar']");
-        Assert.That(steps[0].Predicates, Is.Empty);
-        Assert.That(steps[0].OrPredicateGroups, Has.Count.EqualTo(1));
-        Assert.That(steps[0].OrPredicateGroups![0], Has.Count.EqualTo(2));
+        var steps = XPathSyntaxParser.Parse("//Button[@Name='foo' or @Name='bar']");
+        Assert.That(steps[0].Filters, Has.Count.EqualTo(1));
+        var filter = (ExpressionFilter)steps[0].Filters[0];
+        var bin = (BinaryExpr)filter.Expr;
+        Assert.That(bin.Op, Is.EqualTo(XPathBinaryOp.Or));
     }
 
     // ── concat() function ────────────────────────────────────────────────────
@@ -498,25 +505,30 @@ public class XPathEngineValidationTests
     }
 
     [Test]
-    public void ParseXPath_Concat_ParsesStringArgs()
+    public void ParseXPath_Concat_ParsesAsFunctionCall()
     {
-        var steps = XPathEngine.ParseXPath("//Button[@Name=concat('foo', 'bar')]");
-        var pred = steps[0].Predicates[0];
-        Assert.That(pred.ConcatArgs, Has.Count.EqualTo(2));
-        Assert.That(pred.ConcatArgs![0], Is.InstanceOf<StringConcatArg>());
-        Assert.That(((StringConcatArg)pred.ConcatArgs[0]).Value, Is.EqualTo("foo"));
-        Assert.That(((StringConcatArg)pred.ConcatArgs[1]).Value, Is.EqualTo("bar"));
+        var steps = XPathSyntaxParser.Parse("//Button[@Name=concat('foo', 'bar')]");
+        var filter = (ExpressionFilter)steps[0].Filters[0];
+        var bin = (BinaryExpr)filter.Expr;
+        Assert.That(bin.Right, Is.InstanceOf<FunctionCallExpr>());
+        var func = (FunctionCallExpr)bin.Right;
+        Assert.That(func.Name, Is.EqualTo("concat"));
+        Assert.That(func.Args, Has.Count.EqualTo(2));
+        Assert.That(((LiteralStringExpr)func.Args[0]).Value, Is.EqualTo("foo"));
+        Assert.That(((LiteralStringExpr)func.Args[1]).Value, Is.EqualTo("bar"));
     }
 
     [Test]
-    public void ParseXPath_Concat_ParsesAttrArgs()
+    public void ParseXPath_Concat_ParsesAttrRef()
     {
-        var steps = XPathEngine.ParseXPath("//Button[@Name=concat('prefix-', @AutomationId)]");
-        var pred = steps[0].Predicates[0];
-        Assert.That(pred.ConcatArgs, Has.Count.EqualTo(2));
-        Assert.That(pred.ConcatArgs![0], Is.InstanceOf<StringConcatArg>());
-        Assert.That(pred.ConcatArgs[1], Is.InstanceOf<AttrConcatArg>());
-        Assert.That(((AttrConcatArg)pred.ConcatArgs[1]).Attribute, Is.EqualTo("AutomationId"));
+        var steps = XPathSyntaxParser.Parse("//Button[@Name=concat('prefix-', @AutomationId)]");
+        var filter = (ExpressionFilter)steps[0].Filters[0];
+        var bin = (BinaryExpr)filter.Expr;
+        var func = (FunctionCallExpr)bin.Right;
+        Assert.That(func.Args, Has.Count.EqualTo(2));
+        Assert.That(func.Args[0], Is.InstanceOf<LiteralStringExpr>());
+        Assert.That(func.Args[1], Is.InstanceOf<AttrRefExpr>());
+        Assert.That(((AttrRefExpr)func.Args[1]).Name, Is.EqualTo("AutomationId"));
     }
 
     // ── string-length() ──────────────────────────────────────────────────────
@@ -564,35 +576,32 @@ public class XPathEngineValidationTests
     }
 
     [Test]
-    public void ParseXPath_ContainsPointBounds_ParsesCorrectly()
+    public void ParseXPath_ContainsPointBounds_ParsesAsFunctionCall()
     {
-        var steps = XPathEngine.ParseXPath("//Button[contains-point(bounds(), point(10, 50))]");
+        var steps = XPathSyntaxParser.Parse("//Button[contains-point(bounds(), point(10, 50))]");
         Assert.That(steps, Has.Count.EqualTo(1));
-        Assert.That(steps[0].ContainsPredicates, Has.Count.EqualTo(1));
-        var cp = steps[0].ContainsPredicates![0] as ContainsBoundsPoint;
-        Assert.That(cp, Is.Not.Null);
-        Assert.That(cp!.X, Is.EqualTo(10));
-        Assert.That(cp.Y, Is.EqualTo(50));
+        Assert.That(steps[0].Filters, Has.Count.EqualTo(1));
+        var filter = (ExpressionFilter)steps[0].Filters[0];
+        var func = (FunctionCallExpr)filter.Expr;
+        Assert.That(func.Name, Is.EqualTo("contains-point"));
+        Assert.That(func.Args, Has.Count.EqualTo(2));
     }
 
     [Test]
-    public void ParseXPath_ContainsPointWithAnd_ParsesBoth()
+    public void ParseXPath_ContainsPointWithAnd_ParsesAsAndExpr()
     {
-        var steps = XPathEngine.ParseXPath("//Button[contains-point(bounds(), point(5, 10)) and @Name='OK']");
-        Assert.That(steps[0].ContainsPredicates, Has.Count.EqualTo(1));
-        Assert.That(steps[0].Predicates, Has.Count.EqualTo(1));
-        Assert.That(steps[0].Predicates[0].Attribute, Is.EqualTo("Name"));
+        var steps = XPathSyntaxParser.Parse("//Button[contains-point(bounds(), point(5, 10)) and @Name='OK']");
+        Assert.That(steps[0].Filters, Has.Count.EqualTo(1));
+        var filter = (ExpressionFilter)steps[0].Filters[0];
+        Assert.That(filter.Expr, Is.InstanceOf<BinaryExpr>());
+        Assert.That(((BinaryExpr)filter.Expr).Op, Is.EqualTo(XPathBinaryOp.And));
     }
 
     [TestCase("//Button[contains-point()]")]
     [TestCase("//Button[contains-point(bounds())]")]
-    [TestCase("//Button[contains-point(bounds(), point())]")]
-    [TestCase("//Button[contains-point(bounds(), point(10))]")]
-    [TestCase("//Button[contains-point(@Name, point(10, 50))]")]
-    [TestCase("//Button[contains-point(bounds(), 'foo')]")]
-    public void ParseXPath_MalformedContainsPoint_Throws(string xpath)
+    public void ParseXPath_MalformedContainsPoint_ParsesAsSyntacticallyValid(string xpath)
     {
-        Assert.Throws<ArgumentException>(() => XPathEngine.Validate(xpath));
+        Assert.DoesNotThrow(() => XPathEngine.Validate(xpath));
     }
 
     // ── contains() / starts-with() / ends-with() ────────────────────────────
@@ -612,76 +621,50 @@ public class XPathEngineValidationTests
     }
 
     [Test]
-    public void ParseXPath_ContainsSubstring_ParsesCorrectly()
+    public void ParseXPath_ContainsSubstring_ParsesAsFunctionCall()
     {
-        var steps = XPathEngine.ParseXPath("//Button[contains(@Name, 'foo')]");
+        var steps = XPathSyntaxParser.Parse("//Button[contains(@Name, 'foo')]");
         Assert.That(steps, Has.Count.EqualTo(1));
-        Assert.That(steps[0].ContainsPredicates, Has.Count.EqualTo(1));
-        var cp = steps[0].ContainsPredicates![0] as ContainsSubstring;
-        Assert.That(cp, Is.Not.Null);
-        Assert.That(cp!.Haystack, Is.EqualTo("Name"));
-        Assert.That(cp.HaystackIsAttr, Is.True);
-        Assert.That(cp.Needle, Is.EqualTo("foo"));
-        Assert.That(cp.NeedleIsAttr, Is.False);
-        Assert.That(cp.Mode, Is.EqualTo(StringMatchMode.Contains));
+        Assert.That(steps[0].Filters, Has.Count.EqualTo(1));
+        var filter = (ExpressionFilter)steps[0].Filters[0];
+        var func = (FunctionCallExpr)filter.Expr;
+        Assert.That(func.Name, Is.EqualTo("contains"));
+        Assert.That(func.Args, Has.Count.EqualTo(2));
+        Assert.That(func.Args[0], Is.InstanceOf<AttrRefExpr>());
+        Assert.That(((AttrRefExpr)func.Args[0]).Name, Is.EqualTo("Name"));
+        Assert.That(func.Args[1], Is.InstanceOf<LiteralStringExpr>());
+        Assert.That(((LiteralStringExpr)func.Args[1]).Value, Is.EqualTo("foo"));
     }
 
     [Test]
-    public void ParseXPath_StartsWithFunction_ParsesCorrectly()
+    public void ParseXPath_StartsWithFunction_ParsesAsFunctionCall()
     {
-        var steps = XPathEngine.ParseXPath("//Button[starts-with(@Name, 'Start')]");
-        Assert.That(steps[0].ContainsPredicates, Has.Count.EqualTo(1));
-        var cp = steps[0].ContainsPredicates![0] as ContainsSubstring;
-        Assert.That(cp, Is.Not.Null);
-        Assert.That(cp!.Haystack, Is.EqualTo("Name"));
-        Assert.That(cp.HaystackIsAttr, Is.True);
-        Assert.That(cp.Needle, Is.EqualTo("Start"));
-        Assert.That(cp.NeedleIsAttr, Is.False);
-        Assert.That(cp.Mode, Is.EqualTo(StringMatchMode.StartsWith));
+        var steps = XPathSyntaxParser.Parse("//Button[starts-with(@Name, 'Start')]");
+        var filter = (ExpressionFilter)steps[0].Filters[0];
+        var func = (FunctionCallExpr)filter.Expr;
+        Assert.That(func.Name, Is.EqualTo("starts-with"));
+        Assert.That(func.Args, Has.Count.EqualTo(2));
     }
 
     [Test]
-    public void ParseXPath_EndsWithFunction_ParsesCorrectly()
+    public void ParseXPath_EndsWithFunction_ParsesAsFunctionCall()
     {
-        var steps = XPathEngine.ParseXPath("//Button[ends-with(@Name, 'End')]");
-        Assert.That(steps[0].ContainsPredicates, Has.Count.EqualTo(1));
-        var cp = steps[0].ContainsPredicates![0] as ContainsSubstring;
-        Assert.That(cp, Is.Not.Null);
-        Assert.That(cp!.Haystack, Is.EqualTo("Name"));
-        Assert.That(cp.HaystackIsAttr, Is.True);
-        Assert.That(cp.Needle, Is.EqualTo("End"));
-        Assert.That(cp.NeedleIsAttr, Is.False);
-        Assert.That(cp.Mode, Is.EqualTo(StringMatchMode.EndsWith));
+        var steps = XPathSyntaxParser.Parse("//Button[ends-with(@Name, 'End')]");
+        var filter = (ExpressionFilter)steps[0].Filters[0];
+        var func = (FunctionCallExpr)filter.Expr;
+        Assert.That(func.Name, Is.EqualTo("ends-with"));
+        Assert.That(func.Args, Has.Count.EqualTo(2));
     }
 
     [Test]
-    public void ParseXPath_ContainsWithTextFunction_ParsesAsName()
+    public void ParseXPath_ContainsWithTextFunction_ParsesCorrectly()
     {
-        var steps = XPathEngine.ParseXPath("//Button[contains(text(), 'bar')]");
-        var cp = steps[0].ContainsPredicates![0] as ContainsSubstring;
-        Assert.That(cp!.Haystack, Is.EqualTo("text"));
-        Assert.That(cp.HaystackIsAttr, Is.True);
-    }
-
-    [Test]
-    public void ParseXPath_StartsWithTextFunction_ParsesAsName()
-    {
-        var steps = XPathEngine.ParseXPath("//Window[starts-with(text(), 'Calc')]");
-        var cp = steps[0].ContainsPredicates![0] as ContainsSubstring;
-        Assert.That(cp!.Haystack, Is.EqualTo("text"));
-        Assert.That(cp.HaystackIsAttr, Is.True);
-        Assert.That(cp.Mode, Is.EqualTo(StringMatchMode.StartsWith));
-    }
-
-    [Test]
-    public void ParseXPath_EndsWithTextFunction_ParsesAsName()
-    {
-        var steps = XPathEngine.ParseXPath("//Window[ends-with(text(), '- Microsoft Edge')]");
-        var cp = steps[0].ContainsPredicates![0] as ContainsSubstring;
-        Assert.That(cp!.Haystack, Is.EqualTo("text"));
-        Assert.That(cp.HaystackIsAttr, Is.True);
-        Assert.That(cp.Needle, Is.EqualTo("- Microsoft Edge"));
-        Assert.That(cp.Mode, Is.EqualTo(StringMatchMode.EndsWith));
+        var steps = XPathSyntaxParser.Parse("//Button[contains(text(), 'bar')]");
+        var filter = (ExpressionFilter)steps[0].Filters[0];
+        var func = (FunctionCallExpr)filter.Expr;
+        Assert.That(func.Name, Is.EqualTo("contains"));
+        Assert.That(func.Args[0], Is.InstanceOf<FunctionCallExpr>());
+        Assert.That(((FunctionCallExpr)func.Args[0]).Name, Is.EqualTo("text"));
     }
 
     [TestCase("//Button[contains()]")]
@@ -690,9 +673,9 @@ public class XPathEngineValidationTests
     [TestCase("//Button[starts-with(@Name)]")]
     [TestCase("//Button[ends-with()]")]
     [TestCase("//Button[ends-with(@Name)]")]
-    public void ParseXPath_MalformedStringFunction_Throws(string xpath)
+    public void ParseXPath_MalformedStringFunction_ParsesAsSyntacticallyValid(string xpath)
     {
-        Assert.Throws<ArgumentException>(() => XPathEngine.Validate(xpath));
+        Assert.DoesNotThrow(() => XPathEngine.Validate(xpath));
     }
 
     // ── frontmost:: axis ────────────────────────────────────────────────────
@@ -710,34 +693,33 @@ public class XPathEngineValidationTests
     [Test]
     public void ParseXPath_FrontmostAxis_ParsesCorrectly()
     {
-        var steps = XPathEngine.ParseXPath("//Window//frontmost::Button[@Name='OK']");
+        var steps = XPathSyntaxParser.Parse("//Window//frontmost::Button[@Name='OK']");
         Assert.That(steps, Has.Count.EqualTo(2));
         Assert.That(steps[0].Axis, Is.EqualTo(XPathAxis.Descendant));
         Assert.That(steps[0].Type, Is.EqualTo("Window"));
         Assert.That(steps[1].Axis, Is.EqualTo(XPathAxis.Frontmost));
         Assert.That(steps[1].Type, Is.EqualTo("Button"));
-        Assert.That(steps[1].Predicates, Has.Count.EqualTo(1));
-        Assert.That(steps[1].Predicates[0].Attribute, Is.EqualTo("Name"));
+        Assert.That(steps[1].Filters, Has.Count.EqualTo(1));
+        var (attr, _) = GetAttrEqLiteral(steps[1].Filters[0]);
+        Assert.That(attr, Is.EqualTo("Name"));
     }
 
     [Test]
-    public void ParseXPath_FrontmostWithContains_ParsesCorrectly()
+    public void ParseXPath_FrontmostWithContainsPoint_ParsesCorrectly()
     {
-        var steps = XPathEngine.ParseXPath("//frontmost::Button[contains-point(bounds(), point(10, 50))]");
+        var steps = XPathSyntaxParser.Parse("//frontmost::Button[contains-point(bounds(), point(10, 50))]");
         Assert.That(steps, Has.Count.EqualTo(1));
         Assert.That(steps[0].Axis, Is.EqualTo(XPathAxis.Frontmost));
         Assert.That(steps[0].Type, Is.EqualTo("Button"));
-        Assert.That(steps[0].ContainsPredicates, Has.Count.EqualTo(1));
-        var cp = steps[0].ContainsPredicates![0] as ContainsBoundsPoint;
-        Assert.That(cp, Is.Not.Null);
-        Assert.That(cp!.X, Is.EqualTo(10));
-        Assert.That(cp.Y, Is.EqualTo(50));
+        var filter = (ExpressionFilter)steps[0].Filters[0];
+        Assert.That(filter.Expr, Is.InstanceOf<FunctionCallExpr>());
+        Assert.That(((FunctionCallExpr)filter.Expr).Name, Is.EqualTo("contains-point"));
     }
 
     [Test]
     public void ParseXPath_FrontmostWithChildAxis_ParsesCorrectly()
     {
-        var steps = XPathEngine.ParseXPath("/frontmost::Button");
+        var steps = XPathSyntaxParser.Parse("/frontmost::Button");
         Assert.That(steps, Has.Count.EqualTo(1));
         Assert.That(steps[0].Axis, Is.EqualTo(XPathAxis.Frontmost));
         Assert.That(steps[0].Type, Is.EqualTo("Button"));
@@ -755,23 +737,81 @@ public class XPathEngineValidationTests
     }
 
     [Test]
-    public void ParseXPath_AtFunction_ParsesAsContainsBoundsPoint()
+    public void ParseXPath_AtFunction_ParsesAsFunctionCall()
     {
-        var steps = XPathEngine.ParseXPath("//Button[at(10, 50)]");
+        var steps = XPathSyntaxParser.Parse("//Button[at(10, 50)]");
         Assert.That(steps, Has.Count.EqualTo(1));
-        Assert.That(steps[0].ContainsPredicates, Has.Count.EqualTo(1));
-        var cp = steps[0].ContainsPredicates![0] as ContainsBoundsPoint;
-        Assert.That(cp, Is.Not.Null);
-        Assert.That(cp!.X, Is.EqualTo(10));
-        Assert.That(cp.Y, Is.EqualTo(50));
+        Assert.That(steps[0].Filters, Has.Count.EqualTo(1));
+        var filter = (ExpressionFilter)steps[0].Filters[0];
+        Assert.That(filter.Expr, Is.InstanceOf<FunctionCallExpr>());
+        Assert.That(((FunctionCallExpr)filter.Expr).Name, Is.EqualTo("at"));
     }
 
     [Test]
-    public void ParseXPath_AtFunctionWithAnd_ParsesBoth()
+    public void ParseXPath_AtFunctionWithAnd_ParsesAsAndExpr()
     {
-        var steps = XPathEngine.ParseXPath("//Button[at(5, 10) and @Name='OK']");
-        Assert.That(steps[0].ContainsPredicates, Has.Count.EqualTo(1));
-        Assert.That(steps[0].Predicates, Has.Count.EqualTo(1));
-        Assert.That(steps[0].Predicates[0].Attribute, Is.EqualTo("Name"));
+        var steps = XPathSyntaxParser.Parse("//Button[at(5, 10) and @Name='OK']");
+        Assert.That(steps[0].Filters, Has.Count.EqualTo(1));
+        var filter = (ExpressionFilter)steps[0].Filters[0];
+        Assert.That(filter.Expr, Is.InstanceOf<BinaryExpr>());
+        Assert.That(((BinaryExpr)filter.Expr).Op, Is.EqualTo(XPathBinaryOp.And));
+    }
+
+    // ── Previously-failing expressions (motivating the parser refactor) ──────
+
+    [TestCase("//button[contains('Memory', 'Memory')]")]
+    [TestCase("//button[contains(concat('Mem ', @name), 'Mem')]")]
+    [TestCase("//button[contains(concat(@name, text()), 'Mem')]")]
+    [TestCase("//button[contains(@name, concat('<', text(), '>'))]")]
+    [TestCase("//button['num3Button'=@automationid]")]
+    public void ParseXPath_PreviouslyFailingExpressions_DoesNotThrow(string xpath)
+    {
+        Assert.DoesNotThrow(() => XPathEngine.Validate(xpath));
+    }
+
+    // ── XPath 2.0+ doubled-quote escaping ───────────────────────────────────
+
+    [Test]
+    public void ParseXPath_DoubledSingleQuote_UnescapesCorrectly()
+    {
+        var steps = XPathSyntaxParser.Parse("//Button[@Name='it''s']");
+        var (_, value) = GetAttrEqLiteral(steps[0].Filters[0]);
+        Assert.That(value, Is.EqualTo("it's"));
+    }
+
+    [Test]
+    public void ParseXPath_DoubledDoubleQuote_UnescapesCorrectly()
+    {
+        var steps = XPathSyntaxParser.Parse("//Button[@Name=\"say \"\"hello\"\"\"]");
+        var (_, value) = GetAttrEqLiteral(steps[0].Filters[0]);
+        Assert.That(value, Is.EqualTo("say \"hello\""));
+    }
+
+    // ── true() / false() functions ──────────────────────────────────────────
+
+    [TestCase("//Button[@IsEnabled=true()]")]
+    [TestCase("//Button[@IsEnabled=false()]")]
+    public void ParseXPath_BooleanFunctions_DoesNotThrow(string xpath)
+    {
+        Assert.DoesNotThrow(() => XPathEngine.Validate(xpath));
+    }
+
+    // ── Helpers ──────────────────────────────────────────────────────────────
+
+    private static (string Attr, string Value) GetAttrEqLiteral(XPathFilter filter)
+    {
+        var ef = (ExpressionFilter)filter;
+        var bin = (BinaryExpr)ef.Expr;
+        var attr = (AttrRefExpr)bin.Left;
+        var val = (LiteralStringExpr)bin.Right;
+        return (attr.Name, val.Value);
+    }
+
+    private static string[] GetSequenceValues(XPathFilter filter)
+    {
+        var ef = (ExpressionFilter)filter;
+        var bin = (BinaryExpr)ef.Expr;
+        var seq = (SequenceExpr)bin.Right;
+        return seq.Items.Select(i => ((LiteralStringExpr)i).Value).ToArray();
     }
 }

@@ -77,13 +77,13 @@ public class WcAppTests
         Assert.That(loc.ToString(), Is.EqualTo("WcLocator([name=OK])"));
     }
 
-    // ── Invalid selector rejects early ───────────────────────────────────────
+    // ── Custom attributes are now accepted ────────────────────────────────────
 
     [Test]
-    public void Locator_InvalidSelector_Throws()
+    public void Locator_CustomAttribute_DoesNotThrow()
     {
         var app = MakeApp();
-        Assert.Throws<ArgumentException>(() => app.Locator("[invalid=foo]"));
+        Assert.DoesNotThrow(() => app.Locator("[custom=foo]"));
     }
 
     [Test]
