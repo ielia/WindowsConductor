@@ -15,7 +15,7 @@ internal static class XPathSyntaxParser
     // ── Forward reference for recursive expression grammar ──────────────────
 
     private static readonly TokenListParser<XPathToken, XPathExpr> ExprRef =
-        SP.Ref(() => Expression);
+        SP.Ref(() => Expression!);  // Expression is assigned before any parse runs
 
     // ── Primary expressions ─────────────────────────────────────────────────
 
@@ -147,7 +147,7 @@ internal static class XPathSyntaxParser
     // ── Unary minus ─────────────────────────────────────────────────────────
 
     private static readonly TokenListParser<XPathToken, XPathExpr> UnaryRef =
-        SP.Ref(() => Unary);
+        SP.Ref(() => Unary!);  // Unary is assigned before any parse runs
 
     private static readonly TokenListParser<XPathToken, XPathExpr> Unary =
         Token.EqualTo(XPathToken.Minus)

@@ -5,7 +5,7 @@ namespace WindowsConductor.DriverFlaUI;
 
 public sealed class XPathEngine
 {
-    public IReadOnlyList<AutomationElement> Evaluate(
+    public static IReadOnlyList<AutomationElement> Evaluate(
         AutomationElement root, string xpath)
     {
         var steps = XPathSyntaxParser.Parse(xpath);
@@ -95,7 +95,7 @@ public sealed class XPathEngine
         return [elements[index - 1]];
     }
 
-    private static IReadOnlyList<AutomationElement> ApplyExpressionFilter(
+    private static List<AutomationElement> ApplyExpressionFilter(
         IReadOnlyList<AutomationElement> elements, ExpressionFilter filter, string stepType,
         Dictionary<SubPathExpr, bool> subPathCache)
     {

@@ -147,6 +147,8 @@ public class WcElementTests
 [Category("Unit")]
 public class ClientProtocolTests
 {
+    private static readonly System.Text.Json.JsonSerializerOptions CaseInsensitiveJson = new() { PropertyNameCaseInsensitive = true };
+
     [Test]
     public void WcRequest_CanBeCreated()
     {
@@ -190,7 +192,7 @@ public class ClientProtocolTests
         var resp = new WcResponse { Id = "x", Success = true };
         var json = System.Text.Json.JsonSerializer.Serialize(resp);
         var back = System.Text.Json.JsonSerializer.Deserialize<WcResponse>(json,
-            new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true })!;
+            CaseInsensitiveJson)!;
         Assert.That(back.Id, Is.EqualTo("x"));
         Assert.That(back.Success, Is.True);
     }

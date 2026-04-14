@@ -3,6 +3,11 @@ using WindowsConductor.DriverFlaUI;
 
 namespace WindowsConductor.DriverFlaUI.Tests;
 
+internal static partial class TestOptions
+{
+    internal static readonly JsonSerializerOptions CaseInsensitive = new() { PropertyNameCaseInsensitive = true };
+}
+
 [TestFixture]
 [Category("Unit")]
 public class WcRequestTests
@@ -184,7 +189,7 @@ public class WcRequestTests
 
         var json = JsonSerializer.Serialize(req);
         var deserialized = JsonSerializer.Deserialize<WcRequest>(json,
-            new JsonSerializerOptions { PropertyNameCaseInsensitive = true })!;
+            TestOptions.CaseInsensitive)!;
 
         Assert.That(deserialized.Id, Is.EqualTo("abc"));
         Assert.That(deserialized.Command, Is.EqualTo("launch"));
@@ -272,7 +277,7 @@ public class WcResponseTests
         var r = WcResponse.Ok("xyz", "result-value");
         var json = JsonSerializer.Serialize(r);
         var deserialized = JsonSerializer.Deserialize<WcResponse>(json,
-            new JsonSerializerOptions { PropertyNameCaseInsensitive = true })!;
+            TestOptions.CaseInsensitive)!;
 
         Assert.That(deserialized.Id, Is.EqualTo("xyz"));
         Assert.That(deserialized.Success, Is.True);

@@ -128,13 +128,13 @@ public sealed class WcElement
         return ParseTreeNode(r);
     }
 
-    private IReadOnlyTreeNode<WcElement> ParseTreeNode(JsonElement json)
+    private TreeNode<WcElement> ParseTreeNode(JsonElement json)
     {
         var id = json.GetProperty("id").GetString()!;
         var node = new TreeNode<WcElement>(new WcElement(id, _conn, _appId));
         if (json.TryGetProperty("children", out var children))
             foreach (var child in children.EnumerateArray())
-                node.AddChild((TreeNode<WcElement>)ParseTreeNode(child));
+                node.AddChild(ParseTreeNode(child));
         return node;
     }
 

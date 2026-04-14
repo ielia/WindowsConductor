@@ -59,7 +59,9 @@ public sealed class WcSession : IWcTransport, IAsyncDisposable
         if (authToken is not null)
             ws.Options.SetRequestHeader("Authorization", $"Bearer {authToken}");
         if (allowSelfSignedCerts)
+#pragma warning disable CA5359 // Intentional: user explicitly opted into allowing self-signed certificates
             ws.Options.RemoteCertificateValidationCallback = (_, _, _, _) => true;
+#pragma warning restore CA5359
 
         try
         {

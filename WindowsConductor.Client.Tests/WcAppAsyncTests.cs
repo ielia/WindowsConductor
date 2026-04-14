@@ -4,7 +4,9 @@ namespace WindowsConductor.Client.Tests;
 
 [TestFixture]
 [Category("Unit")]
+#pragma warning disable CA1001 // NUnit TearDown handles disposal
 public class WcAppAsyncTests
+#pragma warning restore CA1001
 {
     private FakeTransport _transport = null!;
     private WcApp _app = null!;
@@ -14,6 +16,12 @@ public class WcAppAsyncTests
     {
         _transport = new FakeTransport();
         _app = new WcApp("app-42", _transport);
+    }
+
+    [TearDown]
+    public async Task TearDown()
+    {
+        await _app.DisposeAsync();
     }
 
     // ── GetTitleAsync ────────────────────────────────────────────────────────

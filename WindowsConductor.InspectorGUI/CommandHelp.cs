@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Reflection;
 
 namespace WindowsConductor.InspectorGUI;
@@ -30,11 +31,11 @@ internal static class CommandHelp
         sb.AppendLine();
         foreach (var cmd in AllCommands)
         {
-            sb.AppendLine($"  {cmd.Usage}");
+            sb.AppendLine(CultureInfo.InvariantCulture, $"  {cmd.Usage}");
             foreach (var line in cmd.Description.Split('\n'))
-                sb.AppendLine($"    {line}");
+                sb.AppendLine(CultureInfo.InvariantCulture, $"    {line}");
             if (cmd.Examples.Length > 0)
-                sb.AppendLine($"    Example: {cmd.Examples[0]}");
+                sb.AppendLine(CultureInfo.InvariantCulture, $"    Example: {cmd.Examples[0]}");
             sb.AppendLine();
         }
 
@@ -71,14 +72,14 @@ internal static class CommandHelp
         if (cmd is null) return null;
 
         var sb = new System.Text.StringBuilder();
-        sb.AppendLine($"  {cmd.Usage}");
+        sb.AppendLine(CultureInfo.InvariantCulture, $"  {cmd.Usage}");
         foreach (var line in cmd.Description.Split('\n'))
-            sb.AppendLine($"    {line}");
+            sb.AppendLine(CultureInfo.InvariantCulture, $"    {line}");
         if (cmd.Examples.Length > 0)
         {
             sb.AppendLine("  Examples:");
             foreach (var example in cmd.Examples)
-                sb.AppendLine($"    {example}");
+                sb.AppendLine(CultureInfo.InvariantCulture, $"    {example}");
         }
 
         return sb.ToString().TrimEnd();

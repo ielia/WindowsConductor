@@ -24,7 +24,7 @@ public sealed class AppManager : IAppOperations, IDisposable
     private readonly HashSet<string> _attachedApps = new();
     private readonly Dictionary<string, int> _appProcessIds = new();
     private readonly Dictionary<string, AutomationElement> _elements = new();
-    private readonly SelectorEngine _selector;
+
     private readonly bool _confineToApp;
     private readonly string? _ffmpegPath;
     private bool _disposed;
@@ -33,7 +33,7 @@ public sealed class AppManager : IAppOperations, IDisposable
     {
         _confineToApp = confineToApp;
         _ffmpegPath = ffmpegPath;
-        _selector = new SelectorEngine(new XPathEngine());
+
     }
 
     // ── Application lifecycle ───────────────────────────────────────────────
@@ -112,7 +112,7 @@ public sealed class AppManager : IAppOperations, IDisposable
     public string FindElement(string appId, string selector, string? rootElementId = null)
     {
         var root = rootElementId != null ? GetElement(rootElementId) : GetAppRoot(appId);
-        var element = _selector.FindElement(root, selector, GetDesktopRoot(), GetConfineProcessId(appId))
+        var element = SelectorEngine.FindElement(root, selector, GetDesktopRoot(), GetConfineProcessId(appId))
             ?? throw new InvalidOperationException(
                 $"No element found for selector '{selector}'.");
 
@@ -123,7 +123,7 @@ public sealed class AppManager : IAppOperations, IDisposable
     public string[] FindElements(string appId, string selector, string? rootElementId = null)
     {
         var root = rootElementId != null ? GetElement(rootElementId) : GetAppRoot(appId);
-        return _selector.FindElements(root, selector, GetDesktopRoot(), GetConfineProcessId(appId))
+        return SelectorEngine.FindElements(root, selector, GetDesktopRoot(), GetConfineProcessId(appId))
             .Select(CacheElement)
             .ToArray();
     }
@@ -161,7 +161,7 @@ public sealed class AppManager : IAppOperations, IDisposable
         while (true)
         {
             var root = rootElementId != null ? GetElement(rootElementId) : GetAppRoot(appId);
-            var element = _selector.FindElement(root, selector, desktopRoot, processId);
+            var element = SelectorEngine.FindElement(root, selector, desktopRoot, processId);
             if (element is not null)
                 return CacheElement(element);
             if (Environment.TickCount64 >= deadline)
@@ -179,7 +179,7 @@ public sealed class AppManager : IAppOperations, IDisposable
         while (true)
         {
             var root = rootElementId != null ? GetElement(rootElementId) : GetAppRoot(appId);
-            var results = _selector.FindElements(root, selector, desktopRoot, processId);
+            var results = SelectorEngine.FindElements(root, selector, desktopRoot, processId);
             if (results.Length > 0)
                 return results.Select(CacheElement).ToArray();
             if (Environment.TickCount64 >= deadline)
@@ -197,7 +197,7 @@ public sealed class AppManager : IAppOperations, IDisposable
         while (true)
         {
             var root = rootElementId != null ? GetElement(rootElementId) : GetAppRoot(appId);
-            var element = _selector.FindElement(root, selector, desktopRoot, processId);
+            var element = SelectorEngine.FindElement(root, selector, desktopRoot, processId);
             if (element is null)
                 return;
             if (Environment.TickCount64 >= deadline)
@@ -280,7 +280,7 @@ public sealed class AppManager : IAppOperations, IDisposable
         if (_confineToApp)
         {
             var parentPid = parent.Properties.ProcessId.ValueOrDefault;
-            if (!_appProcessIds.Values.Contains(parentPid))
+            if (!_appProcessIds.ContainsValue(parentPid))
                 throw new AccessRestrictedException(
                     "Parent element belongs to a different process (--confine-to-app is active).");
         }
@@ -436,7 +436,7 @@ public sealed class AppManager : IAppOperations, IDisposable
 
     // ── Internal helpers ────────────────────────────────────────────────────
 
-    private Window FindWindow(UIA3Automation automation, string titleRegex, int retries = 20)
+    private static Window FindWindow(UIA3Automation automation, string titleRegex, int retries = 20)
     {
         Window? newest = null;
         DateTime newestTime = DateTime.MinValue;
@@ -462,10 +462,10 @@ public sealed class AppManager : IAppOperations, IDisposable
             if (newest != null) return newest;
             Thread.Sleep(100);
         }
-        throw new Exception($"Could not find window '{titleRegex}'");
+        throw new InvalidOperationException($"Could not find window '{titleRegex}'");
     }
 
-    private bool GetWindowTime(IntPtr hwnd, out DateTime created)
+    private static bool GetWindowTime(IntPtr hwnd, out DateTime created)
     {
         created = DateTime.MinValue;
         try
@@ -481,9 +481,9 @@ public sealed class AppManager : IAppOperations, IDisposable
         }
     }
 
-    private int GetWindowProcessId(IntPtr hwnd)
+    private static int GetWindowProcessId(IntPtr hwnd)
     {
-        GetWindowThreadProcessId(hwnd, out uint pid);
+        _ = GetWindowThreadProcessId(hwnd, out uint pid);
         return (int)pid;
     }
 
@@ -495,7 +495,7 @@ public sealed class AppManager : IAppOperations, IDisposable
     private int? GetConfineProcessId(string appId) =>
         _confineToApp && _appProcessIds.TryGetValue(appId, out var pid) ? pid : null;
 
-    private AutomationElement GetAppRoot(string appId)
+    private Window GetAppRoot(string appId)
     {
         if (!_apps.TryGetValue(appId, out var app))
             throw new KeyNotFoundException($"App session '{appId}' not found.");

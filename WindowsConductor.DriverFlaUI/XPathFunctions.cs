@@ -153,7 +153,7 @@ internal static class XPathFunctions
         });
     }
 
-    private static IReadOnlyList<XPathValue> Flatten(XPathExpr expr, EvalContext ctx)
+    private static List<XPathValue> Flatten(XPathExpr expr, EvalContext ctx)
     {
         if (expr is SequenceExpr seq)
             return seq.Items.Select(item => Evaluate(item, ctx)).ToList();

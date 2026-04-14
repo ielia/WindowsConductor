@@ -14,7 +14,9 @@ namespace WindowsConductor.Client.Tests;
 // loop alive through disposal.
 [TestFixture]
 [Category("Unit")]
+#pragma warning disable CA1001 // NUnit TearDown handles disposal
 public class WcSessionTests
+#pragma warning restore CA1001
 {
     private HttpListener _listener = null!;
     private string _wsUrl = null!;
@@ -40,6 +42,7 @@ public class WcSessionTests
     public void TearDown()
     {
         _cts.Cancel();
+        _cts.Dispose();
         _listener.Stop();
         _listener.Close();
     }

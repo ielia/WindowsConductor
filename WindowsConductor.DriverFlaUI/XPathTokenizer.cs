@@ -54,7 +54,7 @@ internal static class XPathTokenizer
 
     private static readonly TextParser<Unit> NumberLiteral =
         from whole in Character.Digit.AtLeastOnce()
-        from frac in Character.EqualTo('.').IgnoreThen(Character.Digit.AtLeastOnce()).OptionalOrDefault()
+        from frac in Character.EqualTo('.').IgnoreThen(Character.Digit.AtLeastOnce()).OptionalOrDefault(null!)
         select Unit.Value;
 
     private static readonly TextParser<Unit> IdentifierText =

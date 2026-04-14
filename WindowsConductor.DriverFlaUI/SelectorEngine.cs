@@ -21,19 +21,15 @@ namespace WindowsConductor.DriverFlaUI;
 ///   //Button[@AutomationId='okBtn']
 ///   //*[@Name='Cancel']
 /// </summary>
-public sealed class SelectorEngine
+public static class SelectorEngine
 {
-    private readonly XPathEngine _xpath;
-
-    public SelectorEngine(XPathEngine xpath) => _xpath = xpath;
-
-    public AutomationElement? FindElement(
+    public static AutomationElement? FindElement(
         AutomationElement root, string selector,
         AutomationElement? desktopRoot = null,
         int? confineToProcessId = null) =>
         FindElements(root, selector, desktopRoot, confineToProcessId).FirstOrDefault();
 
-    public AutomationElement[] FindElements(
+    public static AutomationElement[] FindElements(
         AutomationElement root, string selector,
         AutomationElement? desktopRoot = null,
         int? confineToProcessId = null)
@@ -49,7 +45,7 @@ public sealed class SelectorEngine
             var effectiveRoot = IsAbsoluteXPath(selector) && desktopRoot is not null
                 ? desktopRoot
                 : root;
-            results = _xpath.Evaluate(effectiveRoot, selector).ToArray();
+            results = XPathEngine.Evaluate(effectiveRoot, selector).ToArray();
         }
         else
         {
@@ -68,7 +64,7 @@ public sealed class SelectorEngine
     }
 
     private static bool IsAbsoluteXPath(string selector) =>
-        selector.StartsWith('/') && !selector.StartsWith("//");
+        selector.StartsWith('/') && !selector.StartsWith("//", StringComparison.Ordinal);
 
     private static AutomationElement[] ApplyProcessFilter(AutomationElement[] results, int? confineToProcessId)
     {

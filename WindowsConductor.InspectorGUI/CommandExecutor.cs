@@ -512,7 +512,7 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
     private static bool IsRelativeXPath(string selector)
     {
         var s = selector.TrimStart();
-        return s.StartsWith('.') || s.StartsWith("//");
+        return s.StartsWith('.') || s.StartsWith("//", StringComparison.Ordinal);
     }
 
     private static string[] CombineSelectors(string[]? current, string[] incoming)
@@ -542,7 +542,7 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
             path = path.Replace("/./", "/");
         } while (path != previous);
 
-        if (path.EndsWith("/."))
+        if (path.EndsWith("/.", StringComparison.Ordinal))
             path = path[..^2];
 
         return path;

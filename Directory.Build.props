@@ -1,0 +1,11 @@
+<Project>
+  <PropertyGroup>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+    <!-- CA1707: underscores in test method names (Method_Scenario_Expected) are conventional -->
+    <!-- CA1309: project uses InvariantCulture for UI element property comparisons by design -->
+    <!-- CA1861: constant array arguments — micro-optimization noise, especially in tests -->
+    <NoWarn>$(NoWarn);CA1707;CA1309;CA1861</NoWarn>
+  </PropertyGroup>
+</Project>

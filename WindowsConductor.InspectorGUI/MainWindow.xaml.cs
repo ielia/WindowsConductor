@@ -21,7 +21,9 @@ using WpfColor = System.Windows.Media.Color;
 namespace WindowsConductor.InspectorGUI;
 
 [ExcludeFromCodeCoverage]
+#pragma warning disable CA1001 // _snapshotCts is disposed in ExitSnapshotMode lifecycle method
 public partial class MainWindow : Window, ICommandOutput
+#pragma warning restore CA1001
 {
     private readonly CommandExecutor _executor;
     private readonly CommandHistory _history = new();
@@ -227,7 +229,7 @@ public partial class MainWindow : Window, ICommandOutput
                 {
                     _executor.StopChainOnError = !_executor.StopChainOnError;
                     var sysMenu = GetSystemMenu(hwnd, false);
-                    CheckMenuItem(sysMenu, SC_STOP_ON_ERROR,
+                    _ = CheckMenuItem(sysMenu, SC_STOP_ON_ERROR,
                         _executor.StopChainOnError ? MF_CHECKED : MF_UNCHECKED);
                     handled = true;
                 }
@@ -236,7 +238,7 @@ public partial class MainWindow : Window, ICommandOutput
                     var session = _executor.Session;
                     session.AllowSelfSignedCerts = !session.AllowSelfSignedCerts;
                     var sysMenu = GetSystemMenu(hwnd, false);
-                    CheckMenuItem(sysMenu, SC_ALLOW_SELF_SIGNED,
+                    _ = CheckMenuItem(sysMenu, SC_ALLOW_SELF_SIGNED,
                         session.AllowSelfSignedCerts ? MF_CHECKED : MF_UNCHECKED);
                     handled = true;
                 }
@@ -291,18 +293,18 @@ public partial class MainWindow : Window, ICommandOutput
 
         // Background
         var bgBrush = GetSysColorBrush(selected ? COLOR_HIGHLIGHT : COLOR_MENU);
-        FillRect(hdc, ref rc, bgBrush);
+        _ = FillRect(hdc, ref rc, bgBrush);
 
-        SetBkMode(hdc, TRANSPARENT);
+        _ = SetBkMode(hdc, TRANSPARENT);
 
         if (dis.itemID == SC_HIGHLIGHT_TITLE)
         {
             // Bold title
             var font = CreateFontW(-14, 0, 0, 0, 700, 0, 0, 0, 0, 0, 0, 0, 0, "Segoe UI");
             var oldFont = SelectObject(hdc, font);
-            SetTextColor(hdc, GetSysColor(COLOR_MENUTEXT));
+            _ = SetTextColor(hdc, GetSysColor(COLOR_MENUTEXT));
             var textRc = new RECT { Left = rc.Left + 8, Top = rc.Top, Right = rc.Right, Bottom = rc.Bottom };
-            DrawText(hdc, "Highlight Color", -1, ref textRc, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
+            _ = DrawText(hdc, "Highlight Color", -1, ref textRc, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
             SelectObject(hdc, oldFont);
             DeleteObject(font);
         }
@@ -348,7 +350,7 @@ public partial class MainWindow : Window, ICommandOutput
             // Label text
             var font = CreateFontW(-12, 0, 0, 0, 400, 0, 0, 0, 0, 0, 0, 0, 0, "Segoe UI");
             var oldFont = SelectObject(hdc, font);
-            SetTextColor(hdc, GetSysColor(selected ? COLOR_HIGHLIGHTTEXT : COLOR_MENUTEXT));
+            _ = SetTextColor(hdc, GetSysColor(selected ? COLOR_HIGHLIGHTTEXT : COLOR_MENUTEXT));
             var textRc = new RECT
             {
                 Left = squareLeft + squareSize + 6,
@@ -356,7 +358,7 @@ public partial class MainWindow : Window, ICommandOutput
                 Right = rc.Right,
                 Bottom = rc.Bottom
             };
-            DrawText(hdc, entry.Label, -1, ref textRc, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
+            _ = DrawText(hdc, entry.Label, -1, ref textRc, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
             SelectObject(hdc, oldFont);
             DeleteObject(font);
         }
@@ -794,7 +796,7 @@ public partial class MainWindow : Window, ICommandOutput
         return node;
     }
 
-    private async Task BuildChildSnapshotAsync(
+    private static async Task BuildChildSnapshotAsync(
         WcElement element, TreeViewItem parentItem,
         Dictionary<string, WcElement> elementsById, CancellationToken ct)
     {
@@ -822,7 +824,7 @@ public partial class MainWindow : Window, ICommandOutput
         }
     }
 
-    private async Task PopulateFromTreeNodeAsync(
+    private static async Task PopulateFromTreeNodeAsync(
         IReadOnlyTreeNode<WcElement> tree, TreeViewItem parentItem,
         Dictionary<string, WcElement> elementsById, CancellationToken ct)
     {

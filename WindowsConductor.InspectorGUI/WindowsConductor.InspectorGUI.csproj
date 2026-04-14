@@ -9,6 +9,7 @@
     <RootNamespace>WindowsConductor.InspectorGUI</RootNamespace>
     <AssemblyName>WindowsConductor.InspectorGUI</AssemblyName>
     <ApplicationIcon>InspectorGUI.ico</ApplicationIcon>
+    <Version>0.1.1</Version>
   </PropertyGroup>
 
   <ItemGroup>

@@ -5,7 +5,7 @@ namespace WindowsConductor.DriverFlaUI.Tests;
 
 internal sealed class FakeAppOperations : IAppOperations
 {
-    public record Call(string Method, object?[] Args);
+    public sealed record Call(string Method, object?[] Args);
     public List<Call> Calls { get; } = new();
 
     // Configurable return values
@@ -699,7 +699,7 @@ public class ProcessRequestTests
     [Test]
     public void Exception_PreservesRequestId()
     {
-        _fake.ThrowOnNext = new Exception("boom");
+        _fake.ThrowOnNext = new InvalidOperationException("boom");
         var req = MakeRequest("click", new() { ["elementId"] = "e1" });
         req.Id = "my-id";
         var resp = WsServer.ProcessRequest(_fake, req);

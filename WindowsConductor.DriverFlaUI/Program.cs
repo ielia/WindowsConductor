@@ -76,9 +76,9 @@ foreach (var flag in new[]
 })
     AddValuedFlag(valuedFlags, args, flag);
 
-int httpPort = int.Parse(WcDefaults.Port);
+int httpPort = int.Parse(WcDefaults.Port, System.Globalization.CultureInfo.InvariantCulture);
 var portArg = args
-    .Where((a, i) => !a.StartsWith("--") && !valuedFlags.Contains(i))
+    .Where((a, i) => !a.StartsWith("--", StringComparison.Ordinal) && !valuedFlags.Contains(i))
     .FirstOrDefault();
 if (portArg is not null)
 {

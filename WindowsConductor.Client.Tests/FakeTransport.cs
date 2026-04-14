@@ -8,7 +8,7 @@ namespace WindowsConductor.Client.Tests;
 /// </summary>
 internal sealed class FakeTransport : IWcTransport
 {
-    public record Call(string Command, string ParamsJson);
+    public sealed record Call(string Command, string ParamsJson);
 
     private readonly Queue<JsonElement> _responses = new();
     private readonly List<Call> _calls = new();

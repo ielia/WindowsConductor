@@ -5,7 +5,7 @@ namespace WindowsConductor.InspectorGUI.Tests;
 
 internal sealed class FakeInspectorSession : IInspectorSession
 {
-    public record Call(string Method, object?[] Args);
+    public sealed record Call(string Method, object?[] Args);
     public List<Call> Calls { get; } = new();
 
     public bool IsConnected { get; set; }
