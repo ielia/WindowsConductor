@@ -76,6 +76,9 @@ internal static class XPathFunctions
             return r["contains-point"].Invoke([bounds, point], ctx);
         });
 
+        Add("not", 1, 1, (args, _) =>
+            new XPathBool(!args[0].AsBool()));
+
         return r;
     }
 
