@@ -4,7 +4,7 @@ namespace WindowsConductor.DriverFlaUI;
 
 // ── Enums ────────────────────────────────────────────────────────────────────
 
-public enum XPathAxis { Child, Descendant, Parent, Self, Frontmost }
+public enum XPathAxis { Child, Descendant, Parent, Self, Frontmost, Ancestor, AncestorOrSelf }
 
 public enum XPathBinaryOp { Eq, NotEq, Lt, Gt, LtEq, GtEq, Add, Sub, Mul, Div, Mod, And, Or }
 

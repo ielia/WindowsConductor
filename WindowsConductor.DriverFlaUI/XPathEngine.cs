@@ -45,6 +45,9 @@ public sealed class XPathEngine
             return parents;
         }
 
+        if (step.Axis is XPathAxis.Ancestor or XPathAxis.AncestorOrSelf)
+            return ApplyAncestorStep(roots, step, subPathCache);
+
         var candidates = new List<AutomationElement>();
 
         foreach (var root in roots)
@@ -64,6 +67,44 @@ public sealed class XPathEngine
             candidates = ElementFilter.Frontmost(candidates);
 
         // Apply filters sequentially — each filter narrows the result set
+        IReadOnlyList<AutomationElement> results = candidates;
+        foreach (var filter in step.Filters)
+        {
+            results = filter switch
+            {
+                IndexFilter idx => ApplyIndexFilter(results, idx.Index),
+                ExpressionFilter expr => ApplyExpressionFilter(results, expr, step.Type, subPathCache),
+                _ => results
+            };
+        }
+
+        return results;
+    }
+
+    private static IReadOnlyList<AutomationElement> ApplyAncestorStep(
+        IReadOnlyList<AutomationElement> roots, XPathStep step,
+        Dictionary<SubPathExpr, bool> subPathCache)
+    {
+        var candidates = new List<AutomationElement>();
+
+        foreach (var root in roots)
+        {
+            var ancestors = new List<AutomationElement>();
+
+            if (step.Axis == XPathAxis.AncestorOrSelf && MatchesType(step.Type, root))
+                ancestors.Add(root);
+
+            var current = SafeGetParent(root);
+            while (current is not null)
+            {
+                if (MatchesType(step.Type, current))
+                    ancestors.Add(current);
+                current = SafeGetParent(current);
+            }
+
+            candidates.AddRange(ancestors);
+        }
+
         IReadOnlyList<AutomationElement> results = candidates;
         foreach (var filter in step.Filters)
         {

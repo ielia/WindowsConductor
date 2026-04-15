@@ -247,27 +247,32 @@ internal static class XPathSyntaxParser
     {
         // Consume axis separators (/ or //)
         bool isDescendant = false;
-        bool consumedAxis = false;
 
         while (pos < tokens.Length && tokens[pos].Kind is XPathToken.Slash or XPathToken.DoubleSlash)
         {
             isDescendant = tokens[pos].Kind == XPathToken.DoubleSlash;
-            consumedAxis = true;
             pos++;
         }
 
         if (pos >= tokens.Length)
             return null;
 
-        // frontmost:: axis
-        bool isFrontmost = false;
+        // Named axis: frontmost::, ancestor::, ancestor-or-self::
+        XPathAxis? namedAxis = null;
         if (pos + 1 < tokens.Length
             && tokens[pos].Kind == XPathToken.Identifier
-            && string.Equals(tokens[pos].Span.ToStringValue(), "frontmost", StringComparison.OrdinalIgnoreCase)
             && tokens[pos + 1].Kind == XPathToken.DoubleColon)
         {
-            isFrontmost = true;
-            pos += 2;
+            var axisName = tokens[pos].Span.ToStringValue();
+            if (string.Equals(axisName, "frontmost", StringComparison.OrdinalIgnoreCase))
+                namedAxis = XPathAxis.Frontmost;
+            else if (string.Equals(axisName, "ancestor", StringComparison.OrdinalIgnoreCase))
+                namedAxis = XPathAxis.Ancestor;
+            else if (string.Equals(axisName, "ancestor-or-self", StringComparison.OrdinalIgnoreCase))
+                namedAxis = XPathAxis.AncestorOrSelf;
+
+            if (namedAxis is not null)
+                pos += 2;
         }
 
         // Element type
@@ -333,10 +338,8 @@ internal static class XPathSyntaxParser
             filters.Add(ParseFilter(predTokens, xpath));
         }
 
-        var axis = isFrontmost ? XPathAxis.Frontmost
-            : isDescendant ? XPathAxis.Descendant
-            : consumedAxis ? XPathAxis.Child
-            : XPathAxis.Child;
+        var axis = namedAxis
+            ?? (isDescendant ? XPathAxis.Descendant : XPathAxis.Child);
 
         return new XPathStep(axis, type, filters);
     }

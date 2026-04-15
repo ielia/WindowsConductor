@@ -982,6 +982,68 @@ public class XPathEngineValidationTests
         Assert.That(innerSubPath.Steps[0].Type, Is.EqualTo("Button"));
     }
 
+    // ── ancestor:: and ancestor-or-self:: axes ────────────────────────────
+
+    [TestCase("//Button/ancestor::Group")]
+    [TestCase("//Button/ancestor::*")]
+    [TestCase("//Button/ancestor::Group[@Name='numbers']")]
+    [TestCase("/Window/Pane/Group/Button/ancestor::Group[@isvisible=true()]")]
+    [TestCase("//Button/ancestor-or-self::*[@isvisible=true()]")]
+    [TestCase("//Button/ancestor-or-self::Group")]
+    [TestCase("//ancestor::Group")]
+    [TestCase("//ancestor-or-self::*")]
+    public void ParseXPath_AncestorAxis_DoesNotThrow(string xpath)
+    {
+        Assert.DoesNotThrow(() => XPathEngine.Validate(xpath));
+    }
+
+    [Test]
+    public void ParseXPath_AncestorAxis_ParsesCorrectly()
+    {
+        var steps = XPathSyntaxParser.Parse("//Button/ancestor::Group[@Name='numbers']");
+        Assert.That(steps, Has.Count.EqualTo(2));
+        Assert.That(steps[0].Axis, Is.EqualTo(XPathAxis.Descendant));
+        Assert.That(steps[0].Type, Is.EqualTo("Button"));
+        Assert.That(steps[1].Axis, Is.EqualTo(XPathAxis.Ancestor));
+        Assert.That(steps[1].Type, Is.EqualTo("Group"));
+        Assert.That(steps[1].Filters, Has.Count.EqualTo(1));
+        var (attr, value) = GetAttrEqLiteral(steps[1].Filters[0]);
+        Assert.That(attr, Is.EqualTo("Name"));
+        Assert.That(value, Is.EqualTo("numbers"));
+    }
+
+    [Test]
+    public void ParseXPath_AncestorOrSelfAxis_ParsesCorrectly()
+    {
+        var steps = XPathSyntaxParser.Parse("//Button/ancestor-or-self::*[@isvisible=true()]");
+        Assert.That(steps, Has.Count.EqualTo(2));
+        Assert.That(steps[0].Axis, Is.EqualTo(XPathAxis.Descendant));
+        Assert.That(steps[0].Type, Is.EqualTo("Button"));
+        Assert.That(steps[1].Axis, Is.EqualTo(XPathAxis.AncestorOrSelf));
+        Assert.That(steps[1].Type, Is.EqualTo("*"));
+        Assert.That(steps[1].Filters, Has.Count.EqualTo(1));
+    }
+
+    [Test]
+    public void ParseXPath_AncestorWithDescendantPrefix_ParsesCorrectly()
+    {
+        var steps = XPathSyntaxParser.Parse("/Window/Pane/Group/Button/ancestor::Group");
+        Assert.That(steps, Has.Count.EqualTo(5));
+        Assert.That(steps[3].Axis, Is.EqualTo(XPathAxis.Child));
+        Assert.That(steps[3].Type, Is.EqualTo("Button"));
+        Assert.That(steps[4].Axis, Is.EqualTo(XPathAxis.Ancestor));
+        Assert.That(steps[4].Type, Is.EqualTo("Group"));
+    }
+
+    [Test]
+    public void ParseXPath_AncestorWithWildcard_ParsesCorrectly()
+    {
+        var steps = XPathSyntaxParser.Parse("//Button/ancestor::*");
+        Assert.That(steps, Has.Count.EqualTo(2));
+        Assert.That(steps[1].Axis, Is.EqualTo(XPathAxis.Ancestor));
+        Assert.That(steps[1].Type, Is.EqualTo("*"));
+    }
+
     // ── Helpers ──────────────────────────────────────────────────────────────
 
     private static (string Attr, string Value) GetAttrEqLiteral(XPathFilter filter)
