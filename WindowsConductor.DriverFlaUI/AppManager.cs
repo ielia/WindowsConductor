@@ -321,6 +321,9 @@ public sealed class AppManager : IAppOperations, IDisposable
     public void Focus(string elementId) =>
         GetElement(elementId).Focus();
 
+    public void SetForeground(string elementId) =>
+        GetElement(elementId).AsWindow().SetForeground();
+
     public string GetWindowTitle(string appId) =>
         GetAppRoot(appId).Name ?? "";
 

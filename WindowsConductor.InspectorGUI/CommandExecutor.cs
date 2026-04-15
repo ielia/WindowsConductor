@@ -317,6 +317,12 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
                 output.WriteInfo("Focused.");
                 break;
 
+            case ForegroundCommand:
+                RequireElement();
+                await session.SetForegroundAsync(ct);
+                output.WriteInfo("Brought to foreground.");
+                break;
+
             case TextCommand:
                 RequireElement();
                 var text = await session.GetTextAsync(ct);

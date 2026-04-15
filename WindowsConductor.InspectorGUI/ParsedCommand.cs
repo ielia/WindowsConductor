@@ -100,6 +100,14 @@ internal sealed record FocusCommand : ParsedCommand
     internal override string[] Examples => [];
 }
 
+internal sealed record ForegroundCommand : ParsedCommand
+{
+    internal override string Name => "foreground";
+    internal override string Usage => "foreground";
+    internal override string Description => "Brings the currently selected element's window to the foreground.";
+    internal override string[] Examples => [];
+}
+
 internal sealed record HelpCommand(string? CommandName) : ParsedCommand
 {
     internal override string Name => "help";

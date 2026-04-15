@@ -36,6 +36,7 @@ internal interface IInspectorSession
     Task RightClickAsync(CancellationToken ct = default);
     Task TypeAsync(string text, KeyModifiers modifiers = KeyModifiers.None, CancellationToken ct = default);
     Task FocusAsync(CancellationToken ct = default);
+    Task SetForegroundAsync(CancellationToken ct = default);
     Task<string> GetTextAsync(CancellationToken ct = default);
     Task<byte[]> ScreenshotElementAsync(CancellationToken ct = default);
     Task<BoundingRect> GetElementBoundingRectAsync(CancellationToken ct = default);

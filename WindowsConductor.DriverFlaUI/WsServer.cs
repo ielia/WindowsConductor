@@ -306,6 +306,10 @@ public sealed class WsServer
                     mgr.Focus(req.GetString("elementId"));
                     return WcResponse.Ok(req.Id);
 
+                case "setForeground":
+                    mgr.SetForeground(req.GetString("elementId"));
+                    return WcResponse.Ok(req.Id);
+
                 case "getWindowTitle":
                     return WcResponse.Ok(req.Id, mgr.GetWindowTitle(req.GetString("appId")));
 

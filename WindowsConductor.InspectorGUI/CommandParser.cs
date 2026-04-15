@@ -34,6 +34,7 @@ internal static class CommandParser
             "rightclick" => new RightClickCommand(),
             "type" => ParseType(parts),
             "focus" => new FocusCommand(),
+            "foreground" => new ForegroundCommand(),
             "parent" => new ParentCommand(),
             "children" => new ChildrenCommand(),
             "sleep" => ParseSleep(parts),

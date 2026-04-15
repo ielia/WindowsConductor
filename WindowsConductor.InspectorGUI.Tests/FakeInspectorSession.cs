@@ -195,6 +195,12 @@ internal sealed class FakeInspectorSession : IInspectorSession
         return Task.CompletedTask;
     }
 
+    public Task SetForegroundAsync(CancellationToken ct = default)
+    {
+        Record("SetForeground");
+        return Task.CompletedTask;
+    }
+
     public Task<string> GetTextAsync(CancellationToken ct = default)
     {
         Record("GetText");

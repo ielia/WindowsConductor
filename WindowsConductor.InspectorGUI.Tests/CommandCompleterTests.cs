@@ -159,8 +159,8 @@ public class CommandCompleterTests
     }
 
     [Test]
-    public void Commands_ContainsAll28Commands()
+    public void Commands_ContainsAll29Commands()
     {
-        Assert.That(CommandCompleter.Commands, Has.Length.EqualTo(28));
+        Assert.That(CommandCompleter.Commands, Has.Length.EqualTo(29));
     }
 }

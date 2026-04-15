@@ -596,6 +596,19 @@ public class CommandExecutorTests
         Assert.That(_output.InfoMessages[0], Does.Contain("Focused"));
     }
 
+    // ── foreground ──────────────────────────────────────────────────────────
+
+    [Test]
+    public async Task Execute_Foreground_CallsSetForeground()
+    {
+        _session.IsConnected = true;
+        _session.HasApp = true;
+        _session.HasSelectedElement = true;
+        await _executor.ExecuteAsync("foreground");
+        Assert.That(_session.Calls[0].Method, Is.EqualTo("SetForeground"));
+        Assert.That(_output.InfoMessages[0], Does.Contain("foreground"));
+    }
+
     // ── text ────────────────────────────────────────────────────────────────
 
     [Test]

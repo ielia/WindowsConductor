@@ -244,6 +244,13 @@ public sealed class WcLocator
         await el.FocusAsync(ct);
     }
 
+    /// <summary>Brings the first matching element's window to the foreground.</summary>
+    public async Task SetForegroundAsync(CancellationToken ct = default)
+    {
+        var el = await GetElementAsync(ct);
+        await el.SetForegroundAsync(ct);
+    }
+
     // ── Queries ──────────────────────────────────────────────────────────────
 
     /// <summary>

@@ -28,6 +28,7 @@ internal interface IAppOperations
     bool IsEnabled(string elementId);
     bool IsVisible(string elementId);
     void Focus(string elementId);
+    void SetForeground(string elementId);
     string GetWindowTitle(string appId);
     object GetBoundingRect(string elementId);
     object GetWindowBoundingRect(string appId);

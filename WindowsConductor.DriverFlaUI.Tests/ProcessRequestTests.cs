@@ -69,6 +69,7 @@ internal sealed class FakeAppOperations : IAppOperations
     public bool IsEnabled(string elementId) { Record("IsEnabled", elementId); return IsEnabledResult; }
     public bool IsVisible(string elementId) { Record("IsVisible", elementId); return IsVisibleResult; }
     public void Focus(string elementId) => Record("Focus", elementId);
+    public void SetForeground(string elementId) => Record("SetForeground", elementId);
 
     public string GetWindowTitle(string appId) { Record("GetWindowTitle", appId); return GetWindowTitleResult; }
     public object GetBoundingRect(string elementId) { Record("GetBoundingRect", elementId); return GetBoundingRectResult; }
@@ -482,6 +483,16 @@ public class ProcessRequestTests
         var resp = WsServer.ProcessRequest(_fake, MakeRequest("focus", new() { ["elementId"] = "e1" }));
         Assert.That(resp.Success, Is.True);
         Assert.That(_fake.Calls[0].Method, Is.EqualTo("Focus"));
+    }
+
+    // ── setForeground ─────────────────────────────────────────────────────────
+
+    [Test]
+    public void SetForeground_CallsSetForeground()
+    {
+        var resp = WsServer.ProcessRequest(_fake, MakeRequest("setForeground", new() { ["elementId"] = "e1" }));
+        Assert.That(resp.Success, Is.True);
+        Assert.That(_fake.Calls[0].Method, Is.EqualTo("SetForeground"));
     }
 
     // ── getWindowTitle ───────────────────────────────────────────────────────

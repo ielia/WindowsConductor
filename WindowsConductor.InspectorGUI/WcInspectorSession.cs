@@ -180,6 +180,9 @@ internal sealed class WcInspectorSession : IInspectorSession, IAsyncDisposable
     public async Task FocusAsync(CancellationToken ct = default) =>
         await _selectedElement!.FocusAsync(ct);
 
+    public async Task SetForegroundAsync(CancellationToken ct = default) =>
+        await _selectedElement!.SetForegroundAsync(ct);
+
     public async Task<string> GetTextAsync(CancellationToken ct = default) =>
         await _selectedElement!.GetTextAsync(ct);
 

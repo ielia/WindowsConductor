@@ -338,6 +338,14 @@ public class CommandParserTests
         Assert.That(CommandParser.Parse("focus"), Is.InstanceOf<FocusCommand>());
     }
 
+    // ── foreground ──────────────────────────────────────────────────────────
+
+    [Test]
+    public void Parse_Foreground_ReturnsForegroundCommand()
+    {
+        Assert.That(CommandParser.Parse("foreground"), Is.InstanceOf<ForegroundCommand>());
+    }
+
     // ── text ────────────────────────────────────────────────────────────────
 
     [Test]

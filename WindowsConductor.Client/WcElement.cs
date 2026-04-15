@@ -51,6 +51,9 @@ public sealed class WcElement
     public Task FocusAsync(CancellationToken ct = default) =>
         _conn.SendAsync("focus", new { elementId = ElementId }, ct);
 
+    public Task SetForegroundAsync(CancellationToken ct = default) =>
+        _conn.SendAsync("setForeground", new { elementId = ElementId }, ct);
+
     public async Task<WcElement?> ParentAsync(CancellationToken ct = default)
     {
         var r = await _conn.SendAsync("getParent", new { elementId = ElementId }, ct);
