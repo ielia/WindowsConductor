@@ -686,9 +686,9 @@ public class ProcessRequestTests
     // ── errorType propagation ────────────────────────────────────────────────
 
     [Test]
-    public void ElementNotFoundException_SetsErrorType()
+    public void NoMatchException_SetsErrorType()
     {
-        _fake.ThrowOnNext = new ElementNotFoundException("Not found within 5000ms.");
+        _fake.ThrowOnNext = new NoMatchException("Not found within 5000ms.");
         var resp = WsServer.ProcessRequest(_fake, MakeRequest("waitForElement", new()
         {
             ["appId"] = "a1",
@@ -697,13 +697,13 @@ public class ProcessRequestTests
             ["timeout"] = 5000
         }));
         Assert.That(resp.Success, Is.False);
-        Assert.That(resp.ErrorType, Is.EqualTo("ElementNotFoundException"));
+        Assert.That(resp.ErrorType, Is.EqualTo("NoMatchException"));
     }
 
     [Test]
-    public void UnwantedElementFoundException_SetsErrorType()
+    public void UnwantedMatchException_SetsErrorType()
     {
-        _fake.ThrowOnNext = new UnwantedElementFoundException("Still present after 2000ms.");
+        _fake.ThrowOnNext = new UnwantedMatchException("Still present after 2000ms.");
         var resp = WsServer.ProcessRequest(_fake, MakeRequest("waitForVanish", new()
         {
             ["appId"] = "a1",
@@ -712,7 +712,7 @@ public class ProcessRequestTests
             ["timeout"] = 2000
         }));
         Assert.That(resp.Success, Is.False);
-        Assert.That(resp.ErrorType, Is.EqualTo("UnwantedElementFoundException"));
+        Assert.That(resp.ErrorType, Is.EqualTo("UnwantedMatchException"));
     }
 
     [Test]

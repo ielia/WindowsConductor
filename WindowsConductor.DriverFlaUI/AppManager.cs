@@ -179,7 +179,7 @@ public sealed class AppManager : IAppOperations, IDisposable
             if (element is not null)
                 return CacheElement(element);
             if (Environment.TickCount64 >= deadline)
-                throw new ElementNotFoundException(
+                throw new NoMatchException(
                     $"No element found for selector '{selector}' within {timeout}ms.");
             Thread.Sleep(100);
         }
@@ -197,7 +197,7 @@ public sealed class AppManager : IAppOperations, IDisposable
             if (results.Length > 0)
                 return results.Select(CacheElement).ToArray();
             if (Environment.TickCount64 >= deadline)
-                throw new ElementNotFoundException(
+                throw new NoMatchException(
                     $"No elements found for selector '{selector}' within {timeout}ms.");
             Thread.Sleep(100);
         }
@@ -212,7 +212,7 @@ public sealed class AppManager : IAppOperations, IDisposable
             if (results.Length > 0)
                 return results;
             if (Environment.TickCount64 >= deadline)
-                throw new ElementNotFoundException(
+                throw new NoMatchException(
                     $"No attribute results found for selector '{selector}' within {timeout}ms.");
             Thread.Sleep(100);
         }
@@ -226,12 +226,14 @@ public sealed class AppManager : IAppOperations, IDisposable
         while (true)
         {
             var root = rootElementId != null ? GetElement(rootElementId) : GetAppRoot(appId);
-            var element = SelectorEngine.FindElement(root, selector, desktopRoot, processId);
-            if (element is null)
+            var result = SelectorEngine.FindFull(root, selector, desktopRoot, processId);
+            var hasMatches = result is ElementsResult er ? er.Elements.Count > 0
+                : result is AttrsResult ar && ar.Attributes.Count > 0;
+            if (!hasMatches)
                 return;
             if (Environment.TickCount64 >= deadline)
-                throw new UnwantedElementFoundException(
-                    $"Element matching selector '{selector}' still present after {timeout}ms.");
+                throw new UnwantedMatchException(
+                    $"Selector '{selector}' still has matches after {timeout}ms.");
             Thread.Sleep(100);
         }
     }

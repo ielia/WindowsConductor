@@ -349,7 +349,7 @@ public class WcLocatorAsyncTests
     public void WaitForVisible_NullResult_ThrowsElementNotFoundException()
     {
         _transport.Enqueue(null);
-        Assert.ThrowsAsync<ElementNotFoundException>(async () =>
+        Assert.ThrowsAsync<NoMatchException>(async () =>
             await MakeLocator("[name=OK]").WaitForElementAsync(1000));
     }
 

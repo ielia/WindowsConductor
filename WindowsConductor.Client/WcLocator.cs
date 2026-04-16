@@ -170,7 +170,7 @@ public sealed class WcLocator
 
     /// <summary>
     /// Waits up to <paramref name="timeout"/> milliseconds for a matching element to appear.
-    /// Throws <see cref="ElementNotFoundException"/> if the timeout elapses without a match.
+    /// Throws <see cref="NoMatchException"/> if the timeout elapses without a match.
     /// </summary>
     public async Task<WcElement> WaitForElementAsync(uint timeout, CancellationToken ct = default)
     {
@@ -188,7 +188,7 @@ public sealed class WcLocator
 
         string? elementId = result.GetString();
         if (elementId is null)
-            throw new ElementNotFoundException($"No element found for selector: '{_selector}'");
+            throw new NoMatchException($"No element found for selector: '{_selector}'");
 
         return new WcElement(elementId, _conn, _appId);
     }
@@ -196,7 +196,7 @@ public sealed class WcLocator
     /// <summary>
     /// Waits up to <paramref name="timeout"/> milliseconds for at least one matching element to appear.
     /// Returns the full list of matches as soon as one is found.
-    /// Throws <see cref="ElementNotFoundException"/> if the timeout elapses without a match.
+    /// Throws <see cref="NoMatchException"/> if the timeout elapses without a match.
     /// </summary>
     public async Task<IReadOnlyList<WcElement>> WaitForAllElementsAsync(uint timeout, CancellationToken ct = default)
     {
@@ -220,7 +220,7 @@ public sealed class WcLocator
     /// <summary>
     /// Waits up to <paramref name="timeout"/> milliseconds for at least one attribute result to appear.
     /// Returns the full list of attribute matches as soon as one is found.
-    /// Throws <see cref="ElementNotFoundException"/> if the timeout elapses without a match.
+    /// Throws <see cref="NoMatchException"/> if the timeout elapses without a match.
     /// </summary>
     public async Task<IReadOnlyList<WcAttr>> WaitForResolvedAttrsAsync(uint timeout, CancellationToken ct = default)
     {
@@ -251,8 +251,8 @@ public sealed class WcLocator
     }
 
     /// <summary>
-    /// Waits up to <paramref name="timeout"/> milliseconds for the locator to stop matching any element.
-    /// Throws <see cref="UnwantedElementFoundException"/> if the timeout elapses and elements still match.
+    /// Waits up to <paramref name="timeout"/> milliseconds for the locator to stop matching anything.
+    /// Throws <see cref="UnwantedMatchException"/> if the timeout elapses and elements still match.
     /// </summary>
     public async Task WaitForVanishAsync(uint timeout, CancellationToken ct = default)
     {

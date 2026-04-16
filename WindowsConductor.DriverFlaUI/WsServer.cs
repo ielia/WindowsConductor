@@ -373,7 +373,7 @@ public sealed class WsServer
         }
         catch (Exception ex)
         {
-            var errorType = ex is ElementNotFoundException or UnwantedElementFoundException or AccessRestrictedException
+            var errorType = ex is NoMatchException or UnwantedMatchException or AccessRestrictedException
                 ? ex.GetType().Name
                 : null;
             return WcResponse.Fail(req.Id, ex.Message, errorType);
