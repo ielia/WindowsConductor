@@ -134,6 +134,38 @@ public sealed class WcLocator
             .ToList();
     }
 
+    /// <summary>
+    /// Resolves the selector and returns attribute results if the XPath ends with an attribute step
+    /// (e.g. <c>//button/@automationid</c>). Returns an empty list if the selector matches elements.
+    /// </summary>
+    public async Task<IReadOnlyList<WcAttr>> GetResolvedAttrsAsync(CancellationToken ct = default)
+    {
+        string? rootElementId = _rootElementId;
+        if (rootElementId is null && _parent != null)
+        {
+            var parentElement = await _parent.GetElementAsync(ct);
+            rootElementId = parentElement.ElementId;
+        }
+
+        var result = await _conn.SendAsync(
+            "resolveAttrs",
+            new { appId = _appId, selector = _selector, rootElementId },
+            ct);
+
+        var attrs = new List<WcAttr>();
+        foreach (var item in result.EnumerateArray())
+        {
+            var elementId = item.GetProperty("elementId").GetString()!;
+            var name = item.GetProperty("name").GetString()!;
+            var value = item.GetProperty("value").GetString();
+            var element = new WcElement(elementId, _conn, _appId);
+            var type = value is null ? WcAttrType.NullValue : WcAttrType.StringValue;
+            attrs.Add(new WcAttr(element, name, type, value));
+        }
+
+        return attrs;
+    }
+
     // ── Wait operations ───────────────────────────────────────────────────────
 
     /// <summary>
@@ -183,6 +215,39 @@ public sealed class WcLocator
         return result.EnumerateArray()
             .Select(e => new WcElement(e.GetString()!, _conn, _appId))
             .ToList();
+    }
+
+    /// <summary>
+    /// Waits up to <paramref name="timeout"/> milliseconds for at least one attribute result to appear.
+    /// Returns the full list of attribute matches as soon as one is found.
+    /// Throws <see cref="ElementNotFoundException"/> if the timeout elapses without a match.
+    /// </summary>
+    public async Task<IReadOnlyList<WcAttr>> WaitForResolvedAttrsAsync(uint timeout, CancellationToken ct = default)
+    {
+        string? rootElementId = _rootElementId;
+        if (rootElementId is null && _parent != null)
+        {
+            var parentElement = await _parent.GetElementAsync(ct);
+            rootElementId = parentElement.ElementId;
+        }
+
+        var result = await _conn.SendAsync(
+            "waitForResolvedAttrs",
+            new { appId = _appId, selector = _selector, rootElementId, timeout },
+            ct);
+
+        var attrs = new List<WcAttr>();
+        foreach (var item in result.EnumerateArray())
+        {
+            var elementId = item.GetProperty("elementId").GetString()!;
+            var name = item.GetProperty("name").GetString()!;
+            var value = item.GetProperty("value").GetString();
+            var element = new WcElement(elementId, _conn, _appId);
+            var type = value is null ? WcAttrType.NullValue : WcAttrType.StringValue;
+            attrs.Add(new WcAttr(element, name, type, value));
+        }
+
+        return attrs;
     }
 
     /// <summary>

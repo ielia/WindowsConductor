@@ -34,33 +34,40 @@ public static class SelectorEngine
         AutomationElement? desktopRoot = null,
         int? confineToProcessId = null)
     {
+        var result = FindFull(root, selector, desktopRoot, confineToProcessId);
+        return result is ElementsResult er ? er.Elements.ToArray() : [];
+    }
+
+    public static XPathEvalResult FindFull(
+        AutomationElement root, string selector,
+        AutomationElement? desktopRoot = null,
+        int? confineToProcessId = null)
+    {
         Validate(selector);
 
         selector = selector.Trim();
-
-        AutomationElement[] results;
 
         if (selector.StartsWith('/') || selector.StartsWith('.'))
         {
             var effectiveRoot = IsAbsoluteXPath(selector) && desktopRoot is not null
                 ? desktopRoot
                 : root;
-            results = XPathEngine.Evaluate(effectiveRoot, selector).ToArray();
-        }
-        else
-        {
-            var parts = selector.Split("&&", StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
-            AutomationElement[]? current = null;
-            foreach (var part in parts)
-            {
-                var (key, value) = ParsePart(part);
-                var pool = current as IEnumerable<AutomationElement> ?? root.FindAllDescendants();
-                current = Filter(pool, key, value);
-            }
-            results = current ?? [];
+            var evalResult = XPathEngine.EvaluateFull(effectiveRoot, selector);
+            if (evalResult is ElementsResult er)
+                return new ElementsResult(ApplyProcessFilter(er.Elements.ToArray(), confineToProcessId));
+            return evalResult;
         }
 
-        return ApplyProcessFilter(results, confineToProcessId);
+        var parts = selector.Split("&&", StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+        AutomationElement[]? current = null;
+        foreach (var part in parts)
+        {
+            var (key, value) = ParsePart(part);
+            var pool = current as IEnumerable<AutomationElement> ?? root.FindAllDescendants();
+            current = Filter(pool, key, value);
+        }
+
+        return new ElementsResult(ApplyProcessFilter(current ?? [], confineToProcessId));
     }
 
     private static bool IsAbsoluteXPath(string selector) =>

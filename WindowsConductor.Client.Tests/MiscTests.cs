@@ -145,6 +145,120 @@ public class WcElementTests
 
 [TestFixture]
 [Category("Unit")]
+public class WcAttrTests
+{
+    private static readonly WcElement DummyElement = new("el-1", null!);
+
+    [TestCase(WcAttrType.BoolValue, true)]
+    [TestCase(WcAttrType.IntValue, 42)]
+    [TestCase(WcAttrType.DoubleValue, 3.14)]
+    [TestCase(WcAttrType.LongValue, 123L)]
+    [TestCase(WcAttrType.StringValue, "hello")]
+    [TestCase(WcAttrType.NullValue, null)]
+    public void Constructor_SetsTypeProperty(WcAttrType type, object? value)
+    {
+        var attr = new WcAttr(DummyElement, "TestAttr", type, value);
+        Assert.That(attr.Type, Is.EqualTo(type));
+        Assert.That(attr.Name, Is.EqualTo("TestAttr"));
+        Assert.That(attr.Element, Is.SameAs(DummyElement));
+        Assert.That(attr.Value, Is.EqualTo(value));
+    }
+
+    [Test]
+    public void Constructor_SetsDateOnlyType()
+    {
+        var date = new DateOnly(2026, 4, 16);
+        var attr = new WcAttr(DummyElement, "d", WcAttrType.DateOnlyValue, date);
+        Assert.That(attr.Type, Is.EqualTo(WcAttrType.DateOnlyValue));
+        Assert.That(attr.Value, Is.EqualTo(date));
+    }
+
+    [Test]
+    public void Constructor_SetsDateTimeType()
+    {
+        var dt = new DateTime(2026, 4, 16, 10, 30, 0);
+        var attr = new WcAttr(DummyElement, "dt", WcAttrType.DateTimeValue, dt);
+        Assert.That(attr.Type, Is.EqualTo(WcAttrType.DateTimeValue));
+        Assert.That(attr.Value, Is.EqualTo(dt));
+    }
+
+    [Test]
+    public void Constructor_SetsTimeOnlyType()
+    {
+        var time = new TimeOnly(14, 30);
+        var attr = new WcAttr(DummyElement, "t", WcAttrType.TimeOnlyValue, time);
+        Assert.That(attr.Type, Is.EqualTo(WcAttrType.TimeOnlyValue));
+        Assert.That(attr.Value, Is.EqualTo(time));
+    }
+
+    [Test]
+    public void Constructor_SetsTimeSpanType()
+    {
+        var span = TimeSpan.FromMinutes(90);
+        var attr = new WcAttr(DummyElement, "ts", WcAttrType.TimeSpanValue, span);
+        Assert.That(attr.Type, Is.EqualTo(WcAttrType.TimeSpanValue));
+        Assert.That(attr.Value, Is.EqualTo(span));
+    }
+
+    [Test]
+    public void Type_CoversAllEnumValues_WithNull()
+    {
+        var allTypes = Enum.GetValues<WcAttrType>();
+        foreach (var type in allTypes)
+        {
+            var attr = new WcAttr(DummyElement, "x", type, null);
+            Assert.That(attr.Type, Is.EqualTo(type));
+        }
+    }
+
+    [TestCase(WcAttrType.BoolValue, "true")]
+    [TestCase(WcAttrType.IntValue, "42")]
+    [TestCase(WcAttrType.DoubleValue, "3.14")]
+    [TestCase(WcAttrType.LongValue, "123")]
+    public void Constructor_MismatchedType_Throws(WcAttrType type, object value)
+    {
+        Assert.Throws<ArgumentException>(() => new WcAttr(DummyElement, "x", type, value));
+    }
+
+    [Test]
+    public void Constructor_NullValueWithNonNullValue_Throws()
+    {
+        Assert.Throws<ArgumentException>(() => new WcAttr(DummyElement, "x", WcAttrType.NullValue, "oops"));
+    }
+
+    [Test]
+    public void Constructor_IntValueWithDouble_Throws()
+    {
+        Assert.Throws<ArgumentException>(() => new WcAttr(DummyElement, "x", WcAttrType.IntValue, 3.14));
+    }
+
+    [Test]
+    public void Constructor_DateOnlyValueWithDateTime_Throws()
+    {
+        Assert.Throws<ArgumentException>(() =>
+            new WcAttr(DummyElement, "x", WcAttrType.DateOnlyValue, DateTime.Now));
+    }
+
+    [TestCase(WcAttrType.StringValue, 42)]
+    [TestCase(WcAttrType.StringValue, true)]
+    [TestCase(WcAttrType.StringValue, 3.14)]
+    public void Constructor_StringValueAcceptsAnyType(WcAttrType type, object value)
+    {
+        var attr = new WcAttr(DummyElement, "x", type, value);
+        Assert.That(attr.Value, Is.EqualTo(value));
+    }
+
+    [Test]
+    public void Constructor_StringValueAcceptsDateOnly()
+    {
+        var date = new DateOnly(2026, 1, 1);
+        var attr = new WcAttr(DummyElement, "x", WcAttrType.StringValue, date);
+        Assert.That(attr.Value, Is.EqualTo(date));
+    }
+}
+
+[TestFixture]
+[Category("Unit")]
 public class ClientProtocolTests
 {
     private static readonly System.Text.Json.JsonSerializerOptions CaseInsensitiveJson = new() { PropertyNameCaseInsensitive = true };

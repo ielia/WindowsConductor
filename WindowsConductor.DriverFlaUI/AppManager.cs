@@ -128,6 +128,20 @@ public sealed class AppManager : IAppOperations, IDisposable
             .ToArray();
     }
 
+    public object[] ResolveAttrs(string appId, string selector, string? rootElementId = null)
+    {
+        var root = rootElementId != null ? GetElement(rootElementId) : GetAppRoot(appId);
+        var result = SelectorEngine.FindFull(root, selector, GetDesktopRoot(), GetConfineProcessId(appId));
+        if (result is not AttrsResult ar)
+            return [];
+        return ar.Attributes.Select(a => (object)new
+        {
+            elementId = CacheElement(a.Element),
+            name = a.Name,
+            value = a.Value
+        }).ToArray();
+    }
+
     public string[] FindElementsAtPoint(string appId, double x, double y, string? rootElementId = null)
     {
         var root = rootElementId != null ? GetElement(rootElementId) : GetAppRoot(appId);
@@ -185,6 +199,21 @@ public sealed class AppManager : IAppOperations, IDisposable
             if (Environment.TickCount64 >= deadline)
                 throw new ElementNotFoundException(
                     $"No elements found for selector '{selector}' within {timeout}ms.");
+            Thread.Sleep(100);
+        }
+    }
+
+    public object[] WaitForResolvedAttrs(string appId, string selector, string? rootElementId, uint timeout)
+    {
+        var deadline = Environment.TickCount64 + timeout;
+        while (true)
+        {
+            var results = ResolveAttrs(appId, selector, rootElementId);
+            if (results.Length > 0)
+                return results;
+            if (Environment.TickCount64 >= deadline)
+                throw new ElementNotFoundException(
+                    $"No attribute results found for selector '{selector}' within {timeout}ms.");
             Thread.Sleep(100);
         }
     }

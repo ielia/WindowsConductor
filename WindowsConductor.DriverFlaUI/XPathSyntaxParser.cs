@@ -81,10 +81,14 @@ internal static class XPathSyntaxParser
         if (firstKind is not (XPathToken.DoubleSlash or XPathToken.Slash or XPathToken.Dot or XPathToken.DoubleDot))
             return TokenListParserResult.Empty<XPathToken, XPathExpr>(input);
 
-        // Bare . is not a sub-path — must be ./ or .//
+        // Bare . is the context node reference (used in attribute predicates like [.='value'])
         if (firstKind == XPathToken.Dot
             && (allTokens.Length < 2 || allTokens[1].Kind is not (XPathToken.Slash or XPathToken.DoubleSlash)))
-            return TokenListParserResult.Empty<XPathToken, XPathExpr>(input);
+        {
+            var afterDot = input.ConsumeToken().Remainder;
+            return TokenListParserResult.Value<XPathToken, XPathExpr>(
+                new ContextNodeExpr(), input, afterDot);
+        }
 
         bool isAbsolute = firstKind == XPathToken.Slash;
 
@@ -275,19 +279,27 @@ internal static class XPathSyntaxParser
                 pos += 2;
         }
 
-        // Element type
+        // Attribute step: @name or @*
+        bool isAttributeAxis = false;
+        if (pos < tokens.Length && tokens[pos].Kind == XPathToken.At)
+        {
+            isAttributeAxis = true;
+            pos++;
+        }
+
+        // Element type (or attribute name for @-steps)
         string type;
         if (pos < tokens.Length && tokens[pos].Kind == XPathToken.Star)
         {
             type = "*";
             pos++;
         }
-        else if (pos < tokens.Length && tokens[pos].Kind == XPathToken.DoubleDot)
+        else if (!isAttributeAxis && pos < tokens.Length && tokens[pos].Kind == XPathToken.DoubleDot)
         {
             pos++;
             return new XPathStep(XPathAxis.Parent, "..", []);
         }
-        else if (pos < tokens.Length && tokens[pos].Kind == XPathToken.Dot)
+        else if (!isAttributeAxis && pos < tokens.Length && tokens[pos].Kind == XPathToken.Dot)
         {
             pos++;
             return new XPathStep(XPathAxis.Self, ".", []);
@@ -300,11 +312,17 @@ internal static class XPathSyntaxParser
         else if (pos < tokens.Length && tokens[pos].Kind == XPathToken.LBracket)
         {
             throw new ArgumentException(
-                $"XPath is missing an element type before predicate at position {tokens[pos].Span.Position.Absolute}: '{xpath}'",
+                isAttributeAxis
+                    ? $"Expected attribute name or '*' after '@' in XPath expression: '{xpath}'"
+                    : $"XPath is missing an element type before predicate at position {tokens[pos].Span.Position.Absolute}: '{xpath}'",
                 nameof(xpath));
         }
         else
         {
+            if (isAttributeAxis)
+                throw new ArgumentException(
+                    $"Expected attribute name or '*' after '@' in XPath expression: '{xpath}'",
+                    nameof(xpath));
             return null;
         }
 
@@ -338,7 +356,8 @@ internal static class XPathSyntaxParser
             filters.Add(ParseFilter(predTokens, xpath));
         }
 
-        var axis = namedAxis
+        var axis = isAttributeAxis ? XPathAxis.Attribute
+            : namedAxis
             ?? (isDescendant ? XPathAxis.Descendant : XPathAxis.Child);
 
         return new XPathStep(axis, type, filters);

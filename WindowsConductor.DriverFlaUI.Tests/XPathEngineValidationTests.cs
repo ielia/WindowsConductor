@@ -1044,6 +1044,59 @@ public class XPathEngineValidationTests
         Assert.That(steps[1].Type, Is.EqualTo("*"));
     }
 
+    // ── attribute axis (@) ─────────────────────────────────────────────────
+
+    [TestCase("//Button/@automationid")]
+    [TestCase("//Button/@*")]
+    [TestCase("//Button/@Name[.='OK']")]
+    [TestCase("//Button/@Name[contains(., 'OK')]")]
+    [TestCase("//Button/@class/.")]
+    [TestCase("//Button/@class/..")]
+    [TestCase("//Button/@class/ancestor::Group")]
+    [TestCase("//*/@*")]
+    public void ParseXPath_AttributeAxis_DoesNotThrow(string xpath)
+    {
+        Assert.DoesNotThrow(() => XPathSyntaxParser.Parse(xpath));
+    }
+
+    [Test]
+    public void ParseXPath_AttributeStep_HasAttributeAxis()
+    {
+        var steps = XPathSyntaxParser.Parse("//Button/@automationid");
+        Assert.That(steps, Has.Count.EqualTo(2));
+        Assert.That(steps[1].Axis, Is.EqualTo(XPathAxis.Attribute));
+        Assert.That(steps[1].Type, Is.EqualTo("automationid"));
+    }
+
+    [Test]
+    public void ParseXPath_AttributeWildcard_HasStarType()
+    {
+        var steps = XPathSyntaxParser.Parse("//Button/@*");
+        Assert.That(steps, Has.Count.EqualTo(2));
+        Assert.That(steps[1].Axis, Is.EqualTo(XPathAxis.Attribute));
+        Assert.That(steps[1].Type, Is.EqualTo("*"));
+    }
+
+    [Test]
+    public void ParseXPath_AttributeWithPredicate_HasFilter()
+    {
+        var steps = XPathSyntaxParser.Parse("//Button/@Name[.='OK']");
+        Assert.That(steps, Has.Count.EqualTo(2));
+        Assert.That(steps[1].Axis, Is.EqualTo(XPathAxis.Attribute));
+        Assert.That(steps[1].Filters, Has.Count.EqualTo(1));
+    }
+
+    [Test]
+    public void ParseXPath_AttributeFollowedByAncestor_ParsesBothSteps()
+    {
+        var steps = XPathSyntaxParser.Parse("//Button/@class/ancestor::Group");
+        Assert.That(steps, Has.Count.EqualTo(3));
+        Assert.That(steps[1].Axis, Is.EqualTo(XPathAxis.Attribute));
+        Assert.That(steps[1].Type, Is.EqualTo("class"));
+        Assert.That(steps[2].Axis, Is.EqualTo(XPathAxis.Ancestor));
+        Assert.That(steps[2].Type, Is.EqualTo("Group"));
+    }
+
     // ── Helpers ──────────────────────────────────────────────────────────────
 
     private static (string Attr, string Value) GetAttrEqLiteral(XPathFilter filter)

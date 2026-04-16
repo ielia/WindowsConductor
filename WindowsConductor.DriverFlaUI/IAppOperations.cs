@@ -11,10 +11,12 @@ internal interface IAppOperations
     void CloseApp(string appId);
     string FindElement(string appId, string selector, string? rootElementId = null);
     string[] FindElements(string appId, string selector, string? rootElementId = null);
+    object[] ResolveAttrs(string appId, string selector, string? rootElementId = null);
     string[] FindElementsAtPoint(string appId, double x, double y, string? rootElementId = null);
     string FindFrontElementAtPoint(string appId, double x, double y, string? rootElementId = null);
     string WaitForElement(string appId, string selector, string? rootElementId, uint timeout);
     string[] WaitForElements(string appId, string selector, string? rootElementId, uint timeout);
+    object[] WaitForResolvedAttrs(string appId, string selector, string? rootElementId, uint timeout);
     void WaitForVanish(string appId, string selector, string? rootElementId, uint timeout);
     void Click(string elementId);
     void DoubleClick(string elementId);

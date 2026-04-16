@@ -89,6 +89,7 @@ internal static class XPathFunctions
         LiteralStringExpr s => new XPathString(s.Value),
         LiteralNumberExpr n => new XPathNumber(n.Value),
         AttrRefExpr a => new XPathString(ctx.GetProperty(a.Name.ToLowerInvariant()) ?? ""),
+        ContextNodeExpr => new XPathString(ctx.GetProperty(".") ?? ""),
         FunctionCallExpr f => InvokeFunction(f, ctx),
         UnaryMinusExpr u => new XPathNumber(-Evaluate(u.Operand, ctx).AsNumber()),
         SubPathExpr sp => ctx.SubPathEvaluator is not null

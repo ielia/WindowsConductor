@@ -4,7 +4,7 @@ namespace WindowsConductor.DriverFlaUI;
 
 // ── Enums ────────────────────────────────────────────────────────────────────
 
-public enum XPathAxis { Child, Descendant, Parent, Self, Frontmost, Ancestor, AncestorOrSelf }
+public enum XPathAxis { Child, Descendant, Parent, Self, Frontmost, Ancestor, AncestorOrSelf, Attribute }
 
 public enum XPathBinaryOp { Eq, NotEq, Lt, Gt, LtEq, GtEq, Add, Sub, Mul, Div, Mod, And, Or }
 
@@ -20,6 +20,7 @@ public sealed record BinaryExpr(XPathExpr Left, XPathBinaryOp Op, XPathExpr Righ
 public sealed record UnaryMinusExpr(XPathExpr Operand) : XPathExpr;
 public sealed record SequenceExpr(IReadOnlyList<XPathExpr> Items) : XPathExpr;
 public sealed record SubPathExpr(IReadOnlyList<XPathStep> Steps, bool IsAbsolute) : XPathExpr;
+public sealed record ContextNodeExpr : XPathExpr;
 
 // ── Step filters ────────────────────────────────────────────────────────────
 

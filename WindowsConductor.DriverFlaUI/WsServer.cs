@@ -206,6 +206,16 @@ public sealed class WsServer
                         return WcResponse.Ok(req.Id, ids);
                     }
 
+                case "resolveAttrs":
+                    {
+                        var rootElId = req.GetString("rootElementId");
+                        var attrs = mgr.ResolveAttrs(
+                            req.GetString("appId"),
+                            req.GetString("selector"),
+                            string.IsNullOrEmpty(rootElId) ? null : rootElId);
+                        return WcResponse.Ok(req.Id, attrs);
+                    }
+
                 case "findElementsAtPoint":
                     {
                         var rootElId = req.GetString("rootElementId");
@@ -248,6 +258,17 @@ public sealed class WsServer
                             string.IsNullOrEmpty(rootElId) ? null : rootElId,
                             (uint)req.GetInt("timeout"));
                         return WcResponse.Ok(req.Id, ids);
+                    }
+
+                case "waitForResolvedAttrs":
+                    {
+                        var rootElId = req.GetString("rootElementId");
+                        var attrs = mgr.WaitForResolvedAttrs(
+                            req.GetString("appId"),
+                            req.GetString("selector"),
+                            string.IsNullOrEmpty(rootElId) ? null : rootElId,
+                            (uint)req.GetInt("timeout"));
+                        return WcResponse.Ok(req.Id, attrs);
                     }
 
                 case "waitForVanish":
