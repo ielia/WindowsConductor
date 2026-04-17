@@ -352,8 +352,43 @@ public sealed class AppManager : IAppOperations, IDisposable
     public void Focus(string elementId) =>
         GetElement(elementId).Focus();
 
-    public void SetForeground(string elementId) =>
-        GetElement(elementId).AsWindow().SetForeground();
+    public void SetForeground(string elementId)
+    {
+        var windowId = GetTopLevelWindow(elementId) ?? elementId;
+        var window = GetElement(windowId);
+        var hwnd = new IntPtr(window.Properties.NativeWindowHandle.Value);
+        var rootHwnd = GetAncestor(hwnd, GA_ROOT);
+        if (rootHwnd != IntPtr.Zero)
+            hwnd = rootHwnd;
+
+        if (IsIconic(hwnd))
+            ShowWindow(hwnd, SW_RESTORE);
+
+        // Simulate Alt keypress to bypass Windows' focus-stealing prevention.
+        keybd_event(VK_MENU, 0, 0, UIntPtr.Zero);
+        keybd_event(VK_MENU, 0, KEYEVENTF_KEYUP, UIntPtr.Zero);
+        SetForegroundWindow(hwnd);
+    }
+
+    [DllImport("user32.dll")]
+    private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+
+    [DllImport("user32.dll")]
+    private static extern bool SetForegroundWindow(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr GetAncestor(IntPtr hwnd, uint gaFlags);
+
+    [DllImport("user32.dll")]
+    private static extern bool IsIconic(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
+    private static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);
+
+    private const int SW_RESTORE = 9;
+    private const uint GA_ROOT = 2;
+    private const byte VK_MENU = 0x12;
+    private const uint KEYEVENTF_KEYUP = 0x0002;
 
     public string GetWindowTitle(string appId) =>
         GetAppRoot(appId).Name ?? "";
