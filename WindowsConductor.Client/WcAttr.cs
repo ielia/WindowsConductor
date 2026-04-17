@@ -155,4 +155,4 @@ public record WcAttr(WcElement Element, string Name, WcAttrType Type, object? Va
 }
 
 /// <summary>Thrown when a value is requested to have a different unconvertible type.</summary>
-public sealed class UnconvertibleAttrValueTypeException(string name, WcAttrType from, WcAttrType to, Exception innerException) : Exception($"Attribute '{name}' with value type {from} cannot be converted to {to}", innerException);
+public sealed class UnconvertibleAttrValueTypeException(string name, WcAttrType from, WcAttrType to, Exception innerException) : WcException($"Attribute '{name}' with value type {from} cannot be converted to {to}", innerException);
