@@ -609,6 +609,32 @@ public class CommandExecutorTests
         Assert.That(_output.InfoMessages[0], Does.Contain("foreground"));
     }
 
+    // ── windowstate ─────────────────────────────────────────────────────────
+
+    [Test]
+    public async Task Execute_WindowState_Get_ReturnsState()
+    {
+        _session.IsConnected = true;
+        _session.HasApp = true;
+        _session.HasSelectedElement = true;
+        _session.GetWindowStateResult = WcWindowState.Maximized;
+        await _executor.ExecuteAsync("windowstate");
+        Assert.That(_session.Calls[0].Method, Is.EqualTo("GetWindowState"));
+        Assert.That(_output.InfoMessages[0], Is.EqualTo("maximized"));
+    }
+
+    [Test]
+    public async Task Execute_WindowState_Set_CallsSetWindowState()
+    {
+        _session.IsConnected = true;
+        _session.HasApp = true;
+        _session.HasSelectedElement = true;
+        await _executor.ExecuteAsync("windowstate minimized");
+        Assert.That(_session.Calls[0].Method, Is.EqualTo("SetWindowState"));
+        Assert.That(_session.Calls[0].Args[0], Is.EqualTo(WcWindowState.Minimized));
+        Assert.That(_output.InfoMessages[0], Does.Contain("minimized"));
+    }
+
     // ── text ────────────────────────────────────────────────────────────────
 
     [Test]

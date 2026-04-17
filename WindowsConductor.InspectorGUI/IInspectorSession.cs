@@ -37,6 +37,8 @@ internal interface IInspectorSession
     Task TypeAsync(string text, KeyModifiers modifiers = KeyModifiers.None, CancellationToken ct = default);
     Task FocusAsync(CancellationToken ct = default);
     Task SetForegroundAsync(CancellationToken ct = default);
+    Task<WcWindowState> GetWindowStateAsync(CancellationToken ct = default);
+    Task SetWindowStateAsync(WcWindowState state, CancellationToken ct = default);
     Task<string> GetTextAsync(CancellationToken ct = default);
     Task<byte[]> ScreenshotElementAsync(CancellationToken ct = default);
     Task<BoundingRect> GetElementBoundingRectAsync(CancellationToken ct = default);

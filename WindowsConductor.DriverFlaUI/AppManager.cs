@@ -8,6 +8,7 @@ using FlaUI.Core.Definitions;
 using FlaUI.Core.Input;
 using FlaUI.Core.WindowsAPI;
 using FlaUI.UIA3;
+using WindowsConductor.Client;
 
 namespace WindowsConductor.DriverFlaUI;
 
@@ -354,20 +355,58 @@ public sealed class AppManager : IAppOperations, IDisposable
 
     public void SetForeground(string elementId)
     {
-        var windowId = GetTopLevelWindow(elementId) ?? elementId;
-        var window = GetElement(windowId);
-        var hwnd = new IntPtr(window.Properties.NativeWindowHandle.Value);
-        var rootHwnd = GetAncestor(hwnd, GA_ROOT);
-        if (rootHwnd != IntPtr.Zero)
-            hwnd = rootHwnd;
+        var hwnd = GetWindowHwnd(elementId);
 
-        if (IsIconic(hwnd))
+        if (GetWindowState(hwnd) is WcWindowState.Minimized or WcWindowState.MinimizedMaximized)
             ShowWindow(hwnd, SW_RESTORE);
 
         // Simulate Alt keypress to bypass Windows' focus-stealing prevention.
         keybd_event(VK_MENU, 0, 0, UIntPtr.Zero);
         keybd_event(VK_MENU, 0, KEYEVENTF_KEYUP, UIntPtr.Zero);
         SetForegroundWindow(hwnd);
+    }
+
+    public WcWindowState GetWindowState(string elementId) =>
+        GetWindowState(GetWindowHwnd(elementId));
+
+    private static WcWindowState GetWindowState(IntPtr hwnd)
+    {
+        if (!IsWindowVisible(hwnd))
+            return WcWindowState.Hidden;
+        var placement = new WINDOWPLACEMENT { length = Marshal.SizeOf<WINDOWPLACEMENT>() };
+        GetWindowPlacement(hwnd, ref placement);
+        if (IsIconic(hwnd))
+        {
+            return (placement.flags & WPF_RESTORETOMAXIMIZED) != 0
+                ? WcWindowState.MinimizedMaximized
+                : WcWindowState.Minimized;
+        }
+        if (IsZoomed(hwnd)) return WcWindowState.Maximized;
+        return WcWindowState.Normal;
+    }
+
+    public void SetWindowState(string elementId, WcWindowState state)
+    {
+        if (state == WcWindowState.Hidden)
+            throw new InvalidOperationException("Cannot set window state to Hidden.");
+        var hwnd = GetWindowHwnd(elementId);
+        if (!IsWindowVisible(hwnd))
+            throw new InvalidOperationException("Cannot change state of a hidden window.");
+        if (state == WcWindowState.MinimizedMaximized)
+        {
+            ShowWindow(hwnd, SW_MAXIMIZE);
+            ShowWindow(hwnd, SW_MINIMIZE);
+        }
+        else
+        {
+            ShowWindow(hwnd, state switch
+            {
+                WcWindowState.Normal => SW_SHOWNORMAL,
+                WcWindowState.Maximized => SW_MAXIMIZE,
+                WcWindowState.Minimized => SW_MINIMIZE,
+                _ => throw new ArgumentException($"Unknown window state: {state}")
+            });
+        }
     }
 
     [DllImport("user32.dll")]
@@ -385,10 +424,43 @@ public sealed class AppManager : IAppOperations, IDisposable
     [DllImport("user32.dll")]
     private static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);
 
+    [DllImport("user32.dll")]
+    private static extern bool IsZoomed(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
+    private static extern bool IsWindowVisible(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
+    private static extern bool GetWindowPlacement(IntPtr hWnd, ref WINDOWPLACEMENT lpwndpl);
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct WINDOWPLACEMENT
+    {
+        public int length;
+        public int flags;
+        public int showCmd;
+        public System.Drawing.Point ptMinPosition;
+        public System.Drawing.Point ptMaxPosition;
+        public System.Drawing.Rectangle rcNormalPosition;
+    }
+
+    private const int WPF_RESTORETOMAXIMIZED = 0x0002;
     private const int SW_RESTORE = 9;
+    private const int SW_MINIMIZE = 6;
+    private const int SW_MAXIMIZE = 3;
+    private const int SW_SHOWNORMAL = 1;
     private const uint GA_ROOT = 2;
     private const byte VK_MENU = 0x12;
     private const uint KEYEVENTF_KEYUP = 0x0002;
+
+    private IntPtr GetWindowHwnd(string elementId)
+    {
+        var windowId = GetTopLevelWindow(elementId) ?? elementId;
+        var window = GetElement(windowId);
+        var hwnd = new IntPtr(window.Properties.NativeWindowHandle.Value);
+        var rootHwnd = GetAncestor(hwnd, GA_ROOT);
+        return rootHwnd != IntPtr.Zero ? rootHwnd : hwnd;
+    }
 
     public string GetWindowTitle(string appId) =>
         GetAppRoot(appId).Name ?? "";

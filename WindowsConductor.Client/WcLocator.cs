@@ -316,6 +316,20 @@ public sealed class WcLocator
         await el.SetForegroundAsync(ct);
     }
 
+    /// <summary>Returns the window state of the first matching element's top-level window.</summary>
+    public async Task<WcWindowState> GetWindowStateAsync(CancellationToken ct = default)
+    {
+        var el = await GetElementAsync(ct);
+        return await el.GetWindowStateAsync(ct);
+    }
+
+    /// <summary>Sets the window state of the first matching element's top-level window.</summary>
+    public async Task SetWindowStateAsync(WcWindowState state, CancellationToken ct = default)
+    {
+        var el = await GetElementAsync(ct);
+        await el.SetWindowStateAsync(state, ct);
+    }
+
     // ── Queries ──────────────────────────────────────────────────────────────
 
     /// <summary>

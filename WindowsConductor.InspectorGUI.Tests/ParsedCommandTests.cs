@@ -73,6 +73,7 @@ public class ParsedCommandTests
         Assert.That(new UnselectCommand(), Is.EqualTo(new UnselectCommand()));
         Assert.That(new FocusCommand(), Is.EqualTo(new FocusCommand()));
         Assert.That(new ForegroundCommand(), Is.EqualTo(new ForegroundCommand()));
+        Assert.That(new WindowStateCommand(), Is.EqualTo(new WindowStateCommand()));
         Assert.That(new TextCommand(), Is.EqualTo(new TextCommand()));
         Assert.That(new ScreenshotCommand(), Is.EqualTo(new ScreenshotCommand()));
         Assert.That(new DoubleClickCommand(), Is.EqualTo(new DoubleClickCommand()));

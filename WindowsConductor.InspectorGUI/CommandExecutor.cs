@@ -323,6 +323,18 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
                 output.WriteInfo("Brought to foreground.");
                 break;
 
+            case WindowStateCommand { State: null }:
+                RequireElement();
+                var currentState = await session.GetWindowStateAsync(ct);
+                output.WriteInfo(currentState.ToString().ToLowerInvariant());
+                break;
+
+            case WindowStateCommand { State: { } newState }:
+                RequireElement();
+                await session.SetWindowStateAsync(newState, ct);
+                output.WriteInfo($"Window state set to {newState.ToString().ToLowerInvariant()}.");
+                break;
+
             case TextCommand:
                 RequireElement();
                 var text = await session.GetTextAsync(ct);

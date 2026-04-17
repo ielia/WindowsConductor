@@ -1,4 +1,5 @@
 using System.Text.Json;
+using WindowsConductor.Client;
 using WindowsConductor.DriverFlaUI;
 
 namespace WindowsConductor.DriverFlaUI.Tests;
@@ -74,6 +75,12 @@ internal sealed class FakeAppOperations : IAppOperations
     public bool IsVisible(string elementId) { Record("IsVisible", elementId); return IsVisibleResult; }
     public void Focus(string elementId) => Record("Focus", elementId);
     public void SetForeground(string elementId) => Record("SetForeground", elementId);
+
+    public WcWindowState GetWindowStateResult { get; set; } = WcWindowState.Normal;
+    public WcWindowState GetWindowState(string elementId)
+    { Record("GetWindowState", elementId); return GetWindowStateResult; }
+
+    public void SetWindowState(string elementId, WcWindowState state) => Record("SetWindowState", elementId, state);
 
     public string GetWindowTitle(string appId) { Record("GetWindowTitle", appId); return GetWindowTitleResult; }
     public object GetBoundingRect(string elementId) { Record("GetBoundingRect", elementId); return GetBoundingRectResult; }
@@ -528,6 +535,33 @@ public class ProcessRequestTests
         var resp = WsServer.ProcessRequest(_fake, MakeRequest("setForeground", new() { ["elementId"] = "e1" }));
         Assert.That(resp.Success, Is.True);
         Assert.That(_fake.Calls[0].Method, Is.EqualTo("SetForeground"));
+    }
+
+    // ── getWindowState ────────────────────────────────────────────────────────
+
+    [Test]
+    public void GetWindowState_ReturnsState()
+    {
+        _fake.GetWindowStateResult = WcWindowState.Maximized;
+        var resp = WsServer.ProcessRequest(_fake, MakeRequest("getWindowState", new() { ["elementId"] = "e1" }));
+        Assert.That(resp.Success, Is.True);
+        Assert.That(resp.Result, Is.EqualTo((int)WcWindowState.Maximized));
+        Assert.That(_fake.Calls[0].Method, Is.EqualTo("GetWindowState"));
+    }
+
+    // ── setWindowState ────────────────────────────────────────────────────────
+
+    [Test]
+    public void SetWindowState_CallsSetWindowState()
+    {
+        var resp = WsServer.ProcessRequest(_fake, MakeRequest("setWindowState", new()
+        {
+            ["elementId"] = "e1",
+            ["state"] = (int)WcWindowState.Minimized
+        }));
+        Assert.That(resp.Success, Is.True);
+        Assert.That(_fake.Calls[0].Method, Is.EqualTo("SetWindowState"));
+        Assert.That(_fake.Calls[0].Args[1], Is.EqualTo(WcWindowState.Minimized));
     }
 
     // ── getWindowTitle ───────────────────────────────────────────────────────

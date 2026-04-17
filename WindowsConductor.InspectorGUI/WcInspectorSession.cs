@@ -183,6 +183,12 @@ internal sealed class WcInspectorSession : IInspectorSession, IAsyncDisposable
     public async Task SetForegroundAsync(CancellationToken ct = default) =>
         await _selectedElement!.SetForegroundAsync(ct);
 
+    public async Task<WcWindowState> GetWindowStateAsync(CancellationToken ct = default) =>
+        await _selectedElement!.GetWindowStateAsync(ct);
+
+    public async Task SetWindowStateAsync(WcWindowState state, CancellationToken ct = default) =>
+        await _selectedElement!.SetWindowStateAsync(state, ct);
+
     public async Task<string> GetTextAsync(CancellationToken ct = default) =>
         await _selectedElement!.GetTextAsync(ct);
 

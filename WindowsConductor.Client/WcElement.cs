@@ -54,6 +54,19 @@ public sealed class WcElement
     public Task SetForegroundAsync(CancellationToken ct = default) =>
         _conn.SendAsync("setForeground", new { elementId = ElementId }, ct);
 
+    public async Task<WcWindowState> GetWindowStateAsync(CancellationToken ct = default)
+    {
+        var r = await _conn.SendAsync("getWindowState", new { elementId = ElementId }, ct);
+        return (WcWindowState)r.GetInt32();
+    }
+
+    public Task SetWindowStateAsync(WcWindowState state, CancellationToken ct = default)
+    {
+        if (state == WcWindowState.Hidden)
+            throw new InvalidOperationException("Cannot set window state to Hidden.");
+        return _conn.SendAsync("setWindowState", new { elementId = ElementId, state = (int)state }, ct);
+    }
+
     public async Task<WcElement?> ParentAsync(CancellationToken ct = default)
     {
         var r = await _conn.SendAsync("getParent", new { elementId = ElementId }, ct);

@@ -201,6 +201,19 @@ internal sealed class FakeInspectorSession : IInspectorSession
         return Task.CompletedTask;
     }
 
+    public WcWindowState GetWindowStateResult { get; set; } = WcWindowState.Normal;
+    public Task<WcWindowState> GetWindowStateAsync(CancellationToken ct = default)
+    {
+        Record("GetWindowState");
+        return Task.FromResult(GetWindowStateResult);
+    }
+
+    public Task SetWindowStateAsync(WcWindowState state, CancellationToken ct = default)
+    {
+        Record("SetWindowState", state);
+        return Task.CompletedTask;
+    }
+
     public Task<string> GetTextAsync(CancellationToken ct = default)
     {
         Record("GetText");

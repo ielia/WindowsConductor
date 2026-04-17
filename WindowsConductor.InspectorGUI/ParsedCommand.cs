@@ -241,6 +241,17 @@ internal sealed record TypeCommand(string Text, KeyModifiers Modifiers = KeyModi
     internal override string[] Examples => ["type \"Hello World\"", "type \"a\" [ctrl]", "type \"v\" [ctrl shift]"];
 }
 
+internal sealed record WindowStateCommand(WcWindowState? State = null) : ParsedCommand
+{
+    private static readonly string StateNames = string.Join(", ",
+        Enum.GetValues<WcWindowState>().Select(s => s.ToString().ToLowerInvariant()));
+
+    internal override string Name => "windowstate";
+    internal override string Usage => $"windowstate [{StateNames}]";
+    internal override string Description => $"Gets or sets the window state of the currently selected element's window.\nWithout a parameter, returns the current state.";
+    internal override string[] Examples => ["windowstate", "windowstate normal", "windowstate maximized"];
+}
+
 internal sealed record UnselectCommand : ParsedCommand
 {
     internal override string Name => "unselect";

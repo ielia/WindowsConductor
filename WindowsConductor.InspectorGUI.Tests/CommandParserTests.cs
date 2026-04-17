@@ -346,6 +346,36 @@ public class CommandParserTests
         Assert.That(CommandParser.Parse("foreground"), Is.InstanceOf<ForegroundCommand>());
     }
 
+    // ── windowstate ─────────────────────────────────────────────────────────
+
+    [Test]
+    public void Parse_WindowState_NoArg_ReturnsNullState()
+    {
+        var cmd = (WindowStateCommand)CommandParser.Parse("windowstate");
+        Assert.That(cmd.State, Is.Null);
+    }
+
+    [Test]
+    public void Parse_WindowState_Normal_ReturnsNormalState()
+    {
+        var cmd = (WindowStateCommand)CommandParser.Parse("windowstate normal");
+        Assert.That(cmd.State, Is.EqualTo(WcWindowState.Normal));
+    }
+
+    [Test]
+    public void Parse_WindowState_CaseInsensitive()
+    {
+        var cmd = (WindowStateCommand)CommandParser.Parse("windowstate MAXIMIZED");
+        Assert.That(cmd.State, Is.EqualTo(WcWindowState.Maximized));
+    }
+
+    [Test]
+    public void Parse_WindowState_InvalidValue_Throws()
+    {
+        var ex = Assert.Throws<ArgumentException>(() => CommandParser.Parse("windowstate bogus"));
+        Assert.That(ex!.Message, Does.Contain("Unknown window state"));
+    }
+
     // ── text ────────────────────────────────────────────────────────────────
 
     [Test]

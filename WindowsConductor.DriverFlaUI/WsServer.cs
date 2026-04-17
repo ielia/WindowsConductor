@@ -331,6 +331,13 @@ public sealed class WsServer
                     mgr.SetForeground(req.GetString("elementId"));
                     return WcResponse.Ok(req.Id);
 
+                case "getWindowState":
+                    return WcResponse.Ok(req.Id, (int)mgr.GetWindowState(req.GetString("elementId")));
+
+                case "setWindowState":
+                    mgr.SetWindowState(req.GetString("elementId"), (WcWindowState)req.GetInt("state"));
+                    return WcResponse.Ok(req.Id);
+
                 case "getWindowTitle":
                     return WcResponse.Ok(req.Id, mgr.GetWindowTitle(req.GetString("appId")));
 

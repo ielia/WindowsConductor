@@ -41,6 +41,7 @@ internal static class CommandParser
             "text" => new TextCommand(),
             "screenshot" => new ScreenshotCommand(),
             "snapshot" => new SnapshotCommand(),
+            "windowstate" => ParseWindowState(parts),
             "exit" or "quit" => new ExitCommand(),
             "help" => new HelpCommand(parts.Length >= 2 ? parts[1].ToLowerInvariant() : null),
             _ => throw new ArgumentException($"Unknown command: '{parts[0]}'.")
@@ -232,6 +233,16 @@ internal static class CommandParser
             return new PrevMatchCommand(steps);
         }
         return new PrevMatchCommand();
+    }
+
+    private static WindowStateCommand ParseWindowState(string[] parts)
+    {
+        if (parts.Length < 2)
+            return new WindowStateCommand();
+        if (Enum.TryParse<WcWindowState>(parts[1], ignoreCase: true, out var state))
+            return new WindowStateCommand(state);
+        var valid = string.Join(", ", Enum.GetValues<WcWindowState>().Select(s => s.ToString().ToLowerInvariant()));
+        throw new ArgumentException($"Unknown window state: '{parts[1]}'. Valid states: {valid}.");
     }
 
     private static SleepCommand ParseSleep(string[] parts)

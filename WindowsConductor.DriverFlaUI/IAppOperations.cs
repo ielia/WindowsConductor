@@ -1,3 +1,5 @@
+using WindowsConductor.Client;
+
 namespace WindowsConductor.DriverFlaUI;
 
 /// <summary>
@@ -31,6 +33,8 @@ internal interface IAppOperations
     bool IsVisible(string elementId);
     void Focus(string elementId);
     void SetForeground(string elementId);
+    WcWindowState GetWindowState(string elementId);
+    void SetWindowState(string elementId, WcWindowState state);
     string GetWindowTitle(string appId);
     object GetBoundingRect(string elementId);
     object GetWindowBoundingRect(string appId);
