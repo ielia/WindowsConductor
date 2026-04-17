@@ -9,8 +9,8 @@
     <AssemblyName>WindowsConductor.Client</AssemblyName>
     <IsPackable>true</IsPackable>
     <PackageId>WindowsConductor.Client</PackageId>
-    <Version>0.3.0</Version>
-    <Authors>ielia</Authors>
+    <Version>0.4.0</Version>
+    <Authors>Ignacio Elia</Authors>
     <Description>Client library for controlling Windows desktop applications via WindowsConductor.</Description>
   </PropertyGroup>
 

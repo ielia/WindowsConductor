@@ -9,7 +9,8 @@
     <RootNamespace>WindowsConductor.InspectorGUI</RootNamespace>
     <AssemblyName>WindowsConductor.InspectorGUI</AssemblyName>
     <ApplicationIcon>InspectorGUI.ico</ApplicationIcon>
-    <Version>0.3.0</Version>
+    <Version>0.4.0</Version>
+    <Authors>Ignacio Elia</Authors>
   </PropertyGroup>
 
   <ItemGroup>
