@@ -24,6 +24,16 @@ public class XPathExprEvaluatorTests
             XPathTokenizer.Instance.Tokenize(input).ToArray());
     }
 
+    private static double EvalNum(string predicate, int position = 1, int last = 1, Func<string, string?>? props = null)
+    {
+        var tokens = Tokenize(predicate);
+        var parseResult = XPathSyntaxParser.Expression.TryParse(tokens);
+        if (!parseResult.HasValue)
+            throw new ArgumentException($"Failed to parse: {predicate}");
+        var ctx = new EvalContext(props ?? (_ => null), position, last, null);
+        return XPathFunctions.Evaluate(parseResult.Value, ctx).AsNumber();
+    }
+
     // ── Simple position() equality ───────────────────────────────────────────
 
     [Test]
@@ -117,6 +127,43 @@ public class XPathExprEvaluatorTests
         Assert.That(Eval("position() = -(-3)", 3, 10), Is.True);
     }
 
+    [Test]
+    public void Evaluate_UnaryMinus_WithBinaryPlus()
+    {
+        Assert.That(Eval("position() = 5 + -2", 3, 10), Is.True);
+        Assert.That(Eval("position() = -1 + -2", 1, 10), Is.False);
+        Assert.That(Eval("-1 + 4 = position()", 3, 10), Is.True);
+    }
+
+    [Test]
+    public void Evaluate_UnaryMinus_WithBinaryMinus()
+    {
+        Assert.That(Eval("position() = 5 - -2", 7, 10), Is.True);
+        Assert.That(Eval("position() = -3 - -1", 1, 10), Is.False);
+    }
+
+    // ── Unary plus ─────────────────────────────────────────────────────────
+
+    [Test]
+    public void Evaluate_UnaryPlus_Works()
+    {
+        Assert.That(Eval("position() = +(+3)", 3, 10), Is.True);
+    }
+
+    [Test]
+    public void Evaluate_UnaryPlus_WithBinaryPlus()
+    {
+        Assert.That(Eval("position() = 2 + +1", 3, 10), Is.True);
+        Assert.That(Eval("+2 + +3 = position()", 5, 10), Is.True);
+    }
+
+    [Test]
+    public void Evaluate_UnaryPlus_WithBinaryMinus()
+    {
+        Assert.That(Eval("position() = 5 - +2", 3, 10), Is.True);
+        Assert.That(Eval("+10 - +3 = position()", 7, 10), Is.True);
+    }
+
     // ── last() ───────────────────────────────────────────────────────────────
 
     [Test]
@@ -180,6 +227,42 @@ public class XPathExprEvaluatorTests
     {
         Assert.That(Eval("position() div 3 > 1.5", 5, 10), Is.True);
         Assert.That(Eval("position() div 3 > 1.5", 4, 10), Is.False);
+    }
+
+    // ── idiv operator (integer division, truncates toward zero) ──────────────
+
+    [Test]
+    public void Evaluate_IntDiv_ExactDivision()
+    {
+        Assert.That(Eval("10 idiv 2 = 5", 1, 1), Is.True);
+        Assert.That(Eval("9 idiv 3 = 3", 1, 1), Is.True);
+    }
+
+    [Test]
+    public void Evaluate_IntDiv_TruncatesPositive()
+    {
+        Assert.That(Eval("7 idiv 2 = 4", 1, 1), Is.True);
+        Assert.That(Eval("10 idiv 3 = 4", 1, 1), Is.True);
+    }
+
+    [Test]
+    public void Evaluate_IntDiv_NegativeDividend()
+    {
+        Assert.That(Eval("-7 idiv 2 = -4", 1, 1), Is.True);
+        Assert.That(Eval("7 idiv -2 = -4", 1, 1), Is.True);
+    }
+
+    [Test]
+    public void Evaluate_IntDiv_BothNegative()
+    {
+        Assert.That(Eval("-7 idiv -2 = 4", 1, 1), Is.True);
+    }
+
+    [Test]
+    public void Evaluate_IntDiv_WithPosition()
+    {
+        Assert.That(Eval("position() idiv 3 = 2", 4, 10), Is.True);
+        Assert.That(Eval("last() idiv 3 = 4", 1, 10), Is.True);
     }
 
     // ── and operator ─────────────────────────────────────────────────────────
@@ -254,6 +337,163 @@ public class XPathExprEvaluatorTests
     {
         Func<string, string?> props = _ => null;
         Assert.That(Eval("string-length(@Name) = 0", 1, 1, props), Is.True);
+    }
+
+    // ── Numeric functions ─────────────────────────────────────────────────────
+
+    [Test]
+    public void Evaluate_Abs()
+    {
+        Assert.That(EvalNum("abs(-5)"), Is.EqualTo(5));
+        Assert.That(EvalNum("abs(3)"), Is.EqualTo(3));
+        Assert.That(EvalNum("abs(0)"), Is.EqualTo(0));
+    }
+
+    [Test]
+    public void Evaluate_Ceiling()
+    {
+        Assert.That(EvalNum("ceiling(2.3)"), Is.EqualTo(3));
+        Assert.That(EvalNum("ceiling(-2.3)"), Is.EqualTo(-2));
+        Assert.That(EvalNum("ceiling(5)"), Is.EqualTo(5));
+    }
+
+    [Test]
+    public void Evaluate_Floor()
+    {
+        Assert.That(EvalNum("floor(2.7)"), Is.EqualTo(2));
+        Assert.That(EvalNum("floor(-2.3)"), Is.EqualTo(-3));
+        Assert.That(EvalNum("floor(5)"), Is.EqualTo(5));
+    }
+
+    [Test]
+    public void Evaluate_Round_OneArg()
+    {
+        Assert.That(EvalNum("round(2.6)"), Is.EqualTo(3));
+        Assert.That(EvalNum("round(2.4)"), Is.EqualTo(2));
+        Assert.That(EvalNum("round(-2.6)"), Is.EqualTo(-3));
+    }
+
+    [Test]
+    public void Evaluate_Round_TwoArgs()
+    {
+        Assert.That(EvalNum("round(2.456, 2)"), Is.EqualTo(2.46));
+        Assert.That(EvalNum("round(2.454, 2)"), Is.EqualTo(2.45));
+    }
+
+    [Test]
+    public void Evaluate_RoundHalfToEven_OneArg()
+    {
+        Assert.That(EvalNum("round-half-to-even(2.5)"), Is.EqualTo(2));
+        Assert.That(EvalNum("round-half-to-even(3.5)"), Is.EqualTo(4));
+        Assert.That(EvalNum("round-half-to-even(2.6)"), Is.EqualTo(3));
+    }
+
+    [Test]
+    public void Evaluate_RoundHalfToEven_TwoArgs()
+    {
+        Assert.That(EvalNum("round-half-to-even(2.455, 2)"), Is.EqualTo(2.46));
+        Assert.That(EvalNum("round-half-to-even(2.445, 2)"), Is.EqualTo(2.44));
+    }
+
+    // ── math: namespace functions ────────────────────────────────────────────
+
+    [Test]
+    public void Evaluate_MathPi()
+    {
+        Assert.That(EvalNum("math:pi()"), Is.EqualTo(Math.PI));
+    }
+
+    [Test]
+    public void Evaluate_MathExp()
+    {
+        Assert.That(EvalNum("math:exp(0)"), Is.EqualTo(1));
+        Assert.That(EvalNum("math:exp(1)"), Is.EqualTo(Math.E).Within(1e-10));
+    }
+
+    [Test]
+    public void Evaluate_MathExp10()
+    {
+        Assert.That(EvalNum("math:exp10(0)"), Is.EqualTo(1));
+        Assert.That(EvalNum("math:exp10(2)"), Is.EqualTo(100));
+        Assert.That(EvalNum("math:exp10(3)"), Is.EqualTo(1000));
+    }
+
+    [Test]
+    public void Evaluate_MathLog()
+    {
+        Assert.That(EvalNum("math:log(1)"), Is.EqualTo(0));
+        Assert.That(EvalNum("math:log(math:exp(1))"), Is.EqualTo(1).Within(1e-10));
+    }
+
+    [Test]
+    public void Evaluate_MathLog10()
+    {
+        Assert.That(EvalNum("math:log10(1)"), Is.EqualTo(0));
+        Assert.That(EvalNum("math:log10(100)"), Is.EqualTo(2));
+    }
+
+    [Test]
+    public void Evaluate_MathPow()
+    {
+        Assert.That(EvalNum("math:pow(2, 10)"), Is.EqualTo(1024));
+        Assert.That(EvalNum("math:pow(3, 0)"), Is.EqualTo(1));
+    }
+
+    [Test]
+    public void Evaluate_MathSqrt()
+    {
+        Assert.That(EvalNum("math:sqrt(9)"), Is.EqualTo(3));
+        Assert.That(EvalNum("math:sqrt(2)"), Is.EqualTo(Math.Sqrt(2)).Within(1e-10));
+    }
+
+    [Test]
+    public void Evaluate_MathSin()
+    {
+        Assert.That(EvalNum("math:sin(0)"), Is.EqualTo(0));
+        Assert.That(EvalNum("math:sin(math:pi() div 2)"), Is.EqualTo(1).Within(1e-10));
+    }
+
+    [Test]
+    public void Evaluate_MathCos()
+    {
+        Assert.That(EvalNum("math:cos(0)"), Is.EqualTo(1));
+        Assert.That(EvalNum("math:cos(math:pi())"), Is.EqualTo(-1).Within(1e-10));
+    }
+
+    [Test]
+    public void Evaluate_MathTan()
+    {
+        Assert.That(EvalNum("math:tan(0)"), Is.EqualTo(0));
+        Assert.That(EvalNum("math:tan(math:pi() div 4)"), Is.EqualTo(1).Within(1e-10));
+    }
+
+    [Test]
+    public void Evaluate_MathAsin()
+    {
+        Assert.That(EvalNum("math:asin(0)"), Is.EqualTo(0));
+        Assert.That(EvalNum("math:asin(1)"), Is.EqualTo(Math.PI / 2).Within(1e-10));
+    }
+
+    [Test]
+    public void Evaluate_MathAcos()
+    {
+        Assert.That(EvalNum("math:acos(1)"), Is.EqualTo(0));
+        Assert.That(EvalNum("math:acos(0)"), Is.EqualTo(Math.PI / 2).Within(1e-10));
+    }
+
+    [Test]
+    public void Evaluate_MathAtan()
+    {
+        Assert.That(EvalNum("math:atan(0)"), Is.EqualTo(0));
+        Assert.That(EvalNum("math:atan(1)"), Is.EqualTo(Math.PI / 4).Within(1e-10));
+    }
+
+    [Test]
+    public void Evaluate_MathAtan2()
+    {
+        Assert.That(EvalNum("math:atan2(0, 1)"), Is.EqualTo(0));
+        Assert.That(EvalNum("math:atan2(1, 1)"), Is.EqualTo(Math.PI / 4).Within(1e-10));
+        Assert.That(EvalNum("math:atan2(1, 0)"), Is.EqualTo(Math.PI / 2).Within(1e-10));
     }
 
     // ── Validation errors ────────────────────────────────────────────────────

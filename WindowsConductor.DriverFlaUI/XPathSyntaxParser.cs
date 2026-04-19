@@ -157,6 +157,9 @@ internal static class XPathSyntaxParser
         Token.EqualTo(XPathToken.Minus)
             .IgnoreThen(UnaryRef)
             .Select(e => (XPathExpr)new UnaryMinusExpr(e))
+        .Or(Token.EqualTo(XPathToken.Plus)
+            .IgnoreThen(UnaryRef)
+            .Select(e => (XPathExpr)new UnaryPlusExpr(e)))
         .Or(Primary);
 
     // ── Binary operators (precedence climbing via SP.Chain) ───────────────
@@ -171,6 +174,7 @@ internal static class XPathSyntaxParser
     private static readonly TokenListParser<XPathToken, XPathBinaryOp> MulOp =
         Token.EqualTo(XPathToken.Star).Value(XPathBinaryOp.Mul)
         .Or(IdentifierOp("div", XPathBinaryOp.Div))
+        .Or(IdentifierOp("idiv", XPathBinaryOp.IntDiv))
         .Or(IdentifierOp("mod", XPathBinaryOp.Mod));
 
     private static readonly TokenListParser<XPathToken, XPathExpr> Multiplicative =

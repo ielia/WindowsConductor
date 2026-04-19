@@ -79,6 +79,69 @@ internal static class XPathFunctions
         Add("not", 1, 1, (args, _) =>
             new XPathBool(!args[0].AsBool()));
 
+        // Numeric functions
+        Add("abs", 1, 1, (args, _) =>
+            new XPathNumber(Math.Abs(args[0].AsNumber())));
+
+        Add("ceiling", 1, 1, (args, _) =>
+            new XPathNumber(Math.Ceiling(args[0].AsNumber())));
+
+        Add("floor", 1, 1, (args, _) =>
+            new XPathNumber(Math.Floor(args[0].AsNumber())));
+
+        Add("round", 1, 2, (args, _) =>
+            args.Length == 1
+                ? new XPathNumber(Math.Round(args[0].AsNumber()))
+                : new XPathNumber(Math.Round(args[0].AsNumber(), (int)args[1].AsNumber())));
+
+        Add("round-half-to-even", 1, 2, (args, _) =>
+            args.Length == 1
+                ? new XPathNumber(Math.Round(args[0].AsNumber(), MidpointRounding.ToEven))
+                : new XPathNumber(Math.Round(args[0].AsNumber(), (int)args[1].AsNumber(), MidpointRounding.ToEven)));
+
+        // math: namespace functions
+        Add("math:pi", 0, 0, (_, _) =>
+            new XPathNumber(Math.PI));
+
+        Add("math:exp", 1, 1, (args, _) =>
+            new XPathNumber(Math.Exp(args[0].AsNumber())));
+
+        Add("math:exp10", 1, 1, (args, _) =>
+            new XPathNumber(Math.Pow(10, args[0].AsNumber())));
+
+        Add("math:log", 1, 1, (args, _) =>
+            new XPathNumber(Math.Log(args[0].AsNumber())));
+
+        Add("math:log10", 1, 1, (args, _) =>
+            new XPathNumber(Math.Log10(args[0].AsNumber())));
+
+        Add("math:pow", 2, 2, (args, _) =>
+            new XPathNumber(Math.Pow(args[0].AsNumber(), args[1].AsNumber())));
+
+        Add("math:sqrt", 1, 1, (args, _) =>
+            new XPathNumber(Math.Sqrt(args[0].AsNumber())));
+
+        Add("math:sin", 1, 1, (args, _) =>
+            new XPathNumber(Math.Sin(args[0].AsNumber())));
+
+        Add("math:cos", 1, 1, (args, _) =>
+            new XPathNumber(Math.Cos(args[0].AsNumber())));
+
+        Add("math:tan", 1, 1, (args, _) =>
+            new XPathNumber(Math.Tan(args[0].AsNumber())));
+
+        Add("math:asin", 1, 1, (args, _) =>
+            new XPathNumber(Math.Asin(args[0].AsNumber())));
+
+        Add("math:acos", 1, 1, (args, _) =>
+            new XPathNumber(Math.Acos(args[0].AsNumber())));
+
+        Add("math:atan", 1, 1, (args, _) =>
+            new XPathNumber(Math.Atan(args[0].AsNumber())));
+
+        Add("math:atan2", 2, 2, (args, _) =>
+            new XPathNumber(Math.Atan2(args[0].AsNumber(), args[1].AsNumber())));
+
         return r;
     }
 
@@ -92,6 +155,7 @@ internal static class XPathFunctions
         ContextNodeExpr => new XPathString(ctx.GetProperty(".") ?? ""),
         FunctionCallExpr f => InvokeFunction(f, ctx),
         UnaryMinusExpr u => new XPathNumber(-Evaluate(u.Operand, ctx).AsNumber()),
+        UnaryPlusExpr u => new XPathNumber(Evaluate(u.Operand, ctx).AsNumber()),
         SubPathExpr sp => ctx.SubPathEvaluator is not null
             ? new XPathBool(ctx.SubPathEvaluator(sp))
             : throw new InvalidOperationException("Sub-path expressions require an element context for evaluation."),
@@ -149,6 +213,7 @@ internal static class XPathFunctions
             XPathBinaryOp.Sub => left - right,
             XPathBinaryOp.Mul => left * right,
             XPathBinaryOp.Div => left / right,
+            XPathBinaryOp.IntDiv => (int)(Math.Sign(left) == Math.Sign(right) ? Math.Ceiling(left / right) : Math.Floor(left / right)),
             XPathBinaryOp.Mod => (int)left % (int)right,
             _ => throw new ArgumentException($"Unknown binary operator: {expr.Op}")
         });

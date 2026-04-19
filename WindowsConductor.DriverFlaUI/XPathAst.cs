@@ -6,7 +6,7 @@ namespace WindowsConductor.DriverFlaUI;
 
 public enum XPathAxis { Child, Descendant, Parent, Self, Frontmost, Ancestor, AncestorOrSelf, Attribute }
 
-public enum XPathBinaryOp { Eq, NotEq, Lt, Gt, LtEq, GtEq, Add, Sub, Mul, Div, Mod, And, Or }
+public enum XPathBinaryOp { Eq, NotEq, Lt, Gt, LtEq, GtEq, Add, Sub, Mul, Div, IntDiv, Mod, And, Or }
 
 // ── Expression AST ──────────────────────────────────────────────────────────
 
@@ -18,6 +18,7 @@ public sealed record AttrRefExpr(string Name) : XPathExpr;
 public sealed record FunctionCallExpr(string Name, IReadOnlyList<XPathExpr> Args) : XPathExpr;
 public sealed record BinaryExpr(XPathExpr Left, XPathBinaryOp Op, XPathExpr Right) : XPathExpr;
 public sealed record UnaryMinusExpr(XPathExpr Operand) : XPathExpr;
+public sealed record UnaryPlusExpr(XPathExpr Operand) : XPathExpr;
 public sealed record SequenceExpr(IReadOnlyList<XPathExpr> Items) : XPathExpr;
 public sealed record SubPathExpr(IReadOnlyList<XPathStep> Steps, bool IsAbsolute) : XPathExpr;
 public sealed record ContextNodeExpr : XPathExpr;

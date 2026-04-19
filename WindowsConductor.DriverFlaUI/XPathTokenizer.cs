@@ -62,6 +62,11 @@ internal static class XPathTokenizer
         from rest in Character.LetterOrDigit.Or(Character.EqualTo('-')).Or(Character.EqualTo('_')).Many()
         select Unit.Value;
 
+    private static readonly TextParser<Unit> NamespacedIdentifierText =
+        from first in IdentifierText
+        from ns in Character.EqualTo(':').IgnoreThen(IdentifierText).Try().OptionalOrDefault()
+        select Unit.Value;
+
     internal static Tokenizer<XPathToken> Instance { get; } =
         new TokenizerBuilder<XPathToken>()
             .Ignore(Span.WhiteSpace)
@@ -88,7 +93,7 @@ internal static class XPathTokenizer
             .Match(SingleQuotedString, XPathToken.SingleQuotedString)
             .Match(DoubleQuotedString, XPathToken.DoubleQuotedString)
             .Match(NumberLiteral, XPathToken.Number)
-            .Match(IdentifierText, XPathToken.Identifier)
+            .Match(NamespacedIdentifierText, XPathToken.Identifier)
             .Build();
 
     /// <summary>
