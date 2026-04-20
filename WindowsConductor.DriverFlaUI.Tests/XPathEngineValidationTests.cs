@@ -251,7 +251,7 @@ public class XPathEngineValidationTests
         Assert.That(steps, Has.Count.EqualTo(2));
         Assert.That(steps[0].Type, Is.EqualTo("Button"));
         Assert.That(steps[0].Axis, Is.EqualTo(XPathAxis.Descendant));
-        Assert.That(steps[1].Type, Is.EqualTo(".."));
+        Assert.That(steps[1].Type, Is.EqualTo("*"));
         Assert.That(steps[1].Axis, Is.EqualTo(XPathAxis.Parent));
         Assert.That(steps[1].Filters, Is.Empty);
     }
@@ -345,7 +345,7 @@ public class XPathEngineValidationTests
         var steps = XPathSyntaxParser.Parse("../Button");
         Assert.That(steps, Has.Count.EqualTo(2));
         Assert.That(steps[0].Axis, Is.EqualTo(XPathAxis.Parent));
-        Assert.That(steps[0].Type, Is.EqualTo(".."));
+        Assert.That(steps[0].Type, Is.EqualTo("*"));
         Assert.That(steps[1].Axis, Is.EqualTo(XPathAxis.Child));
         Assert.That(steps[1].Type, Is.EqualTo("Button"));
     }
@@ -941,7 +941,7 @@ public class XPathEngineValidationTests
         Assert.That(subPath.IsAbsolute, Is.False);
         Assert.That(subPath.Steps, Has.Count.EqualTo(2));
         Assert.That(subPath.Steps[0].Axis, Is.EqualTo(XPathAxis.Parent));
-        Assert.That(subPath.Steps[0].Type, Is.EqualTo(".."));
+        Assert.That(subPath.Steps[0].Type, Is.EqualTo("*"));
         Assert.That(subPath.Steps[1].Axis, Is.EqualTo(XPathAxis.Descendant));
         Assert.That(subPath.Steps[1].Type, Is.EqualTo("Button"));
     }

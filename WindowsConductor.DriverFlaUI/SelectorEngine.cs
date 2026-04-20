@@ -86,7 +86,7 @@ public static class SelectorEngine
     {
         "ancestor", "ancestor-or-self", "attribute", "child", "descendant",
         "descendant-or-self", "following-sibling", "frontmost",
-        "preceding-sibling", "self", "sibling"
+        "parent", "preceding-sibling", "self", "sibling"
     };
 
     private static bool IsXPath(string selector) =>

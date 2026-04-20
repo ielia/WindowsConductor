@@ -277,7 +277,7 @@ internal static class XPathSyntaxParser
 
         // Special case: bare "/"
         if (tokens.Length == 1 && tokens[0].Kind == XPathToken.Slash)
-            return [new XPathStep(XPathAxis.Self, ".", [])];
+            return [new XPathStep(XPathAxis.Self, "*", [])];
 
         var steps = new List<XPathStep>();
         int pos = 0;
@@ -326,6 +326,7 @@ internal static class XPathSyntaxParser
                 "descendant" => XPathAxis.Descendant,
                 "descendant-or-self" => XPathAxis.DescendantOrSelf,
                 "self" => XPathAxis.Self,
+                "parent" => XPathAxis.Parent,
                 "sibling" => XPathAxis.Sibling,
                 "preceding-sibling" => XPathAxis.PrecedingSibling,
                 "following-sibling" => XPathAxis.FollowingSibling,
@@ -359,7 +360,7 @@ internal static class XPathSyntaxParser
         else if (!isAttributeAxis && pos < tokens.Length && tokens[pos].Kind == XPathToken.DoubleDot)
         {
             pos++;
-            steps.Add(new XPathStep(XPathAxis.Parent, "..", []));
+            steps.Add(new XPathStep(XPathAxis.Parent, "*", []));
             return;
         }
         else if (!isAttributeAxis && pos < tokens.Length && tokens[pos].Kind == XPathToken.Dot)

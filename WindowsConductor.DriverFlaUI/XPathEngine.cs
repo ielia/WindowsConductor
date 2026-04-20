@@ -108,10 +108,10 @@ public sealed class XPathEngine
             foreach (var root in roots)
             {
                 var parent = root.Parent;
-                if (parent is not null)
+                if (parent is not null && MatchesType(step.Type, parent))
                     parents.Add(parent);
             }
-            return parents;
+            return ApplyFiltersToResults(parents, step, subPathCache);
         }
 
         if (step.Axis is XPathAxis.Ancestor or XPathAxis.AncestorOrSelf)
@@ -213,7 +213,7 @@ public sealed class XPathEngine
         IReadOnlyList<AutomationElement> elements, XPathStep step,
         Dictionary<SubPathExpr, XPathValue> subPathCache)
     {
-        IReadOnlyList<AutomationElement> results = step.Type is "*" or ".."
+        IReadOnlyList<AutomationElement> results = step.Type is "*"
             ? elements
             : elements.Where(e => MatchesType(step.Type, e)).ToList();
 

@@ -127,6 +127,8 @@ public class SelectorEngineValidationTests
     [TestCase("following-sibling::Edit")]
     [TestCase("ancestor::Window")]
     [TestCase("frontmost::Button")]
+    [TestCase("parent::Window")]
+    [TestCase("parent::*")]
     public void Validate_ValidSelector_DoesNotThrow(string selector)
     {
         Assert.DoesNotThrow(() => SelectorEngine.Validate(selector));
