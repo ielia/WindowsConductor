@@ -111,6 +111,43 @@ internal static class XPathFunctions
                 ? new XPathNumber(Math.Round(args[0].AsNumber(), MidpointRounding.ToEven))
                 : new XPathNumber(Math.Round(args[0].AsNumber(), (int)args[1].AsNumber(), MidpointRounding.ToEven)));
 
+        // Aggregate functions
+        Add("count", 1, 1, (args, _) =>
+        {
+            var items = AsSequenceItems(args[0]);
+            return new XPathNumber(items.Count);
+        });
+
+        Add("sum", 1, 1, (args, _) =>
+        {
+            var numbers = AsNumbers(args[0]);
+            return new XPathNumber(numbers.Sum());
+        });
+
+        Add("avg", 1, 1, (args, _) =>
+        {
+            var numbers = AsNumbers(args[0]);
+            return numbers.Count == 0
+                ? new XPathNumber(double.NaN)
+                : new XPathNumber(numbers.Average());
+        });
+
+        Add("max", 1, 1, (args, _) =>
+        {
+            var numbers = AsNumbers(args[0]);
+            return numbers.Count == 0
+                ? new XPathNumber(double.NaN)
+                : new XPathNumber(numbers.Max());
+        });
+
+        Add("min", 1, 1, (args, _) =>
+        {
+            var numbers = AsNumbers(args[0]);
+            return numbers.Count == 0
+                ? new XPathNumber(double.NaN)
+                : new XPathNumber(numbers.Min());
+        });
+
         // math: namespace functions
         Add("math:pi", 0, 0, (_, _) =>
             new XPathNumber(Math.PI));
@@ -156,6 +193,12 @@ internal static class XPathFunctions
 
         return r;
     }
+
+    private static IReadOnlyList<XPathValue> AsSequenceItems(XPathValue value) =>
+        value is XPathSequence seq ? seq.Items : [value];
+
+    private static List<double> AsNumbers(XPathValue value) =>
+        AsSequenceItems(value).Select(i => i.AsNumber()).ToList();
 
     // ── Expression evaluation ───────────────────────────────────────────────
 

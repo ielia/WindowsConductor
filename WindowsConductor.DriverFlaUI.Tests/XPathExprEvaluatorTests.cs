@@ -429,6 +429,110 @@ public class XPathExprEvaluatorTests
         Assert.That(EvalNum("round-half-to-even(2.445, 2)"), Is.EqualTo(2.44));
     }
 
+    // ── Aggregate functions ───────────────────────────────────────────────────
+
+    [Test]
+    public void Evaluate_Count_Sequence()
+    {
+        Assert.That(EvalNum("count((1, 2, 3))"), Is.EqualTo(3));
+    }
+
+    [Test]
+    public void Evaluate_Count_EmptySequence()
+    {
+        Assert.That(EvalNum("count(())"), Is.EqualTo(0));
+    }
+
+    [Test]
+    public void Evaluate_Count_SingleValue()
+    {
+        Assert.That(EvalNum("count(42)"), Is.EqualTo(1));
+    }
+
+    [Test]
+    public void Evaluate_Sum_Sequence()
+    {
+        Assert.That(EvalNum("sum((1, 2, 3))"), Is.EqualTo(6));
+    }
+
+    [Test]
+    public void Evaluate_Sum_Decimals()
+    {
+        Assert.That(EvalNum("sum((1.5, 2.3, 0.2))"), Is.EqualTo(4).Within(1e-10));
+    }
+
+    [Test]
+    public void Evaluate_Sum_SingleValue()
+    {
+        Assert.That(EvalNum("sum(10)"), Is.EqualTo(10));
+    }
+
+    [Test]
+    public void Evaluate_Sum_StringCoercion()
+    {
+        Assert.That(EvalNum("sum(('1', '2', '3'))"), Is.EqualTo(6));
+    }
+
+    [Test]
+    public void Evaluate_Avg_Sequence()
+    {
+        Assert.That(EvalNum("avg((2, 4, 6))"), Is.EqualTo(4));
+    }
+
+    [Test]
+    public void Evaluate_Avg_Decimals()
+    {
+        Assert.That(EvalNum("avg((1.5, 2.5, 3.5))"), Is.EqualTo(2.5));
+    }
+
+    [Test]
+    public void Evaluate_Avg_EmptySequence_ReturnsNaN()
+    {
+        Assert.That(EvalNum("avg(())"), Is.NaN);
+    }
+
+    [Test]
+    public void Evaluate_Max_Sequence()
+    {
+        Assert.That(EvalNum("max((3, 1, 4, 1, 5))"), Is.EqualTo(5));
+    }
+
+    [Test]
+    public void Evaluate_Max_Decimals()
+    {
+        Assert.That(EvalNum("max((1.1, 3.7, 2.9))"), Is.EqualTo(3.7));
+    }
+
+    [Test]
+    public void Evaluate_Max_EmptySequence_ReturnsNaN()
+    {
+        Assert.That(EvalNum("max(())"), Is.NaN);
+    }
+
+    [Test]
+    public void Evaluate_Min_Sequence()
+    {
+        Assert.That(EvalNum("min((3, 1, 4, 1, 5))"), Is.EqualTo(1));
+    }
+
+    [Test]
+    public void Evaluate_Min_Decimals()
+    {
+        Assert.That(EvalNum("min((2.8, 0.3, 1.5))"), Is.EqualTo(0.3));
+    }
+
+    [Test]
+    public void Evaluate_Min_EmptySequence_ReturnsNaN()
+    {
+        Assert.That(EvalNum("min(())"), Is.NaN);
+    }
+
+    [Test]
+    public void Evaluate_Min_SingleValue()
+    {
+        Assert.That(EvalNum("min(7)"), Is.EqualTo(7));
+    }
+
     // ── math: namespace functions ────────────────────────────────────────────
 
     [Test]

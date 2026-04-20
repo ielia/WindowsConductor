@@ -96,7 +96,7 @@ internal static class XPathSyntaxParser
                 new ContextNodeExpr(), input, afterDot);
         }
 
-        bool isAbsolute = firstKind == XPathToken.Slash;
+        bool isAbsolute = firstKind is XPathToken.Slash or XPathToken.DoubleSlash;
 
         try
         {

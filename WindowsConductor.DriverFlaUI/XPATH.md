@@ -63,18 +63,31 @@ Identifier     ::= (Letter | '_') (Letter | Digit | '_' | '-')*
 | `.`&hellip; | The **context node** passed to the engine (e.g. the element a locator resolved to). | `./Button`, `.//Button` |
 | `..`&hellip; | The **parent** of the context node. | `../Button` |
 
-**Absolute paths** (`/`, `//`) always evaluate from the desktop root, regardless
-of the current context node. This means `/Window/Button` finds the same
-elements no matter which element the locator is scoped to.
+### Top-level paths
 
-**Relative paths** (`.`, `..`, or a bare axis like `ancestor::`) evaluate from
-the context node, so the result depends on the locator's current scope. For
-example, `.//Button` searches only within the element the locator already
-resolved to.
+| Form | Starting point |
+|---|---|
+| `/`&hellip; | **Absolute.** The root of the automation tree (Desktop). |
+| `//`&hellip; | **Relative.** All descendants of the context node. |
+| `.`&hellip; / `..`&hellip; | **Relative.** Context node / parent of context node. |
 
-Inside sub-path predicates the same rule applies: `//Pane[//Button]` uses an
-absolute sub-path (any Button in the entire tree), while `//Pane[.//Button]`
-restricts the check to descendants of each matched Pane.
+Top-level `//` is relative so that `element.Locator("//Button")` searches
+within that element's subtree, not the entire desktop.
+
+### Sub-path predicates (inside `[…]`)
+
+Inside filter expressions, `//` is treated as **absolute** (desktop root):
+
+| Form | Starting point | Example |
+|---|---|---|
+| `//`&hellip; | Desktop root (absolute). | `//Pane[//Button]` &mdash; any Button anywhere. |
+| `.//`&hellip; | Context element (relative). | `//Pane[.//Button]` &mdash; Button under that Pane. |
+| `./`&hellip; | Context element (relative). | `//Pane[./Button]` &mdash; direct child Button. |
+| `..`&hellip; | Parent of context element. | `//Pane[../Group]` &mdash; sibling Group. |
+| `/`&hellip; | Desktop root (absolute). | `//Pane[/Window]` &mdash; root Window. |
+
+This matches the standard XPath semantics where `//` in a predicate is
+an abbreviated absolute path.
 
 ---
 
@@ -167,6 +180,20 @@ A sequence is a comma-separated list in parentheses: `()`, `('a')`,
 | `round-half-to-even(n)` | Round half-to-even (banker's rounding). |
 | `round-half-to-even(n, precision)` | Round half-to-even with the given precision. |
 
+### Aggregate
+
+All aggregate functions accept a sequence or a single value. Non-numeric items
+are coerced to numbers via `AsNumber()` (strings are parsed; unparseable values
+become `NaN`).
+
+| Function | Description |
+|---|---|
+| `count(seq)` | Number of items in the sequence. |
+| `sum(seq)` | Sum of all items. |
+| `avg(seq)` | Arithmetic mean. Returns `NaN` for an empty sequence. |
+| `max(seq)` | Largest value. Returns `NaN` for an empty sequence. |
+| `min(seq)` | Smallest value. Returns `NaN` for an empty sequence. |
+
 ### Spatial
 
 | Function | Description |
@@ -208,6 +235,23 @@ When two values are compared (`=`, `!=`, `<`, etc.):
 3. Both numbers &rarr; numeric comparison.
 4. One number &rarr; the other is coerced to number (only if parseable).
 5. Otherwise &rarr; case-insensitive string comparison (`InvariantCultureIgnoreCase`).
+
+---
+
+## Top-level Function Expressions
+
+Function calls can be used as standalone selectors (not only inside predicates).
+The result is an `ExpressionResult` containing the evaluated value.
+
+```xpath
+concat('a', 'b')                          Returns "ab"
+string-join(//Button/@AutomationId, ',')  Comma-separated list of all Button AutomationIds
+true()                                    Returns true
+math:pi()                                 Returns 3.14159…
+```
+
+This is useful for aggregating or inspecting values across the element tree
+without selecting elements themselves.
 
 ---
 
@@ -308,14 +352,15 @@ instead of XPath. Multiple clauses can be combined with `&&`.
 //Button/@*                           All attributes of every Button
 ```
 
-### Nested sub-path predicates
+### Sub-path predicates
 
 ```xpath
-//Pane[.//Button]                           Pane that contains a descendant Button
-//Pane[./Button]                            Pane with a direct child Button
+//Pane[.//Button]                           Pane that contains a descendant Button (relative)
+//Pane[./Button]                            Pane with a direct child Button (relative)
+//Pane[//Button]                            Pane, if any Button exists anywhere (absolute)
 //Pane[not(.//Button)]                      Pane with no descendant Buttons
 //Group[./Button[@AutomationId='num3']]     Group containing a specific Button
-//Pane[//Group[//Button]]                   Pane where any Group contains a Button
+//Pane[//Group[//Button]]                   Pane where any Group in the tree contains a Button
 ```
 
 ### String escaping

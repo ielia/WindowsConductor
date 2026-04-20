@@ -823,7 +823,7 @@ public class XPathEngineValidationTests
         var filter = (ExpressionFilter)steps[0].Filters[0];
         Assert.That(filter.Expr, Is.InstanceOf<SubPathExpr>());
         var subPath = (SubPathExpr)filter.Expr;
-        Assert.That(subPath.IsAbsolute, Is.False);
+        Assert.That(subPath.IsAbsolute, Is.True);
         Assert.That(subPath.Steps, Has.Count.EqualTo(1));
         Assert.That(subPath.Steps[0].Axis, Is.EqualTo(XPathAxis.Descendant));
         Assert.That(subPath.Steps[0].Type, Is.EqualTo("Button"));
