@@ -172,6 +172,15 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
                 await ShowAttributesAsync(ct);
                 break;
 
+            case ResolveCommand cmd:
+                RequireApp();
+                var resolveSelector = cmd.Selector.TrimStart();
+                var resolveResult = session.HasSelectedElement && IsRelativeXPath(resolveSelector)
+                    ? await session.ResolveValueFromElementAsync(cmd.Selector, ct)
+                    : await session.ResolveValueAsync(cmd.Selector, ct);
+                output.WriteInfo(WcValueYamlFormatter.Format(resolveResult));
+                break;
+
             case RefreshCommand:
                 RequireApp();
                 await RefreshAsync(ct);

@@ -629,7 +629,7 @@ public partial class MainWindow : Window, ICommandOutput
 
             AttributesGrid.ItemsSource = attributes
                 .OrderBy(kv => kv.Key, StringComparer.InvariantCultureIgnoreCase)
-                .Select(kv => new { Name = kv.Key, Value = kv.Value?.ToString() ?? "" })
+                .Select(kv => new { Name = kv.Key, Value = FormatAttrValue(kv.Value), IsNull = kv.Value is null })
                 .ToList();
 
             SnapshotButton.IsEnabled = true;
@@ -852,6 +852,14 @@ public partial class MainWindow : Window, ICommandOutput
             await PopulateFromTreeNodeAsync(childTree, treeItem, elementsById, ct);
         }
     }
+
+    private static string FormatAttrValue(object? value) => value switch
+    {
+        System.Drawing.Point p => $"{{x:{p.X},y:{p.Y}}}",
+        System.Drawing.Rectangle r => $"{{x:{r.X},y:{r.Y},width:{r.Width},height:{r.Height}}}",
+        null => "null",
+        _ => value.ToString() ?? ""
+    };
 
     private static string ComputeSnapshotLabel(Dictionary<string, object?> attrs)
     {

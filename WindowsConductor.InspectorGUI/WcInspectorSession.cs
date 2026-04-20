@@ -159,6 +159,18 @@ internal sealed class WcInspectorSession : IInspectorSession, IAsyncDisposable
         return parent is null;
     }
 
+    public async Task<WcValue> ResolveValueAsync(string selector, CancellationToken ct = default)
+    {
+        var locator = _app!.Locator(selector);
+        return await locator.GetResolvedValueAsync(ct);
+    }
+
+    public async Task<WcValue> ResolveValueFromElementAsync(string selector, CancellationToken ct = default)
+    {
+        var locator = _selectedElement!.Locator(selector);
+        return await locator.GetResolvedValueAsync(ct);
+    }
+
     public async Task<string> GetAttributeAsync(string attributeName, CancellationToken ct = default) =>
         await _selectedElement!.GetAttributeAsync(attributeName, ct);
 

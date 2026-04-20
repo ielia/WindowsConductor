@@ -29,6 +29,7 @@ internal static class CommandParser
             "attribute" => ParseAttribute(parts),
             "click" => new ClickCommand(),
             "doubleclick" => new DoubleClickCommand(),
+            "resolve" => ParseResolve(parts),
             "refresh" => new RefreshCommand(),
             "reset" => new ResetCommand(),
             "rightclick" => new RightClickCommand(),
@@ -157,6 +158,14 @@ internal static class CommandParser
             throw new ArgumentException("Usage: locate <selector1> [>> <selector2> ...]");
 
         return new LocateCommand(selectors);
+    }
+
+    private static ResolveCommand ParseResolve(string[] parts)
+    {
+        if (parts.Length < 2)
+            throw new ArgumentException("Usage: resolve <xpath>");
+        var selector = string.Join(' ', parts.Skip(1));
+        return new ResolveCommand(selector);
     }
 
     private static AttributeCommand ParseAttribute(string[] parts)

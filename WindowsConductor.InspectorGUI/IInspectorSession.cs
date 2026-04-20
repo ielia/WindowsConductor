@@ -27,6 +27,8 @@ internal interface IInspectorSession
     Task<string> SelectMatchAsync(int index, CancellationToken ct = default);
     void Unselect();
 
+    Task<WcValue> ResolveValueAsync(string selector, CancellationToken ct = default);
+    Task<WcValue> ResolveValueFromElementAsync(string selector, CancellationToken ct = default);
     Task<string> GetAttributeAsync(string attributeName, CancellationToken ct = default);
     Task<Dictionary<string, object?>> GetAttributesAsync(CancellationToken ct = default);
     Task<string?> ParentAsync(CancellationToken ct = default);

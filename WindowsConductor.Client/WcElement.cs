@@ -102,7 +102,7 @@ public sealed class WcElement
             new { elementId = ElementId }, ct);
         var dict = new Dictionary<string, object?>(StringComparer.InvariantCultureIgnoreCase);
         foreach (var prop in r.EnumerateObject())
-            dict[prop.Name] = prop.Value.ValueKind == JsonValueKind.Null ? null : prop.Value.ToString();
+            dict[prop.Name] = DeserializeAttrValue(prop.Value);
         return dict;
     }
 
@@ -172,6 +172,30 @@ public sealed class WcElement
     }
 
     public override string ToString() => $"WcElement({ElementId})";
+
+    private static object? DeserializeAttrValue(JsonElement v) => v.ValueKind switch
+    {
+        JsonValueKind.Null => null,
+        JsonValueKind.True => true,
+        JsonValueKind.False => false,
+        JsonValueKind.Number when v.TryGetInt32(out var i) => i,
+        JsonValueKind.Number when v.TryGetInt64(out var l) => l,
+        JsonValueKind.Number => v.GetDouble(),
+        JsonValueKind.Object when IsPoint(v) =>
+            new System.Drawing.Point(v.GetProperty("x").GetInt32(), v.GetProperty("y").GetInt32()),
+        JsonValueKind.Object when IsRectangle(v) =>
+            new System.Drawing.Rectangle(
+                v.GetProperty("x").GetInt32(), v.GetProperty("y").GetInt32(),
+                v.GetProperty("width").GetInt32(), v.GetProperty("height").GetInt32()),
+        _ => v.ToString()
+    };
+
+    private static bool IsPoint(JsonElement v) =>
+        v.TryGetProperty("x", out _) && v.TryGetProperty("y", out _) && !v.TryGetProperty("width", out _);
+
+    private static bool IsRectangle(JsonElement v) =>
+        v.TryGetProperty("x", out _) && v.TryGetProperty("y", out _)
+        && v.TryGetProperty("width", out _) && v.TryGetProperty("height", out _);
 }
 
 /// <summary>Screen coordinates and dimensions of a UIAutomation element.</summary>

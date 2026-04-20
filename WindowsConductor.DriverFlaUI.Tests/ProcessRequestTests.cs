@@ -46,9 +46,9 @@ internal sealed class FakeAppOperations : IAppOperations
     public string[] FindElements(string appId, string selector, string? rootElementId = null)
     { Record("FindElements", appId, selector, rootElementId); return FindElementsResult; }
 
-    public object[] ResolveAttrsResult { get; set; } = [new { elementId = "el-1", name = "class", value = "btn" }];
-    public object[] ResolveAttrs(string appId, string selector, string? rootElementId = null)
-    { Record("ResolveAttrs", appId, selector, rootElementId); return ResolveAttrsResult; }
+    public object ResolveValueResult { get; set; } = new { type = "ListValue", items = new object[] { new { type = "StringValue", value = "btn", elementId = "el-1", name = "class" } } };
+    public object ResolveValue(string appId, string selector, string? rootElementId = null)
+    { Record("ResolveValue", appId, selector, rootElementId); return ResolveValueResult; }
 
     public void Click(string elementId) => Record("Click", elementId);
     public void DoubleClick(string elementId) => Record("DoubleClick", elementId);
@@ -114,8 +114,8 @@ internal sealed class FakeAppOperations : IAppOperations
     public string[] WaitForElements(string appId, string selector, string? rootElementId, uint timeout)
     { Record("WaitForElements", appId, selector, rootElementId, timeout); return WaitForElementsResult; }
 
-    public object[] WaitForResolvedAttrs(string appId, string selector, string? rootElementId, uint timeout)
-    { Record("WaitForResolvedAttrs", appId, selector, rootElementId, timeout); return ResolveAttrsResult; }
+    public object WaitForResolvedValue(string appId, string selector, string? rootElementId, uint timeout)
+    { Record("WaitForResolvedValue", appId, selector, rootElementId, timeout); return ResolveValueResult; }
 
     public void WaitForVanish(string appId, string selector, string? rootElementId, uint timeout)
     { Record("WaitForVanish", appId, selector, rootElementId, timeout); }
@@ -282,12 +282,12 @@ public class ProcessRequestTests
         Assert.That(resp.Result, Is.EqualTo(new[] { "el-1", "el-2" }));
     }
 
-    // ── resolveAttrs ─────────────────────────────────────────────────────────
+    // ── resolveValue ─────────────────────────────────────────────────────────
 
     [Test]
-    public void ResolveAttrs_ReturnsArray()
+    public void ResolveValue_ReturnsValue()
     {
-        var resp = WsServer.ProcessRequest(_fake, MakeRequest("resolveAttrs", new()
+        var resp = WsServer.ProcessRequest(_fake, MakeRequest("resolveValue", new()
         {
             ["appId"] = "a1",
             ["selector"] = "//button/@class",
@@ -295,13 +295,13 @@ public class ProcessRequestTests
         }));
 
         Assert.That(resp.Success, Is.True);
-        Assert.That(resp.Result, Is.EqualTo(_fake.ResolveAttrsResult));
+        Assert.That(resp.Result, Is.EqualTo(_fake.ResolveValueResult));
     }
 
     [Test]
-    public void ResolveAttrs_PassesRootElementId()
+    public void ResolveValue_PassesRootElementId()
     {
-        WsServer.ProcessRequest(_fake, MakeRequest("resolveAttrs", new()
+        WsServer.ProcessRequest(_fake, MakeRequest("resolveValue", new()
         {
             ["appId"] = "a1",
             ["selector"] = "//button/@class",
@@ -683,12 +683,12 @@ public class ProcessRequestTests
         Assert.That(_fake.Calls[0].Method, Is.EqualTo("WaitForElements"));
     }
 
-    // ── waitForResolvedAttrs ───────────────────────────────────────────────
+    // ── waitForResolvedValue ───────────────────────────────────────────────
 
     [Test]
-    public void WaitForResolvedAttrs_ReturnsArray()
+    public void WaitForResolvedValue_ReturnsValue()
     {
-        var resp = WsServer.ProcessRequest(_fake, MakeRequest("waitForResolvedAttrs", new()
+        var resp = WsServer.ProcessRequest(_fake, MakeRequest("waitForResolvedValue", new()
         {
             ["appId"] = "a1",
             ["selector"] = "//button/@class",
@@ -697,8 +697,8 @@ public class ProcessRequestTests
         }));
 
         Assert.That(resp.Success, Is.True);
-        Assert.That(resp.Result, Is.EqualTo(_fake.ResolveAttrsResult));
-        Assert.That(_fake.Calls[0].Method, Is.EqualTo("WaitForResolvedAttrs"));
+        Assert.That(resp.Result, Is.EqualTo(_fake.ResolveValueResult));
+        Assert.That(_fake.Calls[0].Method, Is.EqualTo("WaitForResolvedValue"));
     }
 
     // ── waitForVanish ────────────────────────────────────────────────────────

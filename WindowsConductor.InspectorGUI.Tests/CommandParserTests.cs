@@ -220,6 +220,28 @@ public class CommandParserTests
         Assert.That(CommandParser.Parse("parent"), Is.InstanceOf<ParentCommand>());
     }
 
+    // ── resolve ─────────────────────────────────────────────────────────────
+
+    [Test]
+    public void Parse_Resolve_ReturnsResolveCommand()
+    {
+        var cmd = (ResolveCommand)CommandParser.Parse("resolve //button/@automationid");
+        Assert.That(cmd.Selector, Is.EqualTo("//button/@automationid"));
+    }
+
+    [Test]
+    public void Parse_Resolve_PreservesSpaces()
+    {
+        var cmd = (ResolveCommand)CommandParser.Parse("resolve //button/@name");
+        Assert.That(cmd.Selector, Is.EqualTo("//button/@name"));
+    }
+
+    [Test]
+    public void Parse_Resolve_NoArgs_Throws()
+    {
+        Assert.Throws<ArgumentException>(() => CommandParser.Parse("resolve"));
+    }
+
     // ── unselect ────────────────────────────────────────────────────────────
 
     [Test]

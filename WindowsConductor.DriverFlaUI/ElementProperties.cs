@@ -1,4 +1,5 @@
 using System.Collections.Frozen;
+using System.Drawing;
 using System.Reflection;
 using FlaUI.Core.AutomationElements;
 
@@ -54,7 +55,7 @@ internal static class ElementProperties
                 if (automationProp is null) continue;
                 var value = automationProp.GetType().GetProperty("ValueOrDefault")?.GetValue(automationProp);
                 if (value is not null)
-                    result[name] = value.ToString();
+                    result[name] = ToSerializable(value);
             }
             catch { /* skip unsupported properties */ }
         }
@@ -66,7 +67,10 @@ internal static class ElementProperties
         return result;
     }
 
-    internal static string? Resolve(AutomationElement el, string key)
+    internal static string? Resolve(AutomationElement el, string key) =>
+        ResolveRaw(el, key)?.ToString();
+
+    internal static object? ResolveRaw(AutomationElement el, string key)
     {
         var normalized = Normalize(key);
 
@@ -82,14 +86,21 @@ internal static class ElementProperties
             if (automationProp is null) return null;
 
             // AutomationProperty<T> exposes ValueOrDefault via its base class.
-            var value = automationProp.GetType().GetProperty("ValueOrDefault")?.GetValue(automationProp);
-            return value?.ToString();
+            return automationProp.GetType().GetProperty("ValueOrDefault")?.GetValue(automationProp);
         }
         catch
         {
             return null;
         }
     }
+
+    private static object ToSerializable(object value) => value switch
+    {
+        bool or int or long or double or float or string => value,
+        Point p => new { x = p.X, y = p.Y },
+        Rectangle r => new { x = r.X, y = r.Y, width = r.Width, height = r.Height },
+        _ => value.ToString() ?? ""
+    };
 
     private static string? ResolveText(AutomationElement el)
     {

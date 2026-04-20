@@ -38,7 +38,9 @@ Additive       ::= Multiplicative (('+' | '-') Multiplicative)*
 Multiplicative ::= Unary (('*' | 'div' | 'mod') Unary)*
 Unary          ::= '-' Unary | '+' Unary | Primary
 Primary        ::= FunctionCall | Number | String | '@' Identifier
-                 | SubPath | '(' Expression ')' | '.'
+                 | SubPath | Sequence | '(' Expression ')' | '.'
+Sequence       ::= '(' ')'                    (* empty sequence *)
+                 | '(' Expression (',' Expression)+ ')'
 
 FunctionCall   ::= QualifiedName '(' (Expression (',' Expression)*)? ')'
 SubPath        ::= Path                        (* nested path used as boolean *)
@@ -147,6 +149,11 @@ the element is not a TextBox). Accessible via `text()` in expressions or
 | `contains(haystack, needle)` | Case-insensitive substring test. |
 | `starts-with(s, prefix)` | Case-insensitive prefix test. |
 | `ends-with(s, suffix)` | Case-insensitive suffix test. |
+| `string-join(sequence)` | Joins a sequence of strings with no separator. |
+| `string-join(sequence, sep)` | Joins a sequence of strings with the given separator. |
+
+A sequence is a comma-separated list in parentheses: `()`, `('a')`,
+`('a', 'b', 'c')`. A single string argument is also accepted.
 
 ### Numeric
 

@@ -147,6 +147,21 @@ internal sealed class FakeInspectorSession : IInspectorSession
         return Task.FromResult(IsSelectedElementRootResult);
     }
 
+    public WcValue ResolveValueResult { get; set; } = new(WcAttrType.ListValue,
+        (IReadOnlyList<WcValue>)[new WcAttr(new WcElement("el-1", null!), "automationid", WcAttrType.StringValue, "btn1")]);
+
+    public Task<WcValue> ResolveValueAsync(string selector, CancellationToken ct = default)
+    {
+        Record("ResolveValue", selector);
+        return Task.FromResult(ResolveValueResult);
+    }
+
+    public Task<WcValue> ResolveValueFromElementAsync(string selector, CancellationToken ct = default)
+    {
+        Record("ResolveValueFromElement", selector);
+        return Task.FromResult(ResolveValueResult);
+    }
+
     public Task<string> GetAttributeAsync(string attributeName, CancellationToken ct = default)
     {
         Record("GetAttribute", attributeName);

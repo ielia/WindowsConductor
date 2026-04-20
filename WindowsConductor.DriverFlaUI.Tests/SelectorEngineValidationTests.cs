@@ -107,6 +107,10 @@ public class SelectorEngineValidationTests
     [TestCase(".//Button[@Name='OK']")]
     [TestCase("../Button")]
     [TestCase("[automationid=foo]&&[custom=bar]")]
+    [TestCase("concat('a', 'b')")]
+    [TestCase("string-join(('a', 'b'), ',')")]
+    [TestCase("true()")]
+    [TestCase("math:pi()")]
     public void Validate_ValidSelector_DoesNotThrow(string selector)
     {
         Assert.DoesNotThrow(() => SelectorEngine.Validate(selector));

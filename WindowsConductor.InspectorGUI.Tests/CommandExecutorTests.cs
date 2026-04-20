@@ -861,6 +861,47 @@ public class CommandExecutorTests
         Assert.That(_output.AttributesSets, Has.Count.EqualTo(1));
     }
 
+    // ── resolve ──────────────────────────────────────────────────────────────
+
+    [Test]
+    public async Task Resolve_Absolute_CallsResolveValue()
+    {
+        _session.IsConnected = true;
+        _session.HasApp = true;
+        await _executor.ExecuteAsync("resolve //button/@automationid");
+        Assert.That(_session.Calls[0].Method, Is.EqualTo("ResolveValue"));
+        Assert.That(_session.Calls[0].Args[0], Is.EqualTo("//button/@automationid"));
+        Assert.That(_output.InfoMessages, Has.Count.EqualTo(1));
+    }
+
+    [Test]
+    public async Task Resolve_Relative_WithElement_CallsResolveValueFromElement()
+    {
+        _session.IsConnected = true;
+        _session.HasApp = true;
+        _session.HasSelectedElement = true;
+        await _executor.ExecuteAsync("resolve ./@name");
+        Assert.That(_session.Calls[0].Method, Is.EqualTo("ResolveValueFromElement"));
+        Assert.That(_session.Calls[0].Args[0], Is.EqualTo("./@name"));
+    }
+
+    [Test]
+    public async Task Resolve_Relative_WithoutElement_CallsResolveValue()
+    {
+        _session.IsConnected = true;
+        _session.HasApp = true;
+        await _executor.ExecuteAsync("resolve ./@name");
+        Assert.That(_session.Calls[0].Method, Is.EqualTo("ResolveValue"));
+    }
+
+    [Test]
+    public async Task Resolve_NoApp_WritesError()
+    {
+        _session.IsConnected = true;
+        await _executor.ExecuteAsync("resolve //button");
+        Assert.That(_output.ErrorMessages, Has.Count.EqualTo(1));
+    }
+
     // ── refresh ──────────────────────────────────────────────────────────────
 
     [Test]

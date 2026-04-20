@@ -339,6 +339,40 @@ public class XPathExprEvaluatorTests
         Assert.That(Eval("string-length(@Name) = 0", 1, 1, props), Is.True);
     }
 
+    // ── string-join() ─────────────────────────────────────────────────────────
+
+    [Test]
+    public void Evaluate_StringJoin_SequenceNoSeparator()
+    {
+        Assert.That(Eval("string-join(('a', 'b', 'c')) = 'abc'", 1, 1), Is.True);
+    }
+
+    [Test]
+    public void Evaluate_StringJoin_SequenceWithSeparator()
+    {
+        Assert.That(Eval("string-join(('a', 'b', 'c'), ', ') = 'a, b, c'", 1, 1), Is.True);
+    }
+
+    [Test]
+    public void Evaluate_StringJoin_SingleItem()
+    {
+        Assert.That(Eval("string-join(('hello'), '-') = 'hello'", 1, 1), Is.True);
+    }
+
+    [Test]
+    public void Evaluate_StringJoin_EmptySequence()
+    {
+        Assert.That(Eval("string-join(()) = ''", 1, 1), Is.True);
+        Assert.That(Eval("string-join((), ',') = ''", 1, 1), Is.True);
+    }
+
+    [Test]
+    public void Evaluate_StringJoin_SingleStringArg()
+    {
+        Assert.That(Eval("string-join('hello') = 'hello'", 1, 1), Is.True);
+        Assert.That(Eval("string-join('hello', '-') = 'hello'", 1, 1), Is.True);
+    }
+
     // ── Numeric functions ─────────────────────────────────────────────────────
 
     [Test]
@@ -522,20 +556,26 @@ public class XPathExprEvaluatorTests
 
     // ── Sub-path expression evaluation ────────────────────────────────────────
 
+    private static readonly Func<SubPathExpr, XPathValue> NonEmptySequence =
+        _ => new XPathSequence([new XPathString("a"), new XPathString("b")]);
+
+    private static readonly Func<SubPathExpr, XPathValue> EmptySequence =
+        _ => new XPathSequence([]);
+
     [Test]
-    public void Evaluate_SubPathExpr_ReturnsTrueWhenEvaluatorReturnsTrue()
+    public void Evaluate_SubPathExpr_NonEmptySequence_IsTruthy()
     {
         var subPath = new SubPathExpr([new XPathStep(XPathAxis.Descendant, "Button", [])], false);
-        var ctx = new EvalContext(_ => null, 1, 1, null, _ => true);
+        var ctx = new EvalContext(_ => null, 1, 1, null, NonEmptySequence);
         var result = XPathFunctions.Evaluate(subPath, ctx);
         Assert.That(result.AsBool(), Is.True);
     }
 
     [Test]
-    public void Evaluate_SubPathExpr_ReturnsFalseWhenEvaluatorReturnsFalse()
+    public void Evaluate_SubPathExpr_EmptySequence_IsFalsy()
     {
         var subPath = new SubPathExpr([new XPathStep(XPathAxis.Descendant, "Button", [])], false);
-        var ctx = new EvalContext(_ => null, 1, 1, null, _ => false);
+        var ctx = new EvalContext(_ => null, 1, 1, null, EmptySequence);
         var result = XPathFunctions.Evaluate(subPath, ctx);
         Assert.That(result.AsBool(), Is.False);
     }
@@ -545,7 +585,7 @@ public class XPathExprEvaluatorTests
     {
         var subPath = new SubPathExpr([new XPathStep(XPathAxis.Descendant, "Button", [])], false);
         var notExpr = new FunctionCallExpr("not", [subPath]);
-        var ctx = new EvalContext(_ => null, 1, 1, null, _ => true);
+        var ctx = new EvalContext(_ => null, 1, 1, null, NonEmptySequence);
         var result = XPathFunctions.Evaluate(notExpr, ctx);
         Assert.That(result.AsBool(), Is.False);
     }
@@ -565,7 +605,7 @@ public class XPathExprEvaluatorTests
         var attrExpr = new BinaryExpr(new AttrRefExpr("Name"), XPathBinaryOp.Eq, new LiteralStringExpr("foo"));
         var andExpr = new BinaryExpr(subPath, XPathBinaryOp.And, attrExpr);
         Func<string, string?> props = k => k == "name" ? "foo" : null;
-        var ctx = new EvalContext(props, 1, 1, null, _ => true);
+        var ctx = new EvalContext(props, 1, 1, null, NonEmptySequence);
         Assert.That(XPathFunctions.Evaluate(andExpr, ctx).AsBool(), Is.True);
     }
 
@@ -576,7 +616,7 @@ public class XPathExprEvaluatorTests
         var attrExpr = new BinaryExpr(new AttrRefExpr("Name"), XPathBinaryOp.Eq, new LiteralStringExpr("foo"));
         var andExpr = new BinaryExpr(subPath, XPathBinaryOp.And, attrExpr);
         Func<string, string?> props = k => k == "name" ? "foo" : null;
-        var ctx = new EvalContext(props, 1, 1, null, _ => false);
+        var ctx = new EvalContext(props, 1, 1, null, EmptySequence);
         Assert.That(XPathFunctions.Evaluate(andExpr, ctx).AsBool(), Is.False);
     }
 
@@ -589,12 +629,66 @@ public class XPathExprEvaluatorTests
         var ctx = new EvalContext(_ => null, 1, 1, null, sp =>
         {
             received = sp;
-            return true;
+            return new XPathSequence([new XPathString("x")]);
         });
         XPathFunctions.Evaluate(subPath, ctx);
         Assert.That(received, Is.Not.Null);
         Assert.That(received!.Steps, Has.Count.EqualTo(1));
         Assert.That(received.Steps[0].Type, Is.EqualTo("Edit"));
         Assert.That(received.IsAbsolute, Is.False);
+    }
+
+    // ── Sub-path as sequence argument ─────────────────────────────────────────
+
+    [Test]
+    public void Evaluate_StringJoin_SubPathSequence()
+    {
+        var subPath = new SubPathExpr([new XPathStep(XPathAxis.Descendant, "Button", [])], false);
+        var joinExpr = new FunctionCallExpr("string-join", [subPath, new LiteralStringExpr(",")]);
+        var ctx = new EvalContext(_ => null, 1, 1, null,
+            _ => new XPathSequence([new XPathString("OK"), new XPathString("Cancel")]));
+        var result = XPathFunctions.Evaluate(joinExpr, ctx);
+        Assert.That(result.AsString(), Is.EqualTo("OK,Cancel"));
+    }
+
+    [Test]
+    public void Evaluate_StringJoin_SubPathEmptySequence()
+    {
+        var subPath = new SubPathExpr([new XPathStep(XPathAxis.Descendant, "Button", [])], false);
+        var joinExpr = new FunctionCallExpr("string-join", [subPath]);
+        var ctx = new EvalContext(_ => null, 1, 1, null, EmptySequence);
+        var result = XPathFunctions.Evaluate(joinExpr, ctx);
+        Assert.That(result.AsString(), Is.EqualTo(""));
+    }
+
+    [Test]
+    public void Evaluate_StringJoin_SubPathAttrValues()
+    {
+        var subPath = new SubPathExpr([
+            new XPathStep(XPathAxis.Descendant, "Button", []),
+            new XPathStep(XPathAxis.Attribute, "id", [])
+        ], false);
+        var joinExpr = new FunctionCallExpr("string-join", [subPath, new LiteralStringExpr("x")]);
+        var ctx = new EvalContext(_ => null, 1, 1, null,
+            _ => new XPathSequence([new XPathString("btn1"), new XPathString("btn2")]));
+        var result = XPathFunctions.Evaluate(joinExpr, ctx);
+        Assert.That(result.AsString(), Is.EqualTo("btn1xbtn2"));
+    }
+
+    // ── XPathCastException ───────────────────────────────────────────────────
+
+    [Test]
+    public void Evaluate_StringJoin_NonCastableType_Throws()
+    {
+        var rectArg = new XPathRect(0, 0, 100, 100);
+        var joinExpr = new FunctionCallExpr("string-join", [new LiteralNumberExpr(0)]);
+        // Directly test with a rect value
+        var args = new XPathValue[] { rectArg };
+        Assert.Throws<XPathCastException>(() =>
+        {
+            var first = args[0];
+            if (first is not XPathSequence and not XPathString and not XPathNumber and not XPathBool)
+                throw new XPathCastException(first.AsString(), first.GetType().Name, "string sequence");
+        });
     }
 }

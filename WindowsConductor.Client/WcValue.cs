@@ -1,3 +1,4 @@
+using System.Drawing;
 using System.Globalization;
 using static WindowsConductor.Client.WcAttrType;
 
@@ -17,6 +18,8 @@ public record WcValue(WcAttrType Type, object? Value)
         [TimeOnlyValue] = typeof(TimeOnly),
         [TimeSpanValue] = typeof(TimeSpan),
         [StringValue] = typeof(string),
+        [PointValue] = typeof(Point),
+        [RectangleValue] = typeof(Rectangle),
     };
 
     public object? Value { get; init; } = ValidateValue(Type, Value);
@@ -38,6 +41,15 @@ public record WcValue(WcAttrType Type, object? Value)
         // StringValue accepts any CLR type — GetAs* methods use ToString() fallbacks.
         if (type == StringValue)
         {
+            return value;
+        }
+
+        if (type == ListValue)
+        {
+            if (value is not IReadOnlyList<WcValue>)
+                throw new ArgumentException(
+                    $"WcAttrType.ListValue expects an IReadOnlyList<WcValue> Value, but got '{value}' ({value.GetType().Name}).",
+                    nameof(value));
             return value;
         }
 
@@ -118,6 +130,12 @@ public record WcValue(WcAttrType Type, object? Value)
     public int? GetAsInt() => ConvertNumericValue(IntValue, s => int.Parse(s, CultureInfo.InvariantCulture));
 
     public long? GetAsLong() => ConvertNumericValue(LongValue, s => long.Parse(s, CultureInfo.InvariantCulture));
+
+    public IReadOnlyList<WcValue>? GetAsList() => Value as IReadOnlyList<WcValue>;
+
+    public Point? GetAsPoint() => Value as Point?;
+
+    public Rectangle? GetAsRectangle() => Value as Rectangle?;
 
     public string? GetAsString() => Value?.ToString();
 

@@ -8,6 +8,7 @@ public sealed record AttrMatch(AutomationElement Element, string Name, string? V
 public abstract record XPathEvalResult;
 public sealed record ElementsResult(IReadOnlyList<AutomationElement> Elements) : XPathEvalResult;
 public sealed record AttrsResult(IReadOnlyList<AttrMatch> Attributes) : XPathEvalResult;
+public sealed record ExpressionResult(XPathValue Value) : XPathEvalResult;
 
 public sealed class XPathEngine
 {
@@ -21,7 +22,7 @@ public sealed class XPathEngine
         var steps = XPathSyntaxParser.Parse(xpath);
         IReadOnlyList<AutomationElement> currentElements = [root];
         List<AttrMatch>? currentAttrs = null;
-        var subPathCache = new Dictionary<SubPathExpr, bool>();
+        var subPathCache = new Dictionary<SubPathExpr, XPathValue>();
 
         foreach (var step in steps)
         {
@@ -71,6 +72,22 @@ public sealed class XPathEngine
     }
 
     /// <summary>
+    /// Evaluates a standalone XPath expression (e.g. a function call) against a root element.
+    /// </summary>
+    public static ExpressionResult EvaluateExpression(
+        AutomationElement root, string expression)
+    {
+        var expr = XPathSyntaxParser.ParseExpression(expression);
+        var subPathCache = new Dictionary<SubPathExpr, XPathValue>();
+        var ctx = new EvalContext(
+            k => ElementProperties.Resolve(root, k),
+            1, 1, root,
+            sp => EvaluateSubPath(root, sp, subPathCache));
+        var value = XPathFunctions.Evaluate(expr, ctx);
+        return new ExpressionResult(value);
+    }
+
+    /// <summary>
     /// Validates an XPath expression without evaluating it.
     /// Throws <see cref="ArgumentException"/> if the expression is malformed.
     /// </summary>
@@ -80,7 +97,7 @@ public sealed class XPathEngine
 
     private static IReadOnlyList<AutomationElement> ApplyStep(
         IReadOnlyList<AutomationElement> roots, XPathStep step,
-        Dictionary<SubPathExpr, bool> subPathCache)
+        Dictionary<SubPathExpr, XPathValue> subPathCache)
     {
         if (step.Axis == XPathAxis.Self)
             return roots;
@@ -135,7 +152,7 @@ public sealed class XPathEngine
 
     private static IReadOnlyList<AutomationElement> ApplyFilters(
         IReadOnlyList<AutomationElement> elements, XPathStep step,
-        Dictionary<SubPathExpr, bool> subPathCache)
+        Dictionary<SubPathExpr, XPathValue> subPathCache)
     {
         IReadOnlyList<AutomationElement> results = step.Type is "*" or ".."
             ? elements
@@ -156,7 +173,7 @@ public sealed class XPathEngine
 
     private static IReadOnlyList<AutomationElement> ApplyAncestorStep(
         IReadOnlyList<AutomationElement> roots, XPathStep step,
-        Dictionary<SubPathExpr, bool> subPathCache)
+        Dictionary<SubPathExpr, XPathValue> subPathCache)
     {
         var candidates = new List<AutomationElement>();
 
@@ -260,7 +277,7 @@ public sealed class XPathEngine
 
     private static List<AutomationElement> ApplyExpressionFilter(
         IReadOnlyList<AutomationElement> elements, ExpressionFilter filter, string stepType,
-        Dictionary<SubPathExpr, bool> subPathCache)
+        Dictionary<SubPathExpr, XPathValue> subPathCache)
     {
         var results = new List<AutomationElement>();
 
@@ -336,9 +353,9 @@ public sealed class XPathEngine
         return true;
     }
 
-    private static bool EvaluateSubPath(
+    private static XPathValue EvaluateSubPath(
         AutomationElement contextElement, SubPathExpr subPath,
-        Dictionary<SubPathExpr, bool> subPathCache)
+        Dictionary<SubPathExpr, XPathValue> subPathCache)
     {
         if (subPath.IsAbsolute && subPathCache.TryGetValue(subPath, out var cached))
             return cached;
@@ -381,7 +398,9 @@ public sealed class XPathEngine
             }
         }
 
-        var result = currentAttrs is not null ? currentAttrs.Count > 0 : currentElements.Count > 0;
+        XPathValue result = currentAttrs is not null
+            ? new XPathSequence(currentAttrs.Select(a => (XPathValue)new XPathString(a.Value ?? "")).ToList())
+            : new XPathSequence(currentElements.Select(e => (XPathValue)new XPathString(ElementProperties.Resolve(e, "text") ?? "")).ToList());
 
         if (subPath.IsAbsolute)
             subPathCache[subPath] = result;

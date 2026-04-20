@@ -1097,6 +1097,14 @@ public class XPathEngineValidationTests
         Assert.That(steps[2].Type, Is.EqualTo("Group"));
     }
 
+    [TestCase("//Button@automationid")]
+    [TestCase("//Button@*")]
+    [TestCase("//*@Name")]
+    public void ParseXPath_AttributeWithoutSeparator_Throws(string xpath)
+    {
+        Assert.Throws<ArgumentException>(() => XPathSyntaxParser.Parse(xpath));
+    }
+
     // ── Helpers ──────────────────────────────────────────────────────────────
 
     private static (string Attr, string Value) GetAttrEqLiteral(XPathFilter filter)

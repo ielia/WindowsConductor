@@ -89,6 +89,13 @@ public sealed record XPathPoint(double X, double Y) : XPathValue
     public override bool AsBool() => true;
 }
 
+public sealed record XPathSequence(IReadOnlyList<XPathValue> Items) : XPathValue
+{
+    public override string AsString() => string.Concat(Items.Select(i => i.AsString()));
+    public override double AsNumber() => Items.Count == 1 ? Items[0].AsNumber() : double.NaN;
+    public override bool AsBool() => Items.Count > 0;
+}
+
 // ── Evaluation context ──────────────────────────────────────────────────────
 
 /// <summary>Context provided to expression evaluation — property resolver, positional info, and element reference.</summary>
@@ -101,4 +108,4 @@ public sealed record EvalContext(
     int Position,
     int Last,
     object? Element,
-    Func<SubPathExpr, bool>? SubPathEvaluator = null);
+    Func<SubPathExpr, XPathValue>? SubPathEvaluator = null);

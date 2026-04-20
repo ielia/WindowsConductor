@@ -135,10 +135,11 @@ public sealed class WcLocator
     }
 
     /// <summary>
-    /// Resolves the selector and returns attribute results if the XPath ends with an attribute step
-    /// (e.g. <c>//button/@automationid</c>). Returns an empty list if the selector matches elements.
+    /// Resolves the selector and returns the result as a <see cref="WcValue"/>.
+    /// Element selectors return a <c>ListValue</c> of string values (element text);
+    /// attribute selectors return a <c>ListValue</c> of <see cref="WcAttr"/> items.
     /// </summary>
-    public async Task<IReadOnlyList<WcAttr>> GetResolvedAttrsAsync(CancellationToken ct = default)
+    public async Task<WcValue> GetResolvedValueAsync(CancellationToken ct = default)
     {
         string? rootElementId = _rootElementId;
         if (rootElementId is null && _parent != null)
@@ -148,22 +149,11 @@ public sealed class WcLocator
         }
 
         var result = await _conn.SendAsync(
-            "resolveAttrs",
+            "resolveValue",
             new { appId = _appId, selector = _selector, rootElementId },
             ct);
 
-        var attrs = new List<WcAttr>();
-        foreach (var item in result.EnumerateArray())
-        {
-            var elementId = item.GetProperty("elementId").GetString()!;
-            var name = item.GetProperty("name").GetString()!;
-            var value = item.GetProperty("value").GetString();
-            var element = new WcElement(elementId, _conn, _appId);
-            var type = value is null ? WcAttrType.NullValue : WcAttrType.StringValue;
-            attrs.Add(new WcAttr(element, name, type, value));
-        }
-
-        return attrs;
+        return DeserializeValue(result);
     }
 
     // ── Wait operations ───────────────────────────────────────────────────────
@@ -218,11 +208,11 @@ public sealed class WcLocator
     }
 
     /// <summary>
-    /// Waits up to <paramref name="timeout"/> milliseconds for at least one attribute result to appear.
-    /// Returns the full list of attribute matches as soon as one is found.
+    /// Waits up to <paramref name="timeout"/> milliseconds for a non-empty result.
+    /// Returns the resolved value as soon as one is found.
     /// Throws <see cref="NoMatchException"/> if the timeout elapses without a match.
     /// </summary>
-    public async Task<IReadOnlyList<WcAttr>> WaitForResolvedAttrsAsync(uint timeout, CancellationToken ct = default)
+    public async Task<WcValue> WaitForResolvedValueAsync(uint timeout, CancellationToken ct = default)
     {
         string? rootElementId = _rootElementId;
         if (rootElementId is null && _parent != null)
@@ -232,22 +222,11 @@ public sealed class WcLocator
         }
 
         var result = await _conn.SendAsync(
-            "waitForResolvedAttrs",
+            "waitForResolvedValue",
             new { appId = _appId, selector = _selector, rootElementId, timeout },
             ct);
 
-        var attrs = new List<WcAttr>();
-        foreach (var item in result.EnumerateArray())
-        {
-            var elementId = item.GetProperty("elementId").GetString()!;
-            var name = item.GetProperty("name").GetString()!;
-            var value = item.GetProperty("value").GetString();
-            var element = new WcElement(elementId, _conn, _appId);
-            var type = value is null ? WcAttrType.NullValue : WcAttrType.StringValue;
-            attrs.Add(new WcAttr(element, name, type, value));
-        }
-
-        return attrs;
+        return DeserializeValue(result);
     }
 
     /// <summary>
@@ -389,4 +368,66 @@ public sealed class WcLocator
     public override string ToString() => _parent != null
         ? $"{_parent} > WcLocator({_selector})"
         : $"WcLocator({_selector})";
+
+    // ── Value deserialization ────────────────────────────────────────────────
+
+    private WcValue DeserializeValue(JsonElement json)
+    {
+        var typeName = json.GetProperty("type").GetString()!;
+        var type = Enum.Parse<WcAttrType>(typeName);
+
+        if (type == WcAttrType.ListValue)
+        {
+            var items = new List<WcValue>();
+            foreach (var item in json.GetProperty("items").EnumerateArray())
+                items.Add(DeserializeItem(item));
+            return new WcValue(WcAttrType.ListValue, items);
+        }
+
+        var value = DeserializePrimitive(json, type);
+        return new WcValue(type, value);
+    }
+
+    private WcValue DeserializeItem(JsonElement item)
+    {
+        var typeName = item.GetProperty("type").GetString()!;
+        var type = Enum.Parse<WcAttrType>(typeName);
+        var value = DeserializePrimitive(item, type);
+
+        if (item.TryGetProperty("name", out var nameProp))
+        {
+            var name = nameProp.GetString()!;
+            var elementId = item.GetProperty("elementId").GetString()!;
+            var element = new WcElement(elementId, _conn, _appId);
+            return new WcAttr(element, name, type, value);
+        }
+
+        if (item.TryGetProperty("elementId", out var elIdProp))
+        {
+            var elementId = elIdProp.GetString()!;
+            var element = new WcElement(elementId, _conn, _appId);
+            return new WcAttr(element, "text", type, value);
+        }
+
+        return new WcValue(type, value);
+    }
+
+    private static object? DeserializePrimitive(JsonElement item, WcAttrType type) => type switch
+    {
+        WcAttrType.NullValue => null,
+        WcAttrType.BoolValue => item.GetProperty("value").GetBoolean(),
+        WcAttrType.IntValue => item.GetProperty("value").GetInt32(),
+        WcAttrType.LongValue => item.GetProperty("value").GetInt64(),
+        WcAttrType.DoubleValue => item.GetProperty("value").GetDouble(),
+        WcAttrType.PointValue => DeserializePoint(item.GetProperty("value")),
+        WcAttrType.RectangleValue => DeserializeRectangle(item.GetProperty("value")),
+        _ => item.GetProperty("value").GetString()
+    };
+
+    private static System.Drawing.Point DeserializePoint(JsonElement v) =>
+        new(v.GetProperty("x").GetInt32(), v.GetProperty("y").GetInt32());
+
+    private static System.Drawing.Rectangle DeserializeRectangle(JsonElement v) =>
+        new(v.GetProperty("x").GetInt32(), v.GetProperty("y").GetInt32(),
+            v.GetProperty("width").GetInt32(), v.GetProperty("height").GetInt32());
 }

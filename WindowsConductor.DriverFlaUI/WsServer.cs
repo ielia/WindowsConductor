@@ -206,14 +206,14 @@ public sealed class WsServer
                         return WcResponse.Ok(req.Id, ids);
                     }
 
-                case "resolveAttrs":
+                case "resolveValue":
                     {
                         var rootElId = req.GetString("rootElementId");
-                        var attrs = mgr.ResolveAttrs(
+                        var value = mgr.ResolveValue(
                             req.GetString("appId"),
                             req.GetString("selector"),
                             string.IsNullOrEmpty(rootElId) ? null : rootElId);
-                        return WcResponse.Ok(req.Id, attrs);
+                        return WcResponse.Ok(req.Id, value);
                     }
 
                 case "findElementsAtPoint":
@@ -260,15 +260,15 @@ public sealed class WsServer
                         return WcResponse.Ok(req.Id, ids);
                     }
 
-                case "waitForResolvedAttrs":
+                case "waitForResolvedValue":
                     {
                         var rootElId = req.GetString("rootElementId");
-                        var attrs = mgr.WaitForResolvedAttrs(
+                        var value = mgr.WaitForResolvedValue(
                             req.GetString("appId"),
                             req.GetString("selector"),
                             string.IsNullOrEmpty(rootElId) ? null : rootElId,
                             (uint)req.GetInt("timeout"));
-                        return WcResponse.Ok(req.Id, attrs);
+                        return WcResponse.Ok(req.Id, value);
                     }
 
                 case "waitForVanish":

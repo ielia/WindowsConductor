@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Drawing;
 using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 using FlaUI.Core;
@@ -129,19 +130,61 @@ public sealed class AppManager : IAppOperations, IDisposable
             .ToArray();
     }
 
-    public object[] ResolveAttrs(string appId, string selector, string? rootElementId = null)
+    public object ResolveValue(string appId, string selector, string? rootElementId = null)
     {
         var root = rootElementId != null ? GetElement(rootElementId) : GetAppRoot(appId);
         var result = SelectorEngine.FindFull(root, selector, GetDesktopRoot(), GetConfineProcessId(appId));
-        if (result is not AttrsResult ar)
-            return [];
-        return ar.Attributes.Select(a => (object)new
+        return result switch
         {
-            elementId = CacheElement(a.Element),
-            name = a.Name,
-            value = a.Value
-        }).ToArray();
+            AttrsResult ar => new
+            {
+                type = nameof(WcAttrType.ListValue),
+                items = ar.Attributes.Select(a =>
+                {
+                    var raw = ElementProperties.ResolveRaw(a.Element, a.Name);
+                    var (t, v) = InferType(raw);
+                    return (object)new { type = t, value = v, elementId = CacheElement(a.Element), name = a.Name };
+                }).ToArray()
+            },
+            ElementsResult er => new
+            {
+                type = nameof(WcAttrType.ListValue),
+                items = er.Elements.Select(e => (object)new
+                {
+                    type = nameof(WcAttrType.StringValue),
+                    value = ElementProperties.Resolve(e, "text") ?? "",
+                    elementId = CacheElement(e)
+                }).ToArray()
+            },
+            ExpressionResult expr => SerializeXPathValue(expr.Value),
+            _ => (object)new { type = nameof(WcAttrType.NullValue), value = (string?)null }
+        };
     }
+
+    private static (string Type, object? Value) InferType(object? raw) => raw switch
+    {
+        null => (nameof(WcAttrType.NullValue), null),
+        bool b => (nameof(WcAttrType.BoolValue), b),
+        int i => (nameof(WcAttrType.IntValue), i),
+        long l => (nameof(WcAttrType.LongValue), l),
+        double d => (nameof(WcAttrType.DoubleValue), d),
+        Point p => (nameof(WcAttrType.PointValue), new { x = p.X, y = p.Y }),
+        Rectangle r => (nameof(WcAttrType.RectangleValue),
+            new { x = r.X, y = r.Y, width = r.Width, height = r.Height }),
+        _ => (nameof(WcAttrType.StringValue), raw.ToString())
+    };
+
+    private static object SerializeXPathValue(XPathValue value) => value switch
+    {
+        XPathSequence seq => new
+        {
+            type = nameof(WcAttrType.ListValue),
+            items = seq.Items.Select(i => SerializeXPathValue(i)).ToArray()
+        },
+        XPathBool b => new { type = nameof(WcAttrType.BoolValue), value = (object)b.Value },
+        XPathNumber n => new { type = nameof(WcAttrType.DoubleValue), value = (object)n.Value },
+        _ => new { type = nameof(WcAttrType.StringValue), value = (object)value.AsString() }
+    };
 
     public string[] FindElementsAtPoint(string appId, double x, double y, string? rootElementId = null)
     {
@@ -204,17 +247,22 @@ public sealed class AppManager : IAppOperations, IDisposable
         }
     }
 
-    public object[] WaitForResolvedAttrs(string appId, string selector, string? rootElementId, uint timeout)
+    public object WaitForResolvedValue(string appId, string selector, string? rootElementId, uint timeout)
     {
         var deadline = Environment.TickCount64 + timeout;
+        var desktopRoot = GetDesktopRoot();
+        var processId = GetConfineProcessId(appId);
         while (true)
         {
-            var results = ResolveAttrs(appId, selector, rootElementId);
-            if (results.Length > 0)
-                return results;
+            var root = rootElementId != null ? GetElement(rootElementId) : GetAppRoot(appId);
+            var result = SelectorEngine.FindFull(root, selector, desktopRoot, processId);
+            bool hasMatches = result is ElementsResult er ? er.Elements.Count > 0
+                : result is AttrsResult ar && ar.Attributes.Count > 0;
+            if (hasMatches)
+                return ResolveValue(appId, selector, rootElementId);
             if (Environment.TickCount64 >= deadline)
                 throw new NoMatchException(
-                    $"No attribute results found for selector '{selector}' within {timeout}ms.");
+                    $"No results found for selector '{selector}' within {timeout}ms.");
             Thread.Sleep(100);
         }
     }

@@ -54,6 +54,12 @@ internal static class XPathSyntaxParser
         from name in IdentifierValue
         select (XPathExpr)new AttrRefExpr(name);
 
+    // Empty sequence: ()
+    private static readonly TokenListParser<XPathToken, XPathExpr> EmptySequence =
+        (from lp in Token.EqualTo(XPathToken.LParen)
+         from rp in Token.EqualTo(XPathToken.RParen)
+         select (XPathExpr)new SequenceExpr([])).Try();
+
     // Parenthesized expression or sequence: (expr) or (expr, expr, ...)
     private static readonly TokenListParser<XPathToken, XPathExpr> ParenExpr =
         from lp in Token.EqualTo(XPathToken.LParen)
@@ -146,7 +152,7 @@ internal static class XPathSyntaxParser
     }
 
     private static readonly TokenListParser<XPathToken, XPathExpr> Primary =
-        FuncCall.Or(NumberExpr).Or(StringExpr).Or(AttrRef).Or(SubPathPrimary).Or(ParenExpr);
+        FuncCall.Or(NumberExpr).Or(StringExpr).Or(AttrRef).Or(SubPathPrimary).Or(EmptySequence).Or(ParenExpr);
 
     // ── Unary minus ─────────────────────────────────────────────────────────
 
@@ -211,6 +217,38 @@ internal static class XPathSyntaxParser
     /// <summary>Full expression parser.</summary>
     internal static readonly TokenListParser<XPathToken, XPathExpr> Expression = OrExpr;
 
+    /// <summary>Parses a standalone expression string (e.g. a function call).</summary>
+    internal static XPathExpr ParseExpression(string expression)
+    {
+        if (string.IsNullOrWhiteSpace(expression))
+            throw new ArgumentException("Expression must not be empty.", nameof(expression));
+
+        Token<XPathToken>[] tokens;
+        try
+        {
+            tokens = XPathTokenizer.Instance.Tokenize(expression).ToArray();
+        }
+        catch (Exception ex)
+        {
+            throw new ArgumentException($"Invalid expression: '{expression}'. {ex.Message}", nameof(expression));
+        }
+
+        var tokenList = new TokenList<XPathToken>(tokens);
+        var result = Expression.TryParse(tokenList);
+
+        if (!result.HasValue)
+            throw new ArgumentException($"Invalid expression syntax: '{expression}'", nameof(expression));
+
+        if (!result.Remainder.IsAtEnd)
+            throw new ArgumentException(
+                $"Unexpected tokens after expression: '{expression}'", nameof(expression));
+
+        return result.Value;
+    }
+
+    /// <summary>Validates a standalone expression without evaluating it.</summary>
+    internal static void ValidateExpression(string expression) => ParseExpression(expression);
+
     // ── Step-level parsing ──────────────────────────────────────────────────
 
     internal static List<XPathStep> Parse(string xpath)
@@ -255,12 +293,15 @@ internal static class XPathSyntaxParser
     {
         // Consume axis separators (/ or //)
         bool isDescendant = false;
+        int posBeforeSep = pos;
 
         while (pos < tokens.Length && tokens[pos].Kind is XPathToken.Slash or XPathToken.DoubleSlash)
         {
             isDescendant = tokens[pos].Kind == XPathToken.DoubleSlash;
             pos++;
         }
+
+        bool hadSeparator = pos > posBeforeSep;
 
         if (pos >= tokens.Length)
             return null;
@@ -287,6 +328,10 @@ internal static class XPathSyntaxParser
         bool isAttributeAxis = false;
         if (pos < tokens.Length && tokens[pos].Kind == XPathToken.At)
         {
+            if (!hadSeparator && posBeforeSep > 0)
+                throw new ArgumentException(
+                    $"Missing '/' before '@' at position {tokens[pos].Span.Position.Absolute} in XPath expression: '{xpath}'",
+                    nameof(xpath));
             isAttributeAxis = true;
             pos++;
         }

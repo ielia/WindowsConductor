@@ -46,6 +46,18 @@ internal static class XPathFunctions
         Add("ends-with", 2, 2, (args, _) =>
             new XPathBool(args[0].AsString().EndsWith(args[1].AsString(), StringComparison.InvariantCultureIgnoreCase)));
 
+        Add("string-join", 1, 2, (args, _) =>
+        {
+            var first = args[0];
+            if (first is not XPathSequence and not XPathString and not XPathNumber and not XPathBool)
+                throw new XPathCastException(first.AsString(), first.GetType().Name, "string sequence");
+            var items = first is XPathSequence seq
+                ? seq.Items.Select(i => i.AsString())
+                : [first.AsString()];
+            var sep = args.Length == 2 ? args[1].AsString() : "";
+            return new XPathString(string.Join(sep, items));
+        });
+
         // text() — returns the Text property
         Add("text", 0, 0, (_, ctx) =>
             new XPathString(ctx.GetProperty("text") ?? ""));
@@ -157,9 +169,9 @@ internal static class XPathFunctions
         UnaryMinusExpr u => new XPathNumber(-Evaluate(u.Operand, ctx).AsNumber()),
         UnaryPlusExpr u => new XPathNumber(Evaluate(u.Operand, ctx).AsNumber()),
         SubPathExpr sp => ctx.SubPathEvaluator is not null
-            ? new XPathBool(ctx.SubPathEvaluator(sp))
+            ? ctx.SubPathEvaluator(sp)
             : throw new InvalidOperationException("Sub-path expressions require an element context for evaluation."),
-        SequenceExpr => throw new ArgumentException("Sequence expressions can only appear in comparisons."),
+        SequenceExpr seq => new XPathSequence(seq.Items.Select(i => Evaluate(i, ctx)).ToList()),
         BinaryExpr b => EvaluateBinary(b, ctx),
         _ => throw new ArgumentException($"Unknown expression type: {expr.GetType().Name}")
     };
@@ -221,9 +233,8 @@ internal static class XPathFunctions
 
     private static List<XPathValue> Flatten(XPathExpr expr, EvalContext ctx)
     {
-        if (expr is SequenceExpr seq)
-            return seq.Items.Select(item => Evaluate(item, ctx)).ToList();
-        return [Evaluate(expr, ctx)];
+        var value = Evaluate(expr, ctx);
+        return value is XPathSequence s ? [.. s.Items] : [value];
     }
 
     private static bool CompareValues(XPathValue left, XPathValue right, XPathBinaryOp op)

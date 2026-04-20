@@ -58,6 +58,9 @@ public static class SelectorEngine
             return evalResult;
         }
 
+        if (IsExpression(selector))
+            return XPathEngine.EvaluateExpression(root, selector);
+
         var parts = selector.Split("&&", StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
         AutomationElement[]? current = null;
         foreach (var part in parts)
@@ -68,6 +71,15 @@ public static class SelectorEngine
         }
 
         return new ElementsResult(ApplyProcessFilter(current ?? [], confineToProcessId));
+    }
+
+    private static bool IsExpression(string selector)
+    {
+        // Detect function-call expressions: identifier (possibly namespaced) followed by '('
+        int i = 0;
+        while (i < selector.Length && (char.IsLetterOrDigit(selector[i]) || selector[i] == '-' || selector[i] == '_' || selector[i] == ':'))
+            i++;
+        return i > 0 && i < selector.Length && selector[i] == '(';
     }
 
     private static bool IsAbsoluteXPath(string selector) =>
@@ -108,6 +120,12 @@ public static class SelectorEngine
         if (selector.StartsWith('/') || selector.StartsWith('.'))
         {
             XPathEngine.Validate(selector);
+            return;
+        }
+
+        if (IsExpression(selector))
+        {
+            XPathSyntaxParser.ValidateExpression(selector);
             return;
         }
 

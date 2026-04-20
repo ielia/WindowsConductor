@@ -11,5 +11,8 @@ public enum WcAttrType
     TimeOnlyValue,
     TimeSpanValue,
     StringValue,
+    PointValue,
+    RectangleValue,
+    ListValue,
     NullValue
 }

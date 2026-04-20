@@ -252,6 +252,14 @@ internal sealed record WindowStateCommand(WcWindowState? State = null) : ParsedC
     internal override string[] Examples => ["windowstate", "windowstate normal", "windowstate maximized"];
 }
 
+internal sealed record ResolveCommand(string Selector) : ParsedCommand
+{
+    internal override string Name => "resolve";
+    internal override string Usage => "resolve <xpath>";
+    internal override string Description => "Resolves an XPath expression and prints the result in YAML format.\nAttribute selectors return named values; element selectors return text values.";
+    internal override string[] Examples => ["resolve //button/@automationid", "resolve //button", "resolve ./@name"];
+}
+
 internal sealed record UnselectCommand : ParsedCommand
 {
     internal override string Name => "unselect";

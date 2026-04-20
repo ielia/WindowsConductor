@@ -110,6 +110,34 @@ public class WcExceptionTests
 
 [TestFixture]
 [Category("Unit")]
+public class XPathCastExceptionTests
+{
+    [Test]
+    public void Constructor_SetsMessage()
+    {
+        var ex = new XPathCastException("custom message");
+        Assert.That(ex.Message, Is.EqualTo("custom message"));
+    }
+
+    [Test]
+    public void Constructor_WithValueFromTo_FormatsMessage()
+    {
+        var ex = new XPathCastException("42", "XPathNumber", "string sequence");
+        Assert.That(ex.Message, Does.Contain("42"));
+        Assert.That(ex.Message, Does.Contain("XPathNumber"));
+        Assert.That(ex.Message, Does.Contain("string sequence"));
+    }
+
+    [Test]
+    public void IsWcException()
+    {
+        var ex = new XPathCastException("err");
+        Assert.That(ex, Is.InstanceOf<WcException>());
+    }
+}
+
+[TestFixture]
+[Category("Unit")]
 public class WcElementTests
 {
     [Test]
@@ -201,6 +229,26 @@ public class WcAttrTests
     }
 
     [Test]
+    public void Constructor_SetsPointType()
+    {
+        var point = new System.Drawing.Point(10, 20);
+        var attr = new WcAttr(DummyElement, "p", WcAttrType.PointValue, point);
+        Assert.That(attr.Type, Is.EqualTo(WcAttrType.PointValue));
+        Assert.That(attr.Value, Is.EqualTo(point));
+        Assert.That(attr.GetAsPoint(), Is.EqualTo(point));
+    }
+
+    [Test]
+    public void Constructor_SetsRectangleType()
+    {
+        var rect = new System.Drawing.Rectangle(10, 20, 300, 400);
+        var attr = new WcAttr(DummyElement, "r", WcAttrType.RectangleValue, rect);
+        Assert.That(attr.Type, Is.EqualTo(WcAttrType.RectangleValue));
+        Assert.That(attr.Value, Is.EqualTo(rect));
+        Assert.That(attr.GetAsRectangle(), Is.EqualTo(rect));
+    }
+
+    [Test]
     public void Type_CoversAllEnumValues_WithNull()
     {
         var allTypes = Enum.GetValues<WcAttrType>();
@@ -254,6 +302,55 @@ public class WcAttrTests
         var date = new DateOnly(2026, 1, 1);
         var attr = new WcAttr(DummyElement, "x", WcAttrType.StringValue, date);
         Assert.That(attr.Value, Is.EqualTo(date));
+    }
+
+    [Test]
+    public void Constructor_ListValue_AcceptsWcValueList()
+    {
+        IReadOnlyList<WcValue> items = [new WcValue(WcAttrType.IntValue, 1), new WcValue(WcAttrType.StringValue, "two")];
+        var attr = new WcAttr(DummyElement, "x", WcAttrType.ListValue, items);
+        Assert.That(attr.Type, Is.EqualTo(WcAttrType.ListValue));
+        Assert.That(attr.Value, Is.SameAs(items));
+    }
+
+    [Test]
+    public void Constructor_ListValue_AcceptsWcAttrItems()
+    {
+        IReadOnlyList<WcValue> items = [new WcAttr(DummyElement, "a", WcAttrType.IntValue, 1)];
+        var attr = new WcAttr(DummyElement, "x", WcAttrType.ListValue, items);
+        Assert.That(attr.GetAsList(), Has.Count.EqualTo(1));
+        Assert.That(attr.GetAsList()![0], Is.InstanceOf<WcAttr>());
+    }
+
+    [Test]
+    public void Constructor_ListValue_RejectsNonList()
+    {
+        Assert.Throws<ArgumentException>(() => new WcAttr(DummyElement, "x", WcAttrType.ListValue, "not a list"));
+    }
+
+    [Test]
+    public void GetAsList_ReturnsItems()
+    {
+        IReadOnlyList<WcValue> items = [new WcValue(WcAttrType.IntValue, 42)];
+        var attr = new WcAttr(DummyElement, "x", WcAttrType.ListValue, items);
+        var list = attr.GetAsList();
+        Assert.That(list, Is.Not.Null);
+        Assert.That(list, Has.Count.EqualTo(1));
+        Assert.That(list![0].GetAsInt(), Is.EqualTo(42));
+    }
+
+    [Test]
+    public void GetAsList_NullValue_ReturnsNull()
+    {
+        var attr = new WcAttr(DummyElement, "x", WcAttrType.ListValue, null);
+        Assert.That(attr.GetAsList(), Is.Null);
+    }
+
+    [Test]
+    public void GetAsList_NonListType_ReturnsNull()
+    {
+        var attr = new WcAttr(DummyElement, "x", WcAttrType.StringValue, "hello");
+        Assert.That(attr.GetAsList(), Is.Null);
     }
 }
 
