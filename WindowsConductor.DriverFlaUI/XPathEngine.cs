@@ -100,7 +100,7 @@ public sealed class XPathEngine
         Dictionary<SubPathExpr, XPathValue> subPathCache)
     {
         if (step.Axis == XPathAxis.Self)
-            return roots;
+            return ApplyFiltersToResults(roots.Where(el => MatchesType(step.Type, el)).ToList(), step, subPathCache);
 
         if (step.Axis == XPathAxis.Parent)
         {
@@ -117,7 +117,26 @@ public sealed class XPathEngine
         if (step.Axis is XPathAxis.Ancestor or XPathAxis.AncestorOrSelf)
             return ApplyAncestorStep(roots, step, subPathCache);
 
-        var candidates = new List<AutomationElement>();
+        if (step.Axis is XPathAxis.Sibling or XPathAxis.PrecedingSibling or XPathAxis.FollowingSibling)
+            return ApplySiblingStep(roots, step, subPathCache);
+
+        if (step.Axis == XPathAxis.DescendantOrSelf)
+        {
+            var candidates = new List<AutomationElement>();
+            foreach (var root in roots)
+            {
+                if (MatchesType(step.Type, root))
+                    candidates.Add(root);
+                foreach (var el in root.FindAllDescendants())
+                {
+                    if (MatchesType(step.Type, el))
+                        candidates.Add(el);
+                }
+            }
+            return ApplyFiltersToResults(candidates, step, subPathCache);
+        }
+
+        var childCandidates = new List<AutomationElement>();
 
         foreach (var root in roots)
         {
@@ -128,14 +147,20 @@ public sealed class XPathEngine
             foreach (var el in children)
             {
                 if (MatchesType(step.Type, el))
-                    candidates.Add(el);
+                    childCandidates.Add(el);
             }
         }
 
         if (step.Axis == XPathAxis.Frontmost)
-            candidates = ElementFilter.Frontmost(candidates);
+            childCandidates = ElementFilter.Frontmost(childCandidates);
 
-        // Apply filters sequentially — each filter narrows the result set
+        return ApplyFiltersToResults(childCandidates, step, subPathCache);
+    }
+
+    private static IReadOnlyList<AutomationElement> ApplyFiltersToResults(
+        IReadOnlyList<AutomationElement> candidates, XPathStep step,
+        Dictionary<SubPathExpr, XPathValue> subPathCache)
+    {
         IReadOnlyList<AutomationElement> results = candidates;
         foreach (var filter in step.Filters)
         {
@@ -146,8 +171,42 @@ public sealed class XPathEngine
                 _ => results
             };
         }
-
         return results;
+    }
+
+    private static IReadOnlyList<AutomationElement> ApplySiblingStep(
+        IReadOnlyList<AutomationElement> roots, XPathStep step,
+        Dictionary<SubPathExpr, XPathValue> subPathCache)
+    {
+        var candidates = new List<AutomationElement>();
+
+        foreach (var root in roots)
+        {
+            var parent = SafeGetParent(root);
+            if (parent is null) continue;
+
+            var siblings = parent.FindAllChildren();
+            bool foundSelf = false;
+
+            foreach (var sibling in siblings)
+            {
+                if (sibling.Equals(root))
+                {
+                    foundSelf = true;
+                    continue; // always skip self
+                }
+
+                if (step.Axis == XPathAxis.PrecedingSibling && foundSelf)
+                    break;
+                if (step.Axis == XPathAxis.FollowingSibling && !foundSelf)
+                    continue;
+
+                if (MatchesType(step.Type, sibling))
+                    candidates.Add(sibling);
+            }
+        }
+
+        return ApplyFiltersToResults(candidates, step, subPathCache);
     }
 
     private static IReadOnlyList<AutomationElement> ApplyFilters(

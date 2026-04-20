@@ -111,6 +111,22 @@ public class SelectorEngineValidationTests
     [TestCase("string-join(('a', 'b'), ',')")]
     [TestCase("true()")]
     [TestCase("math:pi()")]
+    [TestCase("//Button/child::Edit")]
+    [TestCase("//Button/descendant::Edit")]
+    [TestCase("//Button/descendant-or-self::*")]
+    [TestCase("//*[self::Button]")]
+    [TestCase("//Button/sibling::Edit")]
+    [TestCase("//Button/preceding-sibling::Edit")]
+    [TestCase("//Button/following-sibling::Edit")]
+    [TestCase("//Button/attribute::Name")]
+    [TestCase("self::Button")]
+    [TestCase("child::Button")]
+    [TestCase("descendant::Button")]
+    [TestCase("sibling::Edit")]
+    [TestCase("preceding-sibling::Edit")]
+    [TestCase("following-sibling::Edit")]
+    [TestCase("ancestor::Window")]
+    [TestCase("frontmost::Button")]
     public void Validate_ValidSelector_DoesNotThrow(string selector)
     {
         Assert.DoesNotThrow(() => SelectorEngine.Validate(selector));

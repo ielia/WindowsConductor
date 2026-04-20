@@ -533,13 +533,27 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
     private static bool IsXPath(string selector)
     {
         var s = selector.TrimStart();
-        return s.StartsWith('/') || s.StartsWith('.');
+        return s.StartsWith('/') || s.StartsWith('.') || StartsWithAxis(s);
     }
 
     private static bool IsRelativeXPath(string selector)
     {
         var s = selector.TrimStart();
-        return s.StartsWith('.') || s.StartsWith("//", StringComparison.Ordinal);
+        return s.StartsWith('.') || s.StartsWith("//", StringComparison.Ordinal) || StartsWithAxis(s);
+    }
+
+    private static readonly HashSet<string> AxisNames = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "ancestor", "ancestor-or-self", "attribute", "child", "descendant",
+        "descendant-or-self", "following-sibling", "frontmost",
+        "preceding-sibling", "self", "sibling"
+    };
+
+    private static bool StartsWithAxis(string s)
+    {
+        int sep = s.IndexOf("::", StringComparison.Ordinal);
+        if (sep <= 0) return false;
+        return AxisNames.Contains(s[..sep]);
     }
 
     private static string[] CombineSelectors(string[]? current, string[] incoming)

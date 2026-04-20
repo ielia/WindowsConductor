@@ -82,9 +82,12 @@ internal static class XPathSyntaxParser
         var allTokens = CollectRemainingTokens(input);
         if (allTokens.Length == 0) return TokenListParserResult.Empty<XPathToken, XPathExpr>(input);
 
-        // Sub-path must start with a path-like token
+        // Sub-path must start with a path-like token or a named axis (identifier::)
         var firstKind = allTokens[0].Kind;
-        if (firstKind is not (XPathToken.DoubleSlash or XPathToken.Slash or XPathToken.Dot or XPathToken.DoubleDot))
+        bool isNamedAxisStart = firstKind == XPathToken.Identifier
+            && allTokens.Length >= 2 && allTokens[1].Kind == XPathToken.DoubleColon;
+        if (!isNamedAxisStart
+            && firstKind is not (XPathToken.DoubleSlash or XPathToken.Slash or XPathToken.Dot or XPathToken.DoubleDot))
             return TokenListParserResult.Empty<XPathToken, XPathExpr>(input);
 
         // Bare . is the context node reference (used in attribute predicates like [.='value'])
@@ -104,21 +107,24 @@ internal static class XPathSyntaxParser
             var steps = new List<XPathStep>();
 
             // First step — ParseStep handles axis prefix (/, //, ., ..)
-            var firstStep = ParseStep(allTokens, ref pos, "<sub-path>");
-            if (firstStep is not null)
-                steps.Add(firstStep);
+            int prevCount = steps.Count;
+            ParseStep(allTokens, ref pos, "<sub-path>", steps);
+            if (steps.Count == prevCount)
+                return TokenListParserResult.Empty<XPathToken, XPathExpr>(input);
 
             // Additional steps only when preceded by / or //
             while (pos < allTokens.Length
                    && allTokens[pos].Kind is XPathToken.Slash or XPathToken.DoubleSlash)
             {
-                var nextStep = ParseStep(allTokens, ref pos, "<sub-path>");
-                if (nextStep is null) break;
-                steps.Add(nextStep);
+                prevCount = steps.Count;
+                ParseStep(allTokens, ref pos, "<sub-path>", steps);
+                if (steps.Count == prevCount) break;
             }
 
             // Remove no-op Self steps (produced by . prefix in ./type or .//type)
-            steps.RemoveAll(s => s.Axis == XPathAxis.Self);
+            // but only when they act as a prefix — keep if it's the sole step (e.g. self::*)
+            if (steps.Count > 1)
+                steps.RemoveAll(s => s.Axis == XPathAxis.Self && s.Type == "*" && s.Filters.Count == 0);
 
             if (steps.Count == 0)
                 return TokenListParserResult.Empty<XPathToken, XPathExpr>(input);
@@ -278,9 +284,7 @@ internal static class XPathSyntaxParser
 
         while (pos < tokens.Length)
         {
-            var step = ParseStep(tokens, ref pos, xpath);
-            if (step is not null)
-                steps.Add(step);
+            ParseStep(tokens, ref pos, xpath, steps);
         }
 
         if (steps.Count == 0)
@@ -289,7 +293,7 @@ internal static class XPathSyntaxParser
         return steps;
     }
 
-    private static XPathStep? ParseStep(Token<XPathToken>[] tokens, ref int pos, string xpath)
+    private static void ParseStep(Token<XPathToken>[] tokens, ref int pos, string xpath, List<XPathStep> steps)
     {
         // Consume axis separators (/ or //)
         bool isDescendant = false;
@@ -304,29 +308,38 @@ internal static class XPathSyntaxParser
         bool hadSeparator = pos > posBeforeSep;
 
         if (pos >= tokens.Length)
-            return null;
+            return;
 
-        // Named axis: frontmost::, ancestor::, ancestor-or-self::
+        // Named axis: frontmost::, ancestor::, ancestor-or-self::, descendant::, etc.
         XPathAxis? namedAxis = null;
         if (pos + 1 < tokens.Length
             && tokens[pos].Kind == XPathToken.Identifier
             && tokens[pos + 1].Kind == XPathToken.DoubleColon)
         {
             var axisName = tokens[pos].Span.ToStringValue();
-            if (string.Equals(axisName, "frontmost", StringComparison.OrdinalIgnoreCase))
-                namedAxis = XPathAxis.Frontmost;
-            else if (string.Equals(axisName, "ancestor", StringComparison.OrdinalIgnoreCase))
-                namedAxis = XPathAxis.Ancestor;
-            else if (string.Equals(axisName, "ancestor-or-self", StringComparison.OrdinalIgnoreCase))
-                namedAxis = XPathAxis.AncestorOrSelf;
+            namedAxis = axisName.ToLowerInvariant() switch
+            {
+                "frontmost" => XPathAxis.Frontmost,
+                "ancestor" => XPathAxis.Ancestor,
+                "ancestor-or-self" => XPathAxis.AncestorOrSelf,
+                "child" => XPathAxis.Child,
+                "descendant" => XPathAxis.Descendant,
+                "descendant-or-self" => XPathAxis.DescendantOrSelf,
+                "self" => XPathAxis.Self,
+                "sibling" => XPathAxis.Sibling,
+                "preceding-sibling" => XPathAxis.PrecedingSibling,
+                "following-sibling" => XPathAxis.FollowingSibling,
+                "attribute" => XPathAxis.Attribute,
+                _ => null
+            };
 
             if (namedAxis is not null)
                 pos += 2;
         }
 
-        // Attribute step: @name or @*
-        bool isAttributeAxis = false;
-        if (pos < tokens.Length && tokens[pos].Kind == XPathToken.At)
+        // Attribute step: @name or @* or attribute::name
+        bool isAttributeAxis = namedAxis == XPathAxis.Attribute;
+        if (!isAttributeAxis && pos < tokens.Length && tokens[pos].Kind == XPathToken.At)
         {
             if (!hadSeparator && posBeforeSep > 0)
                 throw new ArgumentException(
@@ -346,12 +359,14 @@ internal static class XPathSyntaxParser
         else if (!isAttributeAxis && pos < tokens.Length && tokens[pos].Kind == XPathToken.DoubleDot)
         {
             pos++;
-            return new XPathStep(XPathAxis.Parent, "..", []);
+            steps.Add(new XPathStep(XPathAxis.Parent, "..", []));
+            return;
         }
         else if (!isAttributeAxis && pos < tokens.Length && tokens[pos].Kind == XPathToken.Dot)
         {
             pos++;
-            return new XPathStep(XPathAxis.Self, ".", []);
+            steps.Add(new XPathStep(XPathAxis.Self, "*", []));
+            return;
         }
         else if (pos < tokens.Length && tokens[pos].Kind == XPathToken.Identifier)
         {
@@ -372,7 +387,7 @@ internal static class XPathSyntaxParser
                 throw new ArgumentException(
                     $"Expected attribute name or '*' after '@' in XPath expression: '{xpath}'",
                     nameof(xpath));
-            return null;
+            return;
         }
 
         // Parse filters: [...]
@@ -409,7 +424,13 @@ internal static class XPathSyntaxParser
             : namedAxis
             ?? (isDescendant ? XPathAxis.Descendant : XPathAxis.Child);
 
-        return new XPathStep(axis, type, filters);
+        // When // precedes a named axis that doesn't already traverse descendants,
+        // expand // to descendant-or-self::* so the axis operates on each descendant node.
+        if (isDescendant && namedAxis is not null
+            && namedAxis is not (XPathAxis.Descendant or XPathAxis.DescendantOrSelf or XPathAxis.Frontmost))
+            steps.Add(new XPathStep(XPathAxis.DescendantOrSelf, "*", []));
+
+        steps.Add(new XPathStep(axis, type, filters));
     }
 
     private static XPathFilter ParseFilter(Token<XPathToken>[] tokens, string xpath)

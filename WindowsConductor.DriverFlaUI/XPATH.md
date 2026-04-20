@@ -95,14 +95,21 @@ an abbreviated absolute path.
 
 | Syntax | Axis | Description |
 |---|---|---|
-| `/` | child | Direct children of the context node. |
-| `//` | descendant | All descendants (children, grandchildren, ...). |
+| `/` or `child::` | child | Direct children of the context node. |
+| `//` or `descendant::` | descendant | All descendants (children, grandchildren, ...). |
+| `descendant-or-self::` | descendant-or-self | The context node plus all its descendants. |
 | `..` | parent | Parent of the context node. |
-| `.` | self | The context node itself. |
+| `.` or `self::` | self | The context node itself (with optional type filter). |
+| `sibling::` | sibling | All siblings (parent's children excluding self). |
+| `preceding-sibling::` | preceding-sibling | Siblings that come before the context node. |
+| `following-sibling::` | following-sibling | Siblings that come after the context node. |
 | `ancestor::` | ancestor | All ancestors up to the root. |
 | `ancestor-or-self::` | ancestor-or-self | The context node plus all its ancestors. |
 | `frontmost::` | frontmost | Leaf-most descendants only (elements with no children in the result set). |
-| `@` | attribute | Element properties (see **Attributes** below). |
+| `@` or `attribute::` | attribute | Element properties (see **Attributes** below). |
+
+`self::Type` is particularly useful in predicates to filter by type:
+`./*[self::Button]` selects all child Buttons (equivalent to `./Button`).
 
 ---
 

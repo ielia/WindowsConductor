@@ -47,7 +47,7 @@ public static class SelectorEngine
 
         selector = selector.Trim();
 
-        if (selector.StartsWith('/') || selector.StartsWith('.'))
+        if (IsXPath(selector))
         {
             var effectiveRoot = IsAbsoluteXPath(selector) && desktopRoot is not null
                 ? desktopRoot
@@ -80,6 +80,24 @@ public static class SelectorEngine
         while (i < selector.Length && (char.IsLetterOrDigit(selector[i]) || selector[i] == '-' || selector[i] == '_' || selector[i] == ':'))
             i++;
         return i > 0 && i < selector.Length && selector[i] == '(';
+    }
+
+    private static readonly HashSet<string> AxisNames = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "ancestor", "ancestor-or-self", "attribute", "child", "descendant",
+        "descendant-or-self", "following-sibling", "frontmost",
+        "preceding-sibling", "self", "sibling"
+    };
+
+    private static bool IsXPath(string selector) =>
+        selector.StartsWith('/') || selector.StartsWith('.') || StartsWithAxis(selector);
+
+    private static bool StartsWithAxis(string selector)
+    {
+        int sep = selector.IndexOf("::", StringComparison.Ordinal);
+        if (sep <= 0) return false;
+        var candidate = selector[..sep];
+        return AxisNames.Contains(candidate);
     }
 
     private static bool IsAbsoluteXPath(string selector) =>
@@ -117,7 +135,7 @@ public static class SelectorEngine
         selector = selector.Trim();
 
         // XPath validation is handled by XPathEngine
-        if (selector.StartsWith('/') || selector.StartsWith('.'))
+        if (IsXPath(selector))
         {
             XPathEngine.Validate(selector);
             return;
