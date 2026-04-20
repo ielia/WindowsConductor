@@ -284,7 +284,12 @@ internal static class XPathSyntaxParser
 
         while (pos < tokens.Length)
         {
+            int prevPos = pos;
             ParseStep(tokens, ref pos, xpath, steps);
+            if (pos == prevPos)
+                throw new ArgumentException(
+                    $"Unexpected token at position {tokens[pos].Span.Position.Absolute} in XPath expression: '{xpath}'",
+                    nameof(xpath));
         }
 
         if (steps.Count == 0)
@@ -336,6 +341,10 @@ internal static class XPathSyntaxParser
 
             if (namedAxis is not null)
                 pos += 2;
+            else
+                throw new ArgumentException(
+                    $"Unknown axis '{axisName}' at position {tokens[pos].Span.Position.Absolute} in XPath expression: '{xpath}'",
+                    nameof(xpath));
         }
 
         // Attribute step: @name or @* or attribute::name

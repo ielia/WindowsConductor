@@ -89,6 +89,16 @@ public class XPathEngineValidationTests
         Assert.That(ex!.Message, Does.Contain("Index predicate must be >= 1"));
     }
 
+    // ── Unknown axis ─────────────────────────────────────────────────────────
+
+    [TestCase("//button/siblings::*")]
+    [TestCase("//button/foo::bar")]
+    public void ParseXPath_UnknownAxis_Throws(string xpath)
+    {
+        var ex = Assert.Throws<ArgumentException>(() => XPathEngine.Validate(xpath));
+        Assert.That(ex!.Message, Does.Contain("Unknown axis"));
+    }
+
     // ── Valid expressions should NOT throw ───────────────────────────────────
 
     [TestCase("//Button")]
