@@ -44,7 +44,7 @@ internal static class ElementFilter
             .ToList();
     }
 
-    private static string? RuntimeIdKey(AutomationElement el)
+    internal static string? RuntimeIdKey(AutomationElement el)
     {
         var id = el.Properties.RuntimeId.ValueOrDefault;
         return id is { Length: > 0 } ? string.Join(".", id) : null;

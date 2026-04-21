@@ -179,6 +179,7 @@ public sealed class XPathEngine
         Dictionary<SubPathExpr, XPathValue> subPathCache)
     {
         var candidates = new List<AutomationElement>();
+        var seen = new HashSet<string>();
 
         foreach (var root in roots)
         {
@@ -201,7 +202,11 @@ public sealed class XPathEngine
                 if (step.Axis == XPathAxis.FollowingSibling && !foundSelf)
                     continue;
 
-                if (MatchesType(step.Type, sibling))
+                if (!MatchesType(step.Type, sibling))
+                    continue;
+
+                var key = ElementFilter.RuntimeIdKey(sibling);
+                if (key is null || seen.Add(key))
                     candidates.Add(sibling);
             }
         }
