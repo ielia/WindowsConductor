@@ -161,6 +161,6 @@ public class CommandCompleterTests
     [Test]
     public void Commands_ContainsAll32Commands()
     {
-        Assert.That(CommandCompleter.Commands, Has.Length.EqualTo(32));
+        Assert.That(CommandCompleter.Commands, Has.Length.EqualTo(33));
     }
 }

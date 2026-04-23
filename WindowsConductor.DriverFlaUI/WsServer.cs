@@ -304,6 +304,13 @@ public sealed class WsServer
                         return WcResponse.Ok(req.Id);
                     }
 
+                case "hover":
+                    {
+                        var a = req.GetString("anchor");
+                        mgr.Hover(req.GetString("elementId"), a.Length > 0 ? a : null, req.GetInt("x"), req.GetInt("y"));
+                        return WcResponse.Ok(req.Id);
+                    }
+
                 case "typeText":
                     mgr.TypeText(req.GetString("elementId"), req.GetString("text"), req.GetInt("modifiers"));
                     return WcResponse.Ok(req.Id);

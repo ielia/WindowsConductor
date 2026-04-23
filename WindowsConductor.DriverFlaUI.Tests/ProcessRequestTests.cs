@@ -53,6 +53,7 @@ internal sealed class FakeAppOperations : IAppOperations
     public void Click(string elementId, string? anchor = null, int x = 0, int y = 0) => Record("Click", elementId, anchor, x, y);
     public void DoubleClick(string elementId, string? anchor = null, int x = 0, int y = 0) => Record("DoubleClick", elementId, anchor, x, y);
     public void RightClick(string elementId, string? anchor = null, int x = 0, int y = 0) => Record("RightClick", elementId, anchor, x, y);
+    public void Hover(string elementId, string? anchor = null, int x = 0, int y = 0) => Record("Hover", elementId, anchor, x, y);
     public void TypeText(string elementId, string text, int modifiers = 0) => Record("TypeText", elementId, text, modifiers);
     public string GetText(string elementId) { Record("GetText", elementId); return GetTextResult; }
 
@@ -400,6 +401,15 @@ public class ProcessRequestTests
     {
         var resp = WsServer.ProcessRequest(_fake, MakeRequest("rightClick", new() { ["elementId"] = "e1" }));
         Assert.That(_fake.Calls[0].Method, Is.EqualTo("RightClick"));
+    }
+
+    // ── hover ────────────────────────────────────────────────────────────────
+
+    [Test]
+    public void Hover_CallsHover()
+    {
+        var resp = WsServer.ProcessRequest(_fake, MakeRequest("hover", new() { ["elementId"] = "e1" }));
+        Assert.That(_fake.Calls[0].Method, Is.EqualTo("Hover"));
     }
 
     // ── typeText ─────────────────────────────────────────────────────────────

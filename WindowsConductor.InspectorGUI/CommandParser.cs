@@ -33,6 +33,7 @@ internal static class CommandParser
             "refresh" => new RefreshCommand(),
             "reset" => new ResetCommand(),
             "rightclick" => ParseRightClick(parts),
+            "hover" => ParseHover(parts),
             "type" => ParseType(parts),
             "ocr" => new OcrCommand(),
             "focus" => new FocusCommand(),
@@ -169,7 +170,7 @@ internal static class CommandParser
         return new ResolveCommand(selector);
     }
 
-    private static (string? OcrText, int MaxDistance) ParseOcrClickArgs(string[] parts)
+    private static (string? OcrText, int MaxDistance) ParseOcrMouseActionArgs(string[] parts)
     {
         if (parts.Length < 2) return (null, 0);
         var ocrText = parts[1];
@@ -182,20 +183,26 @@ internal static class CommandParser
 
     private static ClickCommand ParseClick(string[] parts)
     {
-        var (ocrText, maxDist) = ParseOcrClickArgs(parts);
+        var (ocrText, maxDist) = ParseOcrMouseActionArgs(parts);
         return new ClickCommand(ocrText, maxDist);
     }
 
     private static DoubleClickCommand ParseDoubleClick(string[] parts)
     {
-        var (ocrText, maxDist) = ParseOcrClickArgs(parts);
+        var (ocrText, maxDist) = ParseOcrMouseActionArgs(parts);
         return new DoubleClickCommand(ocrText, maxDist);
     }
 
     private static RightClickCommand ParseRightClick(string[] parts)
     {
-        var (ocrText, maxDist) = ParseOcrClickArgs(parts);
+        var (ocrText, maxDist) = ParseOcrMouseActionArgs(parts);
         return new RightClickCommand(ocrText, maxDist);
+    }
+
+    private static HoverCommand ParseHover(string[] parts)
+    {
+        var (ocrText, maxDist) = ParseOcrMouseActionArgs(parts);
+        return new HoverCommand(ocrText, maxDist);
     }
 
     private static AttributeCommand ParseAttribute(string[] parts)

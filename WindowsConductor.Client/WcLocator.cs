@@ -299,6 +299,22 @@ public sealed class WcLocator
         await el.RightClickAsync(anchor, offset, ct);
     }
 
+    /// <summary>Hovers the first matching element.</summary>
+    public async Task HoverAsync(CancellationToken ct = default)
+    {
+        var el = await GetElementAsync(ct);
+        await el.HoverAsync(ct);
+    }
+
+    /// <summary>Hovers the first matching element.</summary>
+    /// <param name="anchor">Offset anchor</param>
+    /// <param name="offset">offset</param>
+    public async Task HoverAsync(Anchor anchor, Point offset, CancellationToken ct = default)
+    {
+        var el = await GetElementAsync(ct);
+        await el.HoverAsync(anchor, offset, ct);
+    }
+
     /// <summary>
     /// Focuses the first matching element and types <paramref name="text"/>
     /// using keyboard simulation.

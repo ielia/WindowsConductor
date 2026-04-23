@@ -18,6 +18,9 @@ public abstract record WcElementOcrText(WcElement Element, BoundingRect Bounding
     public Task RightClickAsync(CancellationToken ct = default) =>
         Element.RightClickAsync(NorthWest, BoundingRect.Center, ct);
 
+    public Task HoverAsync(CancellationToken ct = default) =>
+        Element.HoverAsync(NorthWest, BoundingRect.Center, ct);
+
     /// <summary>Finds the best fuzzy substring match within this OCR text (case-insensitive).</summary>
     /// <returns>The match, or <c>null</c> if no match exists within <paramref name="maxEdits"/>.</returns>
     public WcElementOcrMatch? FindBestByEdits(string text, int maxEdits = 0)

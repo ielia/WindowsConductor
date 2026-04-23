@@ -560,6 +560,19 @@ public class CommandExecutorTests
         Assert.That(_output.InfoMessages[0], Does.Contain("Right-clicked"));
     }
 
+    // ── hover ────────────────────────────────────────────────────────────────
+
+    [Test]
+    public async Task Execute_Hover_CallsHover()
+    {
+        _session.IsConnected = true;
+        _session.HasApp = true;
+        _session.HasSelectedElement = true;
+        await _executor.ExecuteAsync("hover");
+        Assert.That(_session.Calls.Any(c => c.Method == "Hover"), Is.True);
+        Assert.That(_output.InfoMessages[0], Does.Contain("Hovered"));
+    }
+
     // ── type ────────────────────────────────────────────────────────────────
 
     [Test]
@@ -744,6 +757,16 @@ public class CommandExecutorTests
         Assert.That(_output.ErrorMessages[0], Does.Contain("No element selected"));
     }
 
+    [Test]
+    public async Task Execute_Hover_NoElement_RequiresElement()
+    {
+        _session.IsConnected = true;
+        _session.HasApp = true;
+        _session.HasSelectedElement = false;
+        await _executor.ExecuteAsync("hover");
+        Assert.That(_output.ErrorMessages[0], Does.Contain("No element selected"));
+    }
+
     // ── exit / quit ─────────────────────────────────────────────────────────
 
     [Test]
@@ -848,6 +871,16 @@ public class CommandExecutorTests
         _session.HasApp = true;
         _session.HasSelectedElement = true;
         await _executor.ExecuteAsync("rightclick");
+        Assert.That(_output.AttributesSets, Has.Count.EqualTo(1));
+    }
+
+    [Test]
+    public async Task Execute_Hover_RefreshesAttributes()
+    {
+        _session.IsConnected = true;
+        _session.HasApp = true;
+        _session.HasSelectedElement = true;
+        await _executor.ExecuteAsync("hover");
         Assert.That(_output.AttributesSets, Has.Count.EqualTo(1));
     }
 

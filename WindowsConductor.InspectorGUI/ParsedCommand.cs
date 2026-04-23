@@ -116,6 +116,14 @@ internal sealed record HelpCommand(string? CommandName) : ParsedCommand
     internal override string[] Examples => ["help", "help connect"];
 }
 
+internal sealed record HoverCommand(string? OcrText = null, int MaxDistance = 0) : ParsedCommand
+{
+    internal override string Name => "hover";
+    internal override string Usage => "hover [\"ocrText\" [maxDistance]]";
+    internal override string Description => "Hovers over the currently selected element.\nWith OCR text, brings the window foreground, performs OCR, and hovers the matched text.";
+    internal override string[] Examples => ["hover", "hover \"Submit\"", "hover \"Submit\" 2"];
+}
+
 internal sealed record LaunchCommand(
     string Path,
     string[] Args,

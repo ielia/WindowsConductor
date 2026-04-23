@@ -199,6 +199,12 @@ internal sealed class FakeInspectorSession : IInspectorSession
         return Task.CompletedTask;
     }
 
+    public Task HoverAsync(CancellationToken ct = default)
+    {
+        Record("Hover");
+        return Task.CompletedTask;
+    }
+
     public Task TypeAsync(string text, KeyModifiers modifiers = KeyModifiers.None, CancellationToken ct = default)
     {
         Record("Type", text, modifiers);
@@ -294,6 +300,11 @@ internal sealed class FakeInspectorSession : IInspectorSession
     }
 
     public Task RightClickAsync(Anchor anchor, Point offset, CancellationToken ct = default)
+    {
+        throw new NotImplementedException();
+    }
+
+    public Task HoverAsync(Anchor anchor, Point offset, CancellationToken ct = default)
     {
         throw new NotImplementedException();
     }

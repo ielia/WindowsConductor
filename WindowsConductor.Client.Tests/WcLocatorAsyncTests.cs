@@ -166,6 +166,14 @@ public class WcLocatorAsyncTests
     }
 
     [Test]
+    public async Task HoverAsync_ResolvesAndHovers()
+    {
+        _transport.Enqueue("el-1");
+        await MakeLocator("[name=OK]").HoverAsync();
+        Assert.That(_transport.Calls[1].Command, Is.EqualTo("hover"));
+    }
+
+    [Test]
     public async Task TypeAsync_ResolvesAndTypes()
     {
         _transport.Enqueue("el-1");

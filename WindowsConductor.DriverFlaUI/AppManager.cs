@@ -294,7 +294,7 @@ public sealed class AppManager : IAppOperations, IDisposable
         var el = GetElement(elementId);
         if (anchor is null && x == 0 && y == 0) { ClickSafe(el, () => el.Click()); return; }
         var pt = ResolveAbsolutePoint(el, anchor, x, y);
-        ClickSafe(el, () => FlaUI.Core.Input.Mouse.Click(pt));
+        ClickSafe(el, () => Mouse.Click(pt));
     }
 
     public void DoubleClick(string elementId, string? anchor = null, int x = 0, int y = 0)
@@ -302,7 +302,7 @@ public sealed class AppManager : IAppOperations, IDisposable
         var el = GetElement(elementId);
         if (anchor is null && x == 0 && y == 0) { ClickSafe(el, () => el.DoubleClick()); return; }
         var pt = ResolveAbsolutePoint(el, anchor, x, y);
-        ClickSafe(el, () => FlaUI.Core.Input.Mouse.DoubleClick(pt));
+        ClickSafe(el, () => Mouse.DoubleClick(pt));
     }
 
     public void RightClick(string elementId, string? anchor = null, int x = 0, int y = 0)
@@ -310,7 +310,16 @@ public sealed class AppManager : IAppOperations, IDisposable
         var el = GetElement(elementId);
         if (anchor is null && x == 0 && y == 0) { ClickSafe(el, () => el.RightClick()); return; }
         var pt = ResolveAbsolutePoint(el, anchor, x, y);
-        ClickSafe(el, () => FlaUI.Core.Input.Mouse.Click(pt, FlaUI.Core.Input.MouseButton.Right));
+        ClickSafe(el, () => Mouse.Click(pt, MouseButton.Right));
+    }
+
+    public void Hover(string elementId, string? anchor = null, int x = 0, int y = 0)
+    {
+        var el = GetElement(elementId);
+        var point = anchor is null && x == 0 && y == 0 ? el.GetClickablePoint() : ResolveAbsolutePoint(el, anchor, x, y);
+        // TODO: Figure out why it is not triggering tooltips
+        ClickSafe(el, () => Mouse.Position = point);
+        // ClickSafe(el, () => Mouse.MoveTo(point));
     }
 
     private static void ClickSafe(AutomationElement el, Action click)

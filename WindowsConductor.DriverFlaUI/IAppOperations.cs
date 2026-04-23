@@ -23,6 +23,7 @@ internal interface IAppOperations
     void Click(string elementId, string? anchor = null, int x = 0, int y = 0);
     void DoubleClick(string elementId, string? anchor = null, int x = 0, int y = 0);
     void RightClick(string elementId, string? anchor = null, int x = 0, int y = 0);
+    void Hover(string elementId, string? anchor = null, int x = 0, int y = 0);
     void TypeText(string elementId, string text, int modifiers = 0);
     string GetText(string elementId);
     string GetAttribute(string elementId, string attribute);

@@ -54,6 +54,12 @@ public sealed class WcElement
     public Task RightClickAsync(Anchor anchor, Point offset, CancellationToken ct = default) =>
         _conn.SendAsync("rightClick", new { elementId = ElementId, anchor = anchor.ToString(), x = offset.X, y = offset.Y }, ct);
 
+    public Task HoverAsync(CancellationToken ct = default) =>
+        _conn.SendAsync("hover", new { elementId = ElementId }, ct);
+
+    public Task HoverAsync(Anchor anchor, Point offset, CancellationToken ct = default) =>
+        _conn.SendAsync("hover", new { elementId = ElementId, anchor = anchor.ToString(), x = offset.X, y = offset.Y }, ct);
+
     public Task TypeAsync(string text, KeyModifiers modifiers = KeyModifiers.None, CancellationToken ct = default) =>
         _conn.SendAsync("typeText", new { elementId = ElementId, text, modifiers = (int)modifiers }, ct);
 

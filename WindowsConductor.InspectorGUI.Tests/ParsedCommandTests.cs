@@ -78,6 +78,7 @@ public class ParsedCommandTests
         Assert.That(new ScreenshotCommand(), Is.EqualTo(new ScreenshotCommand()));
         Assert.That(new DoubleClickCommand(), Is.EqualTo(new DoubleClickCommand()));
         Assert.That(new RightClickCommand(), Is.EqualTo(new RightClickCommand()));
+        Assert.That(new HoverCommand(), Is.EqualTo(new HoverCommand()));
         Assert.That(new DetachCommand(), Is.EqualTo(new DetachCommand()));
         Assert.That(new DisconnectCommand(), Is.EqualTo(new DisconnectCommand()));
         Assert.That(new ExitCommand(), Is.EqualTo(new ExitCommand()));

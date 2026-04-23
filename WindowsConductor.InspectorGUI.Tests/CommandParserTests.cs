@@ -289,6 +289,14 @@ public class CommandParserTests
         Assert.That(CommandParser.Parse("rightclick"), Is.InstanceOf<RightClickCommand>());
     }
 
+    // ── hover ────────────────────────────────────────────────────────────────
+
+    [Test]
+    public void Parse_Hover_ReturnsHoverCommand()
+    {
+        Assert.That(CommandParser.Parse("hover"), Is.InstanceOf<HoverCommand>());
+    }
+
     // ── type ────────────────────────────────────────────────────────────────
 
     [Test]

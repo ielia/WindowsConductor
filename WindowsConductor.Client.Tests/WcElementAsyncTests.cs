@@ -44,6 +44,14 @@ public class WcElementAsyncTests
     }
 
     [Test]
+    public async Task HoverAsync_SendsCorrectCommand()
+    {
+        await _element.HoverAsync();
+        Assert.That(_transport.Calls[0].Command, Is.EqualTo("hover"));
+        Assert.That(_transport.Calls[0].ParamsJson, Does.Contain("\"elementId\":\"el-123\""));
+    }
+
+    [Test]
     public async Task TypeAsync_SendsTextAndElementId()
     {
         await _element.TypeAsync("hello world");

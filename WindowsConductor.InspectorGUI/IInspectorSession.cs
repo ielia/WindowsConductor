@@ -39,6 +39,8 @@ internal interface IInspectorSession
     Task DoubleClickAsync(Anchor anchor, System.Drawing.Point offset, CancellationToken ct = default);
     Task RightClickAsync(CancellationToken ct = default);
     Task RightClickAsync(Anchor anchor, System.Drawing.Point offset, CancellationToken ct = default);
+    Task HoverAsync(CancellationToken ct = default);
+    Task HoverAsync(Anchor anchor, System.Drawing.Point offset, CancellationToken ct = default);
     Task TypeAsync(string text, KeyModifiers modifiers = KeyModifiers.None, CancellationToken ct = default);
     Task FocusAsync(CancellationToken ct = default);
     Task SetForegroundAsync(CancellationToken ct = default);

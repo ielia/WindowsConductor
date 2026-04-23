@@ -195,6 +195,12 @@ internal sealed class WcInspectorSession : IInspectorSession, IAsyncDisposable
     public async Task RightClickAsync(Anchor anchor, System.Drawing.Point offset, CancellationToken ct = default) =>
         await _selectedElement!.RightClickAsync(anchor, offset, ct);
 
+    public async Task HoverAsync(CancellationToken ct = default) =>
+        await _selectedElement!.HoverAsync(ct);
+
+    public async Task HoverAsync(Anchor anchor, System.Drawing.Point offset, CancellationToken ct = default) =>
+        await _selectedElement!.HoverAsync(anchor, offset, ct);
+
     public async Task TypeAsync(string text, KeyModifiers modifiers = KeyModifiers.None, CancellationToken ct = default) =>
         await _selectedElement!.TypeAsync(text, modifiers, ct);
 

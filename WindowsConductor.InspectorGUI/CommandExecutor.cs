@@ -278,6 +278,25 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
                 await ShowAttributesAsync(ct);
                 break;
 
+            case HoverCommand { OcrText: not null } hvrOcr
+                when !string.IsNullOrWhiteSpace(hvrOcr.OcrText):
+                RequireElement();
+                var hvrMatch = await OcrMatchAsync(hvrOcr.OcrText, hvrOcr.MaxDistance, ct);
+                var hvrPt = hvrMatch.BoundingRect.Center;
+                await session.HoverAsync(Anchor.NorthWest, hvrPt, ct);
+                output.WriteInfo($"Hovered over OCR match \"{hvrOcr.OcrText}\" @ {hvrPt} [\"{hvrMatch.Text}\" ~ dist={hvrMatch.Distance}].");
+                await ShowWindowScreenshotWithHighlightAsync(ct);
+                await ShowAttributesAsync(ct);
+                break;
+
+            case HoverCommand:
+                RequireElement();
+                await session.HoverAsync(ct);
+                output.WriteInfo("Hovered.");
+                await ShowWindowScreenshotWithHighlightAsync(ct);
+                await ShowAttributesAsync(ct);
+                break;
+
             case TypeCommand cmd:
                 RequireElement();
                 await session.TypeAsync(cmd.Text, cmd.Modifiers, ct);
