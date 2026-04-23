@@ -1,3 +1,4 @@
+using System.Drawing;
 using System.Text.Json;
 using SkiaSharp;
 
@@ -35,15 +36,23 @@ public sealed class WcElement
 
     // ── Actions ──────────────────────────────────────────────────────────────
 
-    // Task<T> derives from Task, so these are valid Task-returning methods.
     public Task ClickAsync(CancellationToken ct = default) =>
         _conn.SendAsync("click", new { elementId = ElementId }, ct);
+
+    public Task ClickAsync(Anchor anchor, Point offset, CancellationToken ct = default) =>
+        _conn.SendAsync("click", new { elementId = ElementId, anchor = anchor.ToString(), x = offset.X, y = offset.Y }, ct);
 
     public Task DoubleClickAsync(CancellationToken ct = default) =>
         _conn.SendAsync("doubleClick", new { elementId = ElementId }, ct);
 
+    public Task DoubleClickAsync(Anchor anchor, Point offset, CancellationToken ct = default) =>
+        _conn.SendAsync("doubleClick", new { elementId = ElementId, anchor = anchor.ToString(), x = offset.X, y = offset.Y }, ct);
+
     public Task RightClickAsync(CancellationToken ct = default) =>
         _conn.SendAsync("rightClick", new { elementId = ElementId }, ct);
+
+    public Task RightClickAsync(Anchor anchor, Point offset, CancellationToken ct = default) =>
+        _conn.SendAsync("rightClick", new { elementId = ElementId, anchor = anchor.ToString(), x = offset.X, y = offset.Y }, ct);
 
     public Task TypeAsync(string text, KeyModifiers modifiers = KeyModifiers.None, CancellationToken ct = default) =>
         _conn.SendAsync("typeText", new { elementId = ElementId, text, modifiers = (int)modifiers }, ct);
@@ -154,6 +163,39 @@ public sealed class WcElement
         return node;
     }
 
+    // ── OCR ───────────────────────────────────────────────────────────────
+
+    public async Task<WcElementOcrResult> GetOcrTextAsync(CancellationToken ct = default)
+    {
+        var r = await _conn.SendAsync("getOcrText", new { elementId = ElementId }, ct);
+        var text = r.GetProperty("text").GetString() ?? "";
+        var angle = r.GetProperty("angle").ValueKind == JsonValueKind.Null
+            ? (double?)null
+            : r.GetProperty("angle").GetDouble();
+        var resultRect = DeserializeBoundingRect(r.GetProperty("boundingRect"));
+
+        var lines = r.GetProperty("lines").EnumerateArray().Select(lineJson =>
+        {
+            var lineText = lineJson.GetProperty("text").GetString() ?? "";
+            var lineRect = DeserializeBoundingRect(lineJson.GetProperty("boundingRect"));
+            var words = lineJson.GetProperty("words").EnumerateArray().Select(wordJson =>
+            {
+                var wordText = wordJson.GetProperty("text").GetString() ?? "";
+                var wordRect = DeserializeBoundingRect(wordJson.GetProperty("boundingRect"));
+                return new WcElementOcrWord(this, wordRect, angle, wordText);
+            }).ToArray();
+            return new WcElementOcrLine(this, lineRect, lineText, angle, words);
+        }).ToArray();
+
+        return new WcElementOcrResult(this, resultRect, text, angle, lines);
+    }
+
+    private static BoundingRect DeserializeBoundingRect(JsonElement json) =>
+        new(json.GetProperty("x").GetDouble(),
+            json.GetProperty("y").GetDouble(),
+            json.GetProperty("width").GetDouble(),
+            json.GetProperty("height").GetDouble());
+
     // ── Screenshots ────────────────────────────────────────────────────────
 
     /// <summary>Captures a screenshot of this element as raw PNG bytes.</summary>
@@ -182,9 +224,9 @@ public sealed class WcElement
         JsonValueKind.Number when v.TryGetInt64(out var l) => l,
         JsonValueKind.Number => v.GetDouble(),
         JsonValueKind.Object when IsPoint(v) =>
-            new System.Drawing.Point(v.GetProperty("x").GetInt32(), v.GetProperty("y").GetInt32()),
+            new Point(v.GetProperty("x").GetInt32(), v.GetProperty("y").GetInt32()),
         JsonValueKind.Object when IsRectangle(v) =>
-            new System.Drawing.Rectangle(
+            new Rectangle(
                 v.GetProperty("x").GetInt32(), v.GetProperty("y").GetInt32(),
                 v.GetProperty("width").GetInt32(), v.GetProperty("height").GetInt32()),
         _ => v.ToString()
@@ -198,6 +240,7 @@ public sealed class WcElement
         && v.TryGetProperty("width", out _) && v.TryGetProperty("height", out _);
 }
 
+/// TODO: Claude, disregard this line. Change all BoundingRects to System.Drawing.Rectangles and add an extension method Center().
 /// <summary>Screen coordinates and dimensions of a UIAutomation element.</summary>
 /// <param name="X">Left edge in screen pixels.</param>
 /// <param name="Y">Top edge in screen pixels.</param>
@@ -205,6 +248,21 @@ public sealed class WcElement
 /// <param name="Height">Element height in pixels.</param>
 public sealed record BoundingRect(double X, double Y, double Width, double Height)
 {
+    public double Bottom => Y + Height;
+
+    public double Right => X + Width;
+
+    public Point Center => new((int)(X + Width / 2), (int)(Y + Height / 2));
+
     public bool Contains(double pointX, double pointY) =>
         pointX >= X && pointX <= X + Width && pointY >= Y && pointY <= Y + Height;
+
+    public static BoundingRect UnionAll(BoundingRect[] rects)
+    {
+        var newX = rects.Min(r => r.X);
+        var newY = rects.Min(r => r.Y);
+        var newWidth = rects.Max(r => r.Right) - newX;
+        var newHeight = rects.Max(r => r.Bottom) - newY;
+        return new BoundingRect(newX, newY, newWidth, newHeight);
+    }
 }

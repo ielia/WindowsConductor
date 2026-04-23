@@ -1,3 +1,4 @@
+using System.Drawing;
 using WindowsConductor.Client;
 using WindowsConductor.InspectorGUI;
 
@@ -275,5 +276,25 @@ internal sealed class FakeInspectorSession : IInspectorSession
         HasApp = false;
         HasSelectedElement = false;
         return Task.CompletedTask;
+    }
+
+    public Task<WcElementOcrResult> GetOcrTextAsync(CancellationToken ct = default)
+    {
+        throw new NotImplementedException();
+    }
+
+    public Task ClickAsync(Anchor anchor, Point offset, CancellationToken ct = default)
+    {
+        throw new NotImplementedException();
+    }
+
+    public Task DoubleClickAsync(Anchor anchor, Point offset, CancellationToken ct = default)
+    {
+        throw new NotImplementedException();
+    }
+
+    public Task RightClickAsync(Anchor anchor, Point offset, CancellationToken ct = default)
+    {
+        throw new NotImplementedException();
     }
 }

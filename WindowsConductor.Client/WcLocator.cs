@@ -1,3 +1,4 @@
+using System.Drawing;
 using System.Text.Json;
 using SkiaSharp;
 
@@ -257,6 +258,15 @@ public sealed class WcLocator
         await el.ClickAsync(ct);
     }
 
+    /// <summary>Clicks the first matching element.</summary>
+    /// <param name="anchor">Offset anchor</param>
+    /// <param name="offset">offset</param>
+    public async Task ClickAsync(Anchor anchor, Point offset, CancellationToken ct = default)
+    {
+        var el = await GetElementAsync(ct);
+        await el.ClickAsync(anchor, offset, ct);
+    }
+
     /// <summary>Double-clicks the first matching element.</summary>
     public async Task DoubleClickAsync(CancellationToken ct = default)
     {
@@ -264,11 +274,29 @@ public sealed class WcLocator
         await el.DoubleClickAsync(ct);
     }
 
+    /// <summary>Double-clicks the first matching element.</summary>
+    /// <param name="anchor">Offset anchor</param>
+    /// <param name="offset">offset</param>
+    public async Task DoubleClickAsync(Anchor anchor, Point offset, CancellationToken ct = default)
+    {
+        var el = await GetElementAsync(ct);
+        await el.DoubleClickAsync(anchor, offset, ct);
+    }
+
     /// <summary>Right-clicks the first matching element.</summary>
     public async Task RightClickAsync(CancellationToken ct = default)
     {
         var el = await GetElementAsync(ct);
         await el.RightClickAsync(ct);
+    }
+
+    /// <summary>Right-clicks the first matching element.</summary>
+    /// <param name="anchor">Offset anchor</param>
+    /// <param name="offset">offset</param>
+    public async Task RightClickAsync(Anchor anchor, Point offset, CancellationToken ct = default)
+    {
+        var el = await GetElementAsync(ct);
+        await el.RightClickAsync(anchor, offset, ct);
     }
 
     /// <summary>

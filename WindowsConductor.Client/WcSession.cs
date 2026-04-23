@@ -189,6 +189,7 @@ public sealed class WcSession : IWcTransport, IAsyncDisposable
             {
                 nameof(NoMatchException) => new NoMatchException(msg),
                 nameof(UnwantedMatchException) => new UnwantedMatchException(msg),
+                nameof(LocationOutOfRangeException) => new LocationOutOfRangeException(msg),
                 _ => new WcException(msg)
             };
         }
@@ -275,3 +276,6 @@ public sealed class NoMatchException(string message) : WcException(message);
 
 /// <summary>Thrown when a wait-for-* operation times out and the locator still matches.</summary>
 public sealed class UnwantedMatchException(string message) : WcException(message);
+
+/// <summary>Thrown when a click target point falls outside the element's bounding rectangle.</summary>
+public sealed class LocationOutOfRangeException(string message) : WcException(message);

@@ -180,11 +180,20 @@ internal sealed class WcInspectorSession : IInspectorSession, IAsyncDisposable
     public async Task ClickAsync(CancellationToken ct = default) =>
         await _selectedElement!.ClickAsync(ct);
 
+    public async Task ClickAsync(Anchor anchor, System.Drawing.Point offset, CancellationToken ct = default) =>
+        await _selectedElement!.ClickAsync(anchor, offset, ct);
+
     public async Task DoubleClickAsync(CancellationToken ct = default) =>
         await _selectedElement!.DoubleClickAsync(ct);
 
+    public async Task DoubleClickAsync(Anchor anchor, System.Drawing.Point offset, CancellationToken ct = default) =>
+        await _selectedElement!.DoubleClickAsync(anchor, offset, ct);
+
     public async Task RightClickAsync(CancellationToken ct = default) =>
         await _selectedElement!.RightClickAsync(ct);
+
+    public async Task RightClickAsync(Anchor anchor, System.Drawing.Point offset, CancellationToken ct = default) =>
+        await _selectedElement!.RightClickAsync(anchor, offset, ct);
 
     public async Task TypeAsync(string text, KeyModifiers modifiers = KeyModifiers.None, CancellationToken ct = default) =>
         await _selectedElement!.TypeAsync(text, modifiers, ct);
@@ -209,6 +218,9 @@ internal sealed class WcInspectorSession : IInspectorSession, IAsyncDisposable
 
     public async Task<BoundingRect> GetElementBoundingRectAsync(CancellationToken ct = default) =>
         await _selectedElement!.GetBoundingRectAsync(ct);
+
+    public async Task<WcElementOcrResult> GetOcrTextAsync(CancellationToken ct = default) =>
+        await _selectedElement!.GetOcrTextAsync(ct);
 
     internal const bool SnapshotGetDescendantsInBulk = false;
 

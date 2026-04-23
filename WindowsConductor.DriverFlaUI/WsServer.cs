@@ -1,4 +1,5 @@
 using System.Net.WebSockets;
+using System.Runtime.InteropServices;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Text.Json;
@@ -283,16 +284,25 @@ public sealed class WsServer
                     }
 
                 case "click":
-                    mgr.Click(req.GetString("elementId"));
-                    return WcResponse.Ok(req.Id);
+                    {
+                        var a = req.GetString("anchor");
+                        mgr.Click(req.GetString("elementId"), a.Length > 0 ? a : null, req.GetInt("x"), req.GetInt("y"));
+                        return WcResponse.Ok(req.Id);
+                    }
 
                 case "doubleClick":
-                    mgr.DoubleClick(req.GetString("elementId"));
-                    return WcResponse.Ok(req.Id);
+                    {
+                        var a = req.GetString("anchor");
+                        mgr.DoubleClick(req.GetString("elementId"), a.Length > 0 ? a : null, req.GetInt("x"), req.GetInt("y"));
+                        return WcResponse.Ok(req.Id);
+                    }
 
                 case "rightClick":
-                    mgr.RightClick(req.GetString("elementId"));
-                    return WcResponse.Ok(req.Id);
+                    {
+                        var a = req.GetString("anchor");
+                        mgr.RightClick(req.GetString("elementId"), a.Length > 0 ? a : null, req.GetInt("x"), req.GetInt("y"));
+                        return WcResponse.Ok(req.Id);
+                    }
 
                 case "typeText":
                     mgr.TypeText(req.GetString("elementId"), req.GetString("text"), req.GetInt("modifiers"));
@@ -355,6 +365,10 @@ public sealed class WsServer
                     return WcResponse.Ok(req.Id,
                         mgr.GetDescendants(req.GetString("elementId")));
 
+                case "getOcrText":
+                    return WcResponse.Ok(req.Id,
+                        mgr.GetOcrText(req.GetString("elementId")));
+
                 case "desktopScreenshot":
                     return WcResponse.Ok(req.Id, mgr.DesktopScreenshot());
 
@@ -380,7 +394,7 @@ public sealed class WsServer
         }
         catch (Exception ex)
         {
-            var errorType = ex is NoMatchException or UnwantedMatchException or AccessRestrictedException
+            var errorType = ex is NoMatchException or UnwantedMatchException or AccessRestrictedException or LocationOutOfRangeException
                 ? ex.GetType().Name
                 : null;
             return WcResponse.Fail(req.Id, ex.Message, errorType);

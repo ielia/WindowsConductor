@@ -20,9 +20,9 @@ internal interface IAppOperations
     string[] WaitForElements(string appId, string selector, string? rootElementId, uint timeout);
     object WaitForResolvedValue(string appId, string selector, string? rootElementId, uint timeout);
     void WaitForVanish(string appId, string selector, string? rootElementId, uint timeout);
-    void Click(string elementId);
-    void DoubleClick(string elementId);
-    void RightClick(string elementId);
+    void Click(string elementId, string? anchor = null, int x = 0, int y = 0);
+    void DoubleClick(string elementId, string? anchor = null, int x = 0, int y = 0);
+    void RightClick(string elementId, string? anchor = null, int x = 0, int y = 0);
     void TypeText(string elementId, string text, int modifiers = 0);
     string GetText(string elementId);
     string GetAttribute(string elementId, string attribute);
@@ -38,6 +38,7 @@ internal interface IAppOperations
     string GetWindowTitle(string appId);
     object GetBoundingRect(string elementId);
     object GetWindowBoundingRect(string appId);
+    object GetOcrText(string elementId);
     byte[] ScreenshotElement(string elementId);
     byte[] ScreenshotApp(string appId);
     string[] GetChildren(string elementId);

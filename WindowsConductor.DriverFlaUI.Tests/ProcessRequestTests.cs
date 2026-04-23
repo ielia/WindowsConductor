@@ -50,9 +50,9 @@ internal sealed class FakeAppOperations : IAppOperations
     public object ResolveValue(string appId, string selector, string? rootElementId = null)
     { Record("ResolveValue", appId, selector, rootElementId); return ResolveValueResult; }
 
-    public void Click(string elementId) => Record("Click", elementId);
-    public void DoubleClick(string elementId) => Record("DoubleClick", elementId);
-    public void RightClick(string elementId) => Record("RightClick", elementId);
+    public void Click(string elementId, string? anchor = null, int x = 0, int y = 0) => Record("Click", elementId, anchor, x, y);
+    public void DoubleClick(string elementId, string? anchor = null, int x = 0, int y = 0) => Record("DoubleClick", elementId, anchor, x, y);
+    public void RightClick(string elementId, string? anchor = null, int x = 0, int y = 0) => Record("RightClick", elementId, anchor, x, y);
     public void TypeText(string elementId, string text, int modifiers = 0) => Record("TypeText", elementId, text, modifiers);
     public string GetText(string elementId) { Record("GetText", elementId); return GetTextResult; }
 
@@ -85,6 +85,10 @@ internal sealed class FakeAppOperations : IAppOperations
     public string GetWindowTitle(string appId) { Record("GetWindowTitle", appId); return GetWindowTitleResult; }
     public object GetBoundingRect(string elementId) { Record("GetBoundingRect", elementId); return GetBoundingRectResult; }
     public object GetWindowBoundingRect(string appId) { Record("GetWindowBoundingRect", appId); return GetWindowBoundingRectResult; }
+
+    public object GetOcrTextResult { get; set; } = new { text = "", angle = (double?)null, boundingRect = new { x = 0.0, y = 0.0, width = 100.0, height = 50.0 }, lines = Array.Empty<object>() };
+    public object GetOcrText(string elementId)
+    { Record("GetOcrText", elementId); return GetOcrTextResult; }
 
     public byte[] ScreenshotElement(string elementId)
     { Record("ScreenshotElement", elementId); return ScreenshotElementResult; }

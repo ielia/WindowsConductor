@@ -1,0 +1,473 @@
+using NUnit.Framework;
+
+namespace WindowsConductor.Client.Tests;
+
+[TestFixture]
+[Category("Unit")]
+public class WagnerFischerTests
+{
+    [Test]
+    public void ExactMatch_Distance0()
+    {
+        var (dist, start, end) = WcElementOcrText.FindBestSubstring("Hello World", "World");
+        Assert.That(dist, Is.EqualTo(0));
+        Assert.That("Hello World"[start..end], Is.EqualTo("World"));
+    }
+
+    [Test]
+    public void ExactMatch_CaseInsensitive()
+    {
+        var (dist, start, end) = WcElementOcrText.FindBestSubstring("Hello WORLD", "world");
+        Assert.That(dist, Is.EqualTo(0));
+        Assert.That(start, Is.EqualTo(6));
+        Assert.That(end, Is.EqualTo(11));
+    }
+
+    [Test]
+    public void SingleEdit_Substitution()
+    {
+        var (dist, start, end) = WcElementOcrText.FindBestSubstring("H3llo", "Hello");
+        Assert.That(dist, Is.EqualTo(1));
+        Assert.That("H3llo"[start..end], Is.EqualTo("H3llo"));
+    }
+
+    [Test]
+    public void SingleEdit_Insertion()
+    {
+        var (dist, _, _) = WcElementOcrText.FindBestSubstring("Hllo World", "Hello");
+        Assert.That(dist, Is.EqualTo(1));
+    }
+
+    [Test]
+    public void SingleEdit_Deletion()
+    {
+        var (dist, _, _) = WcElementOcrText.FindBestSubstring("Heello World", "Hello");
+        Assert.That(dist, Is.EqualTo(1));
+    }
+
+    [Test]
+    public void EmptyNeedle_Distance0()
+    {
+        var (dist, start, end) = WcElementOcrText.FindBestSubstring("Hello", "");
+        Assert.That(dist, Is.EqualTo(0));
+        Assert.That(start, Is.EqualTo(0));
+        Assert.That(end, Is.EqualTo(0));
+    }
+
+    [Test]
+    public void EmptyHaystack_DistanceEqualsNeedleLength()
+    {
+        var (dist, _, _) = WcElementOcrText.FindBestSubstring("", "abc");
+        Assert.That(dist, Is.EqualTo(3));
+    }
+
+    [Test]
+    public void BestSubstring_PicksShortest()
+    {
+        var (dist, start, end) = WcElementOcrText.FindBestSubstring("abcdef", "cd");
+        Assert.That(dist, Is.EqualTo(0));
+        Assert.That("abcdef"[start..end], Is.EqualTo("cd"));
+    }
+
+    [Test]
+    public void FuzzySubstring_InMiddle()
+    {
+        var (dist, start, end) = WcElementOcrText.FindBestSubstring("xxFoxxx", "Foo");
+        Assert.That(dist, Is.EqualTo(1));
+        // "Fo" (distance 1: missing 'o') is as good as "Fox" (distance 1: x→o); W-F picks first shortest
+        Assert.That(start, Is.GreaterThanOrEqualTo(2));
+        Assert.That(end, Is.LessThanOrEqualTo(5));
+    }
+}
+
+[TestFixture]
+[Category("Unit")]
+public class OcrFindBestByEditsTests
+{
+    private static readonly FakeTransport Transport = new();
+    private static readonly WcElement FakeElement = new("el1", Transport);
+
+    private static readonly BoundingRect RectA = new(0, 0, 50, 20);
+    private static readonly BoundingRect RectB = new(55, 0, 60, 20);
+    private static readonly BoundingRect RectC = new(120, 0, 40, 20);
+    private static readonly BoundingRect RectD = new(165, 0, 35, 20);
+
+    private static readonly BoundingRect LineRect1 = new(0, 0, 160, 20);
+    private static readonly BoundingRect LineRect2 = new(0, 25, 160, 20);
+    private static readonly BoundingRect LineRect3 = new(0, 50, 160, 20);
+    private static readonly BoundingRect LineRect4 = new(0, 75, 160, 20);
+
+    private static readonly BoundingRect ResultRect = new(0, 0, 200, 100);
+
+    private static WcElementOcrWord Word(string text, BoundingRect? box = null) =>
+        new(FakeElement, box ?? RectA, null, text);
+
+    private static WcElementOcrLine Line(string text, BoundingRect? box = null, params WcElementOcrWord[] words) =>
+        new(FakeElement, box ?? LineRect1, text, null, words);
+
+    private static WcElementOcrResult Result(string text, BoundingRect? box = null, params WcElementOcrLine[] lines) =>
+        new(FakeElement, box ?? ResultRect, text, null, lines);
+
+    private static BoundingRect ExpectedUnion(params WcElementOcrText[] fragments) =>
+        WcElementOcrText.UnionRect(fragments);
+
+    private static void AssertMatchRect(WcElementOcrMatch match)
+    {
+        var expected = ExpectedUnion(match.Fragments.ToArray());
+        Assert.That(match.BoundingRect, Is.EqualTo(expected),
+            "Match BoundingRect should be the union of all fragment BoundingRects");
+    }
+
+    private static void AssertSliceUsesWordRect(WcElementOcrWordSlice slice)
+    {
+        Assert.That(slice.BoundingRect, Is.EqualTo(slice.OriginalWord.BoundingRect),
+            "Slice BoundingRect should equal the OriginalWord's BoundingRect");
+    }
+
+    // ── Null returns ────────────────────────────────────────────────────────
+
+    [Test]
+    public void Word_NoMatch_ReturnsNull()
+    {
+        var word = Word("Hello");
+        Assert.That(word.FindBestByEdits("xyz", 0), Is.Null);
+    }
+
+    [Test]
+    public void Word_ExceedsMaxEdits_ReturnsNull()
+    {
+        var word = Word("Hello");
+        Assert.That(word.FindBestByEdits("xyz", 1), Is.Null);
+    }
+
+    [Test]
+    public void EmptyText_ReturnsNull()
+    {
+        var word = Word("");
+        Assert.That(word.FindBestByEdits("abc"), Is.Null);
+    }
+
+    [Test]
+    public void EmptySearch_ReturnsNull()
+    {
+        var word = Word("Hello");
+        Assert.That(word.FindBestByEdits(""), Is.Null);
+    }
+
+    // ── Word-level matches ──────────────────────────────────────────────────
+
+    [Test]
+    public void Word_ExactMatch_ReturnsSelf()
+    {
+        var word = Word("Hello", RectA);
+        var match = word.FindBestByEdits("Hello");
+        Assert.That(match, Is.Not.Null);
+        Assert.That(match!.Distance, Is.EqualTo(0));
+        Assert.That(match.Fragments, Has.Count.EqualTo(1));
+        Assert.That(match.Fragments[0], Is.SameAs(word));
+        AssertMatchRect(match);
+        Assert.That(match.BoundingRect, Is.EqualTo(RectA));
+    }
+
+    [Test]
+    public void Word_ExactSubstring_ReturnsSlice()
+    {
+        var word = Word("Hello", RectA);
+        var match = word.FindBestByEdits("ell");
+        Assert.That(match, Is.Not.Null);
+        Assert.That(match!.Distance, Is.EqualTo(0));
+        Assert.That(match.Fragments, Has.Count.EqualTo(1));
+        var slice = match.Fragments[0] as WcElementOcrWordSlice;
+        Assert.That(slice, Is.Not.Null);
+        Assert.That(slice!.Text, Is.EqualTo("ell"));
+        Assert.That(slice.FromIndex, Is.EqualTo(1));
+        Assert.That(slice.ToIndex, Is.EqualTo(4));
+        Assert.That(slice.OriginalWord, Is.SameAs(word));
+        AssertSliceUsesWordRect(slice);
+        AssertMatchRect(match);
+        Assert.That(match.BoundingRect, Is.EqualTo(RectA));
+    }
+
+    [Test]
+    public void Word_SubstringWithBudget_ExpandsToWholeWord()
+    {
+        var word = Word("Hello", RectA);
+        var match = word.FindBestByEdits("ell", maxEdits: 2);
+        Assert.That(match, Is.Not.Null);
+        Assert.That(match!.Distance, Is.EqualTo(0));
+        Assert.That(match.Fragments, Has.Count.EqualTo(1));
+        Assert.That(match.Fragments[0], Is.SameAs(word));
+        Assert.That(match.Text, Is.EqualTo("Hello"));
+        AssertMatchRect(match);
+        Assert.That(match.BoundingRect, Is.EqualTo(RectA));
+    }
+
+    [Test]
+    public void Word_SubstringWithInsufficientBudget_ReturnsSlice()
+    {
+        var word = Word("Hello", RectA);
+        var match = word.FindBestByEdits("ell", maxEdits: 1);
+        Assert.That(match, Is.Not.Null);
+        var slice = match!.Fragments[0] as WcElementOcrWordSlice;
+        Assert.That(slice, Is.Not.Null);
+        Assert.That(slice!.Text, Is.EqualTo("ell"));
+        AssertSliceUsesWordRect(slice);
+        AssertMatchRect(match);
+        Assert.That(match.BoundingRect, Is.EqualTo(RectA));
+    }
+
+    // ── Line-level matches ──────────────────────────────────────────────────
+
+    [Test]
+    public void Line_MatchSingleWord_ReturnsWord()
+    {
+        var w1 = Word("Hello", RectA);
+        var w2 = Word("World", RectB);
+        var line = Line("Hello World", LineRect1, w1, w2);
+        var match = line.FindBestByEdits("World");
+        Assert.That(match, Is.Not.Null);
+        Assert.That(match!.Distance, Is.EqualTo(0));
+        Assert.That(match.Fragments, Has.Count.EqualTo(1));
+        Assert.That(match.Fragments[0], Is.SameAs(w2));
+        AssertMatchRect(match);
+        Assert.That(match.BoundingRect, Is.EqualTo(RectB));
+    }
+
+    [Test]
+    public void Line_MatchAcrossWords_ReturnsSliceAndWord()
+    {
+        var w1 = Word("Hello", RectA);
+        var w2 = Word("World", RectB);
+        var line = Line("Hello World", LineRect1, w1, w2);
+        var match = line.FindBestByEdits("lo World");
+        Assert.That(match, Is.Not.Null);
+        Assert.That(match!.Distance, Is.EqualTo(0));
+        Assert.That(match.Fragments, Has.Count.EqualTo(2));
+        Assert.That(match.Fragments[0], Is.InstanceOf<WcElementOcrWordSlice>());
+        Assert.That(match.Fragments[0].Text, Is.EqualTo("lo"));
+        AssertSliceUsesWordRect((WcElementOcrWordSlice)match.Fragments[0]);
+        Assert.That(match.Fragments[1], Is.SameAs(w2));
+        AssertMatchRect(match);
+        // Union of RectA (slice uses word rect) and RectB
+        Assert.That(match.BoundingRect, Is.EqualTo(ExpectedUnion(w1, w2)));
+    }
+
+    [Test]
+    public void Line_BudgetExpandsBothBoundaries()
+    {
+        var w1 = Word("Hello", RectA);
+        var w2 = Word("World", RectB);
+        var line = Line("Hello World", LineRect1, w1, w2);
+        var match = line.FindBestByEdits("lo Worl", maxEdits: 4);
+        Assert.That(match, Is.Not.Null);
+        Assert.That(match!.Fragments, Has.Count.EqualTo(2));
+        Assert.That(match.Fragments[0], Is.SameAs(w1));
+        Assert.That(match.Fragments[1], Is.SameAs(w2));
+        AssertMatchRect(match);
+        Assert.That(match.BoundingRect, Is.EqualTo(ExpectedUnion(w1, w2)));
+    }
+
+    [Test]
+    public void Line_UserExample_MaxEdits2()
+    {
+        var w1 = Word("H3llo", RectA);
+        var w2 = Word("Cruel", RectB);
+        var w3 = Word("Wrldd", RectC);
+        var line = Line("H3llo Cruel Wrldd", LineRect1, w1, w2, w3);
+        var match = line.FindBestByEdits("low cruel world", maxEdits: 2);
+        Assert.That(match, Is.Not.Null);
+        Assert.That(match!.Distance, Is.EqualTo(2));
+        Assert.That(match.Fragments, Has.Count.EqualTo(3));
+        Assert.That(match.Fragments[0], Is.InstanceOf<WcElementOcrWordSlice>());
+        Assert.That(match.Fragments[0].Text, Is.EqualTo("lo"));
+        AssertSliceUsesWordRect((WcElementOcrWordSlice)match.Fragments[0]);
+        Assert.That(match.Fragments[1], Is.SameAs(w2));
+        Assert.That(match.Fragments[2], Is.InstanceOf<WcElementOcrWordSlice>());
+        Assert.That(match.Fragments[2].Text, Is.EqualTo("Wrld"));
+        AssertSliceUsesWordRect((WcElementOcrWordSlice)match.Fragments[2]);
+        AssertMatchRect(match);
+        // Slices use word rects, so union is RectA ∪ RectB ∪ RectC
+        Assert.That(match.BoundingRect, Is.EqualTo(ExpectedUnion(w1, w2, w3)));
+    }
+
+    [Test]
+    public void Line_UserExample_MaxEdits3to5_KeepsCheaperBoundaryWhole()
+    {
+        var w1 = Word("H3llo", RectA);
+        var w2 = Word("Cruel", RectB);
+        var w3 = Word("Wrldd", RectC);
+        var line = Line("H3llo Cruel Wrldd", LineRect1, w1, w2, w3);
+
+        for (int maxEdits = 3; maxEdits <= 5; maxEdits++)
+        {
+            var match = line.FindBestByEdits("low cruel world", maxEdits: maxEdits);
+            Assert.That(match, Is.Not.Null, $"maxEdits={maxEdits}");
+            Assert.That(match!.Fragments[0], Is.InstanceOf<WcElementOcrWordSlice>(),
+                $"maxEdits={maxEdits}: left boundary should be sliced");
+            AssertSliceUsesWordRect((WcElementOcrWordSlice)match.Fragments[0]);
+            Assert.That(match.Fragments[1], Is.SameAs(w2), $"maxEdits={maxEdits}");
+            Assert.That(match.Fragments[2], Is.SameAs(w3),
+                $"maxEdits={maxEdits}: right boundary should be kept whole");
+            AssertMatchRect(match);
+            Assert.That(match.BoundingRect, Is.EqualTo(ExpectedUnion(w1, w2, w3)),
+                $"maxEdits={maxEdits}: rect should be union of all fragment rects");
+        }
+    }
+
+    [Test]
+    public void Line_UserExample_MaxEdits6Plus_KeepsAllWhole()
+    {
+        var w1 = Word("H3llo", RectA);
+        var w2 = Word("Cruel", RectB);
+        var w3 = Word("Wrldd", RectC);
+        var line = Line("H3llo Cruel Wrldd", LineRect1, w1, w2, w3);
+        var match = line.FindBestByEdits("low cruel world", maxEdits: 6);
+        Assert.That(match, Is.Not.Null);
+        Assert.That(match!.Fragments, Has.Count.EqualTo(3));
+        Assert.That(match.Fragments[0], Is.SameAs(w1));
+        Assert.That(match.Fragments[1], Is.SameAs(w2));
+        Assert.That(match.Fragments[2], Is.SameAs(w3));
+        AssertMatchRect(match);
+        Assert.That(match.BoundingRect, Is.EqualTo(ExpectedUnion(w1, w2, w3)));
+    }
+
+    // ── Result-level matches ────────────────────────────────────────────────
+
+    [Test]
+    public void Result_MatchWithinSingleLine_ReturnsWordFragments()
+    {
+        var w1 = Word("Hello", RectA);
+        var w2 = Word("World", RectB);
+        var w3 = Word("Foo", RectC);
+        var line1 = Line("Hello World", LineRect1, w1, w2);
+        var line2 = Line("Foo", LineRect2, w3);
+        var result = Result("Hello World Foo", ResultRect, line1, line2);
+
+        var match = result.FindBestByEdits("World");
+        Assert.That(match, Is.Not.Null);
+        Assert.That(match!.Fragments, Has.Count.EqualTo(1));
+        Assert.That(match.Fragments[0], Is.SameAs(w2));
+        AssertMatchRect(match);
+        Assert.That(match.BoundingRect, Is.EqualTo(RectB));
+    }
+
+    [Test]
+    public void Result_MatchSpanningLines_BudgetKeepsLinesWhole()
+    {
+        var w1 = Word("Hello", RectA);
+        var w2 = Word("World", RectB);
+        var w3 = Word("Foo", RectC);
+        var w4 = Word("Bar", RectD);
+        var line1 = Line("Hello World", LineRect1, w1, w2);
+        var line2 = Line("Foo Bar", LineRect2, w3, w4);
+        var result = Result("Hello World Foo Bar", ResultRect, line1, line2);
+
+        var match = result.FindBestByEdits("World Foo", maxEdits: 10);
+        Assert.That(match, Is.Not.Null);
+        Assert.That(match!.Distance, Is.EqualTo(0));
+        Assert.That(match.Fragments, Has.Count.EqualTo(2));
+        Assert.That(match.Fragments[0], Is.SameAs(line1));
+        Assert.That(match.Fragments[1], Is.SameAs(line2));
+        AssertMatchRect(match);
+        Assert.That(match.BoundingRect, Is.EqualTo(ExpectedUnion(line1, line2)));
+    }
+
+    [Test]
+    public void Result_MatchSpanningLines_NoBudget_DrillsIntoBothLines()
+    {
+        var w1 = Word("Hello", RectA);
+        var w2 = Word("World", RectB);
+        var w3 = Word("Foo", RectC);
+        var w4 = Word("Bar", RectD);
+        var line1 = Line("Hello World", LineRect1, w1, w2);
+        var line2 = Line("Foo Bar", LineRect2, w3, w4);
+        var result = Result("Hello World Foo Bar", ResultRect, line1, line2);
+
+        var match = result.FindBestByEdits("World Foo");
+        Assert.That(match, Is.Not.Null);
+        Assert.That(match!.Distance, Is.EqualTo(0));
+        Assert.That(match.Fragments, Has.Count.EqualTo(2));
+        Assert.That(match.Fragments[0], Is.SameAs(w2));
+        Assert.That(match.Fragments[1], Is.SameAs(w3));
+        AssertMatchRect(match);
+        Assert.That(match.BoundingRect, Is.EqualTo(ExpectedUnion(w2, w3)));
+    }
+
+    [Test]
+    public void Result_MatchSpanningLines_DrillsIntoBothLinesAndSlicesWords()
+    {
+        var w1 = Word("Hello", RectA);
+        var w2 = Word("World", RectB);
+        var w3 = Word("Foo", new BoundingRect(0, 25, 30, 20));
+        var w4 = Word("Bar", new BoundingRect(35, 25, 30, 20));
+        var w5 = Word("Alpha", new BoundingRect(0, 50, 50, 20));
+        var w6 = Word("Beta", new BoundingRect(55, 50, 40, 20));
+        var w7 = Word("Gamma", new BoundingRect(0, 75, 50, 20));
+        var w8 = Word("Delta", new BoundingRect(55, 75, 45, 20));
+        var line1 = Line("Hello World", LineRect1, w1, w2);
+        var line2 = Line("Foo Bar", LineRect2, w3, w4);
+        var line3 = Line("Alpha Beta", LineRect3, w5, w6);
+        var line4 = Line("Gamma Delta", LineRect4, w7, w8);
+        var result = Result("Hello World Foo Bar Alpha Beta Gamma Delta", ResultRect, line1, line2, line3, line4);
+
+        var match = result.FindBestByEdits("rld foo bar alpha be");
+        Assert.That(match, Is.Not.Null);
+        Assert.That(match!.Distance, Is.EqualTo(0));
+        Assert.That(match.Fragments, Has.Count.EqualTo(4));
+
+        var slice0 = (WcElementOcrWordSlice)match.Fragments[0];
+        Assert.That(slice0.Text, Is.EqualTo("rld"));
+        Assert.That(slice0.OriginalWord, Is.SameAs(w2));
+        AssertSliceUsesWordRect(slice0);
+
+        Assert.That(match.Fragments[1], Is.SameAs(line2));
+        Assert.That(match.Fragments[2], Is.SameAs(w5));
+
+        var slice3 = (WcElementOcrWordSlice)match.Fragments[3];
+        Assert.That(slice3.Text, Is.EqualTo("Be"));
+        Assert.That(slice3.OriginalWord, Is.SameAs(w6));
+        AssertSliceUsesWordRect(slice3);
+
+        AssertMatchRect(match);
+        // Union of w2's rect (via slice), line2's rect, w5's rect, w6's rect (via slice)
+        Assert.That(match.BoundingRect, Is.EqualTo(ExpectedUnion(w2, line2, w5, w6)));
+    }
+
+    // ── Slice re-matching ───────────────────────────────────────────────────
+
+    [Test]
+    public void Slice_FindBestByEdits_ReturnsNarrowerSlice()
+    {
+        var word = Word("Hello", RectA);
+        var slice = new WcElementOcrWordSlice(FakeElement, RectA, null, "ello", word, 1, 5);
+        var match = slice.FindBestByEdits("ell");
+        Assert.That(match, Is.Not.Null);
+        Assert.That(match!.Fragments, Has.Count.EqualTo(1));
+        var innerSlice = match.Fragments[0] as WcElementOcrWordSlice;
+        Assert.That(innerSlice, Is.Not.Null);
+        Assert.That(innerSlice!.Text, Is.EqualTo("ell"));
+        Assert.That(innerSlice.OriginalWord, Is.SameAs(word));
+        Assert.That(innerSlice.FromIndex, Is.EqualTo(1));
+        Assert.That(innerSlice.ToIndex, Is.EqualTo(4));
+        AssertSliceUsesWordRect(innerSlice);
+        AssertMatchRect(match);
+        Assert.That(match.BoundingRect, Is.EqualTo(RectA));
+    }
+
+    // ── Match re-matching ───────────────────────────────────────────────────
+
+    [Test]
+    public void Match_FindBestByEdits_SearchesWithinMatch()
+    {
+        var w1 = Word("Hello", RectA);
+        var w2 = Word("World", RectB);
+        var matchRect = ExpectedUnion(w1, w2);
+        var ocrMatch = new WcElementOcrMatch(FakeElement, matchRect, "Hello World", null, [w1, w2], 0);
+        var inner = ocrMatch.FindBestByEdits("World");
+        Assert.That(inner, Is.Not.Null);
+        Assert.That(inner!.Fragments, Has.Count.EqualTo(1));
+        Assert.That(inner.Fragments[0], Is.SameAs(w2));
+        AssertMatchRect(inner);
+        Assert.That(inner.BoundingRect, Is.EqualTo(RectB));
+    }
+}

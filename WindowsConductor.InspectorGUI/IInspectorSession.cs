@@ -34,8 +34,11 @@ internal interface IInspectorSession
     Task<string?> ParentAsync(CancellationToken ct = default);
     Task<bool> IsSelectedElementRootAsync(CancellationToken ct = default);
     Task ClickAsync(CancellationToken ct = default);
+    Task ClickAsync(Anchor anchor, System.Drawing.Point offset, CancellationToken ct = default);
     Task DoubleClickAsync(CancellationToken ct = default);
+    Task DoubleClickAsync(Anchor anchor, System.Drawing.Point offset, CancellationToken ct = default);
     Task RightClickAsync(CancellationToken ct = default);
+    Task RightClickAsync(Anchor anchor, System.Drawing.Point offset, CancellationToken ct = default);
     Task TypeAsync(string text, KeyModifiers modifiers = KeyModifiers.None, CancellationToken ct = default);
     Task FocusAsync(CancellationToken ct = default);
     Task SetForegroundAsync(CancellationToken ct = default);
@@ -44,6 +47,7 @@ internal interface IInspectorSession
     Task<string> GetTextAsync(CancellationToken ct = default);
     Task<byte[]> ScreenshotElementAsync(CancellationToken ct = default);
     Task<BoundingRect> GetElementBoundingRectAsync(CancellationToken ct = default);
+    Task<WcElementOcrResult> GetOcrTextAsync(CancellationToken ct = default);
 
     Task<IReadOnlyList<WcElement>> GetChildrenAsync(CancellationToken ct = default);
     Task<IReadOnlyTreeNode<WcElement>> GetDescendantsAsync(CancellationToken ct = default);

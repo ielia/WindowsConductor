@@ -28,12 +28,12 @@ internal sealed record AttributeCommand(string AttributeName) : ParsedCommand
     internal override string[] Examples => ["attribute classname", "attribute *"];
 }
 
-internal sealed record ClickCommand : ParsedCommand
+internal sealed record ClickCommand(string? OcrText = null, int MaxDistance = 0) : ParsedCommand
 {
     internal override string Name => "click";
-    internal override string Usage => "click";
-    internal override string Description => "Clicks the currently selected element.";
-    internal override string[] Examples => [];
+    internal override string Usage => "click [\"ocrText\" [maxDistance]]";
+    internal override string Description => "Clicks the currently selected element.\nWith OCR text, brings the window foreground, performs OCR, and clicks the matched text.";
+    internal override string[] Examples => ["click", "click \"Submit\"", "click \"Submit\" 2"];
 }
 
 internal sealed record ClearCommand : ParsedCommand
@@ -76,12 +76,12 @@ internal sealed record DisconnectCommand : ParsedCommand
     internal override string[] Examples => [];
 }
 
-internal sealed record DoubleClickCommand : ParsedCommand
+internal sealed record DoubleClickCommand(string? OcrText = null, int MaxDistance = 0) : ParsedCommand
 {
     internal override string Name => "doubleclick";
-    internal override string Usage => "doubleclick";
-    internal override string Description => "Double-clicks the currently selected element.";
-    internal override string[] Examples => [];
+    internal override string Usage => "doubleclick [\"ocrText\" [maxDistance]]";
+    internal override string Description => "Double-clicks the currently selected element.\nWith OCR text, brings the window foreground, performs OCR, and double-clicks the matched text.";
+    internal override string[] Examples => ["doubleclick", "doubleclick \"Submit\"", "doubleclick \"Submit\" 2"];
 }
 
 internal sealed record ExitCommand : ParsedCommand
@@ -193,12 +193,12 @@ internal sealed record ResetCommand : ParsedCommand
     internal override string[] Examples => [];
 }
 
-internal sealed record RightClickCommand : ParsedCommand
+internal sealed record RightClickCommand(string? OcrText = null, int MaxDistance = 0) : ParsedCommand
 {
     internal override string Name => "rightclick";
-    internal override string Usage => "rightclick";
-    internal override string Description => "Right-clicks the currently selected element.";
-    internal override string[] Examples => [];
+    internal override string Usage => "rightclick [\"ocrText\" [maxDistance]]";
+    internal override string Description => "Right-clicks the currently selected element.\nWith OCR text, brings the window foreground, performs OCR, and right-clicks the matched text.";
+    internal override string[] Examples => ["rightclick", "rightclick \"Submit\"", "rightclick \"Submit\" 2"];
 }
 
 internal sealed record SleepCommand(int Milliseconds) : ParsedCommand
@@ -258,6 +258,14 @@ internal sealed record ResolveCommand(string Selector) : ParsedCommand
     internal override string Usage => "resolve <xpath>";
     internal override string Description => "Resolves an XPath expression and prints the result in YAML format.\nAttribute selectors return named values; element selectors return text values.";
     internal override string[] Examples => ["resolve //button/@automationid", "resolve //button", "resolve ./@name"];
+}
+
+internal sealed record OcrCommand : ParsedCommand
+{
+    internal override string Name => "ocr";
+    internal override string Usage => "ocr";
+    internal override string Description => "Performs OCR on the currently selected element and prints recognized text with bounding rectangles.";
+    internal override string[] Examples => [];
 }
 
 internal sealed record UnselectCommand : ParsedCommand

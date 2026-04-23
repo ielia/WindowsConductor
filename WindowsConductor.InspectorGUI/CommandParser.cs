@@ -27,13 +27,14 @@ internal static class CommandParser
             "prevmatch" => ParsePrevMatch(parts),
             "unselect" => new UnselectCommand(),
             "attribute" => ParseAttribute(parts),
-            "click" => new ClickCommand(),
-            "doubleclick" => new DoubleClickCommand(),
+            "click" => ParseClick(parts),
+            "doubleclick" => ParseDoubleClick(parts),
             "resolve" => ParseResolve(parts),
             "refresh" => new RefreshCommand(),
             "reset" => new ResetCommand(),
-            "rightclick" => new RightClickCommand(),
+            "rightclick" => ParseRightClick(parts),
             "type" => ParseType(parts),
+            "ocr" => new OcrCommand(),
             "focus" => new FocusCommand(),
             "foreground" => new ForegroundCommand(),
             "parent" => new ParentCommand(),
@@ -166,6 +167,35 @@ internal static class CommandParser
             throw new ArgumentException("Usage: resolve <xpath>");
         var selector = string.Join(' ', parts.Skip(1));
         return new ResolveCommand(selector);
+    }
+
+    private static (string? OcrText, int MaxDistance) ParseOcrClickArgs(string[] parts)
+    {
+        if (parts.Length < 2) return (null, 0);
+        var ocrText = parts[1];
+        if (string.IsNullOrWhiteSpace(ocrText)) return (null, 0);
+        int maxDist = 0;
+        if (parts.Length >= 3 && !int.TryParse(parts[2], out maxDist))
+            throw new ArgumentException("maxDistance must be an integer.");
+        return (ocrText, maxDist);
+    }
+
+    private static ClickCommand ParseClick(string[] parts)
+    {
+        var (ocrText, maxDist) = ParseOcrClickArgs(parts);
+        return new ClickCommand(ocrText, maxDist);
+    }
+
+    private static DoubleClickCommand ParseDoubleClick(string[] parts)
+    {
+        var (ocrText, maxDist) = ParseOcrClickArgs(parts);
+        return new DoubleClickCommand(ocrText, maxDist);
+    }
+
+    private static RightClickCommand ParseRightClick(string[] parts)
+    {
+        var (ocrText, maxDist) = ParseOcrClickArgs(parts);
+        return new RightClickCommand(ocrText, maxDist);
     }
 
     private static AttributeCommand ParseAttribute(string[] parts)

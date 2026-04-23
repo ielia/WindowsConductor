@@ -289,14 +289,66 @@ public sealed class AppManager : IAppOperations, IDisposable
 
     // ── Element actions ─────────────────────────────────────────────────────
 
-    public void Click(string elementId) =>
-        GetElement(elementId).Click();
+    public void Click(string elementId, string? anchor = null, int x = 0, int y = 0)
+    {
+        var el = GetElement(elementId);
+        if (anchor is null && x == 0 && y == 0) { ClickSafe(el, () => el.Click()); return; }
+        var pt = ResolveAbsolutePoint(el, anchor, x, y);
+        ClickSafe(el, () => FlaUI.Core.Input.Mouse.Click(pt));
+    }
 
-    public void DoubleClick(string elementId) =>
-        GetElement(elementId).DoubleClick();
+    public void DoubleClick(string elementId, string? anchor = null, int x = 0, int y = 0)
+    {
+        var el = GetElement(elementId);
+        if (anchor is null && x == 0 && y == 0) { ClickSafe(el, () => el.DoubleClick()); return; }
+        var pt = ResolveAbsolutePoint(el, anchor, x, y);
+        ClickSafe(el, () => FlaUI.Core.Input.Mouse.DoubleClick(pt));
+    }
 
-    public void RightClick(string elementId) =>
-        GetElement(elementId).RightClick();
+    public void RightClick(string elementId, string? anchor = null, int x = 0, int y = 0)
+    {
+        var el = GetElement(elementId);
+        if (anchor is null && x == 0 && y == 0) { ClickSafe(el, () => el.RightClick()); return; }
+        var pt = ResolveAbsolutePoint(el, anchor, x, y);
+        ClickSafe(el, () => FlaUI.Core.Input.Mouse.Click(pt, FlaUI.Core.Input.MouseButton.Right));
+    }
+
+    private static void ClickSafe(AutomationElement el, Action click)
+    {
+        try { click(); }
+        catch (FlaUI.Core.Exceptions.NoClickablePointException ex)
+        {
+            throw new LocationOutOfRangeException(ex.Message);
+        }
+        catch (ArgumentOutOfRangeException ex)
+        {
+            var rect = el.BoundingRectangle;
+            throw new LocationOutOfRangeException(
+                $"{ex.Message} Element bounds: ({rect.X}, {rect.Y}, {rect.Width}x{rect.Height}).");
+        }
+    }
+
+    private static System.Drawing.Point ResolveAbsolutePoint(AutomationElement el, string? anchorName, int offsetX, int offsetY)
+    {
+        var rect = el.BoundingRectangle;
+        var (ax, ay) = (anchorName?.ToLowerInvariant()) switch
+        {
+            "north" => (rect.X + rect.Width / 2.0, (double)rect.Y),
+            "northeast" => (rect.X + (double)rect.Width, (double)rect.Y),
+            "east" => (rect.X + (double)rect.Width, rect.Y + rect.Height / 2.0),
+            "southeast" => (rect.X + (double)rect.Width, rect.Y + (double)rect.Height),
+            "south" => (rect.X + rect.Width / 2.0, rect.Y + (double)rect.Height),
+            "southwest" => ((double)rect.X, rect.Y + (double)rect.Height),
+            "west" => ((double)rect.X, rect.Y + rect.Height / 2.0),
+            "northwest" => ((double)rect.X, (double)rect.Y),
+            _ => (rect.X + rect.Width / 2.0, rect.Y + rect.Height / 2.0) // Center
+        };
+        var pt = new System.Drawing.Point((int)(ax + offsetX), (int)(ay + offsetY));
+        if (!rect.Contains(pt))
+            throw new LocationOutOfRangeException(
+                $"Click target ({pt.X}, {pt.Y}) is outside element bounds ({rect.X}, {rect.Y}, {rect.Width}x{rect.Height}).");
+        return pt;
+    }
 
     /// <summary>
     /// Focuses the element and types <paramref name="text"/> using keyboard simulation.
@@ -523,6 +575,91 @@ public sealed class AppManager : IAppOperations, IDisposable
     {
         var r = GetAppRoot(appId).BoundingRectangle;
         return new { x = r.X, y = r.Y, width = r.Width, height = r.Height };
+    }
+
+    // ── OCR ──────────────────────────────────────────────────────────────────
+
+    public object GetOcrText(string elementId)
+    {
+        var el = GetElement(elementId);
+
+        // Bring the containing window to the foreground so the element is visible.
+        var windowId = GetTopLevelWindow(elementId) ?? elementId;
+        SetForeground(windowId);
+        Thread.Sleep(100); // allow the window to repaint
+
+        using var capture = FlaUI.Core.Capturing.Capture.Element(el);
+        using var ms = new MemoryStream();
+        capture.Bitmap.Save(ms, System.Drawing.Imaging.ImageFormat.Bmp);
+        ms.Position = 0;
+
+        var stream = ms.AsRandomAccessStream();
+        var decoder = Windows.Graphics.Imaging.BitmapDecoder.CreateAsync(stream).GetAwaiter().GetResult();
+        var softwareBitmap = decoder.GetSoftwareBitmapAsync().GetAwaiter().GetResult();
+
+        var engine = Windows.Media.Ocr.OcrEngine.TryCreateFromUserProfileLanguages()
+            ?? throw new InvalidOperationException("No OCR language pack is available.");
+        var ocrResult = engine.RecognizeAsync(softwareBitmap).GetAwaiter().GetResult();
+
+        var angle = ocrResult.TextAngle;
+        var rect = el.BoundingRectangle;
+
+        var xScale = rect.Width / (capture.Bitmap.Width > 0 ? capture.Bitmap.Width : rect.Width > 0 ? rect.Width : 1.0);
+        var yScale = rect.Height / (capture.Bitmap.Height > 0 ? capture.Bitmap.Height : rect.Height > 0 ? rect.Height : 1.0);
+
+        var lines = ocrResult.Lines.Select(line =>
+        {
+            var words = line.Words.Select(word => new
+            {
+                text = word.Text,
+                boundingRect = new
+                {
+                    x = word.BoundingRect.X * xScale,
+                    y = word.BoundingRect.Y * yScale,
+                    width = word.BoundingRect.Width * xScale,
+                    height = word.BoundingRect.Height * yScale,
+                },
+                angle
+            }).ToArray();
+
+            var minX = words.Min(w => w.boundingRect.x);
+            var minY = words.Min(w => w.boundingRect.y);
+            var lineRect = new
+            {
+                x = minX,
+                y = minY,
+                width = words.Max(w => w.boundingRect.x + w.boundingRect.width) - minX,
+                height = words.Max(w => w.boundingRect.y + w.boundingRect.height) - minY,
+            };
+
+            return new
+            {
+                text = line.Text,
+                boundingRect = lineRect,
+                angle,
+                words
+            };
+        }).ToArray();
+
+        var minX = lines.Min(l => l.boundingRect.x);
+        var minY = lines.Min(l => l.boundingRect.y);
+        var resultRect = lines.Length > 0
+            ? new
+            {
+                x = minX,
+                y = minY,
+                width = lines.Max(l => l.boundingRect.x + l.boundingRect.width) - minX,
+                height = lines.Max(l => l.boundingRect.y + l.boundingRect.height) - minY,
+            }
+            : new { x = 0.0, y = 0.0, width = (double)rect.Width, height = (double)rect.Height };
+
+        return new
+        {
+            text = ocrResult.Text,
+            boundingRect = resultRect,
+            angle,
+            lines
+        };
     }
 
     // ── Screenshots ──────────────────────────────────────────────────────────

@@ -1,3 +1,4 @@
+using System.Globalization;
 using WindowsConductor.Client;
 
 namespace WindowsConductor.InspectorGUI;
@@ -220,6 +221,17 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
                 }
                 break;
 
+            case ClickCommand { OcrText: not null } clickOcr
+                when !string.IsNullOrWhiteSpace(clickOcr.OcrText):
+                RequireElement();
+                var clickMatch = await OcrMatchAsync(clickOcr.OcrText, clickOcr.MaxDistance, ct);
+                var clickPt = clickMatch.BoundingRect.Center;
+                await session.ClickAsync(Anchor.NorthWest, clickPt, ct);
+                output.WriteInfo($"Clicked OCR match \"{clickOcr.OcrText}\" @ {clickPt} [\"{clickMatch.Text}\" ~ dist={clickMatch.Distance}].");
+                await ShowWindowScreenshotWithHighlightAsync(ct);
+                await ShowAttributesAsync(ct);
+                break;
+
             case ClickCommand:
                 RequireElement();
                 await session.ClickAsync(ct);
@@ -228,10 +240,32 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
                 await ShowAttributesAsync(ct);
                 break;
 
+            case DoubleClickCommand { OcrText: not null } dblOcr
+                when !string.IsNullOrWhiteSpace(dblOcr.OcrText):
+                RequireElement();
+                var dblMatch = await OcrMatchAsync(dblOcr.OcrText, dblOcr.MaxDistance, ct);
+                var dblPt = dblMatch.BoundingRect.Center;
+                await session.DoubleClickAsync(Anchor.NorthWest, dblPt, ct);
+                output.WriteInfo($"Double-clicked OCR match \"{dblOcr.OcrText}\" @ {dblPt} [\"{dblMatch.Text}\" ~ dist={dblMatch.Distance}].");
+                await ShowWindowScreenshotWithHighlightAsync(ct);
+                await ShowAttributesAsync(ct);
+                break;
+
             case DoubleClickCommand:
                 RequireElement();
                 await session.DoubleClickAsync(ct);
                 output.WriteInfo("Double-clicked.");
+                await ShowWindowScreenshotWithHighlightAsync(ct);
+                await ShowAttributesAsync(ct);
+                break;
+
+            case RightClickCommand { OcrText: not null } rclkOcr
+                when !string.IsNullOrWhiteSpace(rclkOcr.OcrText):
+                RequireElement();
+                var rclkMatch = await OcrMatchAsync(rclkOcr.OcrText, rclkOcr.MaxDistance, ct);
+                var rclkPt = rclkMatch.BoundingRect.Center;
+                await session.RightClickAsync(Anchor.NorthWest, rclkPt, ct);
+                output.WriteInfo($"Right-clicked OCR match \"{rclkOcr.OcrText}\" @ {rclkPt} [\"{rclkMatch.Text}\" ~ dist={rclkMatch.Distance}].");
                 await ShowWindowScreenshotWithHighlightAsync(ct);
                 await ShowAttributesAsync(ct);
                 break;
@@ -355,6 +389,12 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
                 var imgData = await session.ScreenshotElementAsync(ct);
                 output.ShowScreenshot(imgData);
                 output.WriteInfo("Element screenshot captured.");
+                break;
+
+            case OcrCommand:
+                RequireElement();
+                var ocrResult = await session.GetOcrTextAsync(ct);
+                output.WriteInfo(FormatOcrResult(ocrResult));
                 break;
 
             case SnapshotCommand:
@@ -515,6 +555,15 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
             throw new InvalidOperationException("No element selected. Use 'locate' first.");
     }
 
+    private async Task<WcElementOcrMatch> OcrMatchAsync(string ocrText, int maxDistance, CancellationToken ct)
+    {
+        await session.SetForegroundAsync(ct);
+        var ocrResult = await session.GetOcrTextAsync(ct);
+        return ocrResult.FindBestByEdits(ocrText, maxDistance)
+            ?? throw new InvalidOperationException(
+                $"OCR match not found for \"{ocrText}\" (maxDistance={maxDistance}).");
+    }
+
     private void BakeMatchIndex()
     {
         if (_matchCount > 1 && _matchIndex > 0 && _currentSelectors is { Length: > 0 })
@@ -571,6 +620,28 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
             return [.. current[..^1], combined, .. incoming[1..]];
         }
         return [.. current ?? [], .. incoming];
+    }
+
+    private static string FormatOcrRect(BoundingRect r, double? angle) =>
+        string.Format(CultureInfo.InvariantCulture,
+            "{{x:{0},y:{1},w:{2},h:{3},a:{4}}}",
+            r.X, r.Y, r.Width, r.Height, angle?.ToString(CultureInfo.InvariantCulture) ?? "null");
+
+    private static string FormatOcrResult(WcElementOcrResult result)
+    {
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine("\"\"\"");
+        foreach (var line in result.Lines)
+        {
+            sb.AppendLine(CultureInfo.InvariantCulture, $"<<{line.Text}>>{FormatOcrRect(line.BoundingRect, line.Angle)}");
+            var words = string.Join(", ", line.Words.Select(w =>
+                $"\"{w.Text}\"{FormatOcrRect(w.BoundingRect, w.Angle)}"));
+            sb.AppendLine(CultureInfo.InvariantCulture, $"  [ {words} ]");
+        }
+
+        sb.AppendLine("\"\"\"");
+        sb.Append(FormatOcrRect(result.BoundingRect, result.Angle));
+        return sb.ToString();
     }
 
     private static string NormalizeDotSegments(string path)
