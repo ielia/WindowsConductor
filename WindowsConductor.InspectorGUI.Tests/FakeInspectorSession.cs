@@ -13,6 +13,7 @@ internal sealed class FakeInspectorSession : IInspectorSession
     public bool HasApp { get; set; }
     public bool HasSelectedElement { get; set; }
     public bool AllowSelfSignedCerts { get; set; } = true;
+    public string? ServerVersion { get; set; } = WcDefaults.Version;
 
     // Configurable return values
     public byte[] WindowScreenshotResult { get; set; } = [0x89, 0x50, 0x4E, 0x47];

@@ -33,6 +33,8 @@ public sealed class WcSession : IWcTransport, IAsyncDisposable
         WriteIndented = false
     };
 
+    public string? ServerVersion { get; private set; }
+
     private WcSession(ClientWebSocket ws) => _ws = ws;
 
     /// <summary>Connects to a WcApp Driver and starts the receive loop.</summary>
@@ -77,6 +79,8 @@ public sealed class WcSession : IWcTransport, IAsyncDisposable
 
         var conn = new WcSession(ws);
         _ = Task.Run(() => conn.ReceiveLoopAsync(ct), ct);
+        var versionResult = await conn.SendAsync("version", new { clientVersion = WcDefaults.Version }, ct);
+        conn.ServerVersion = versionResult.GetString();
         return conn;
     }
 

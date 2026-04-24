@@ -7,6 +7,7 @@ internal interface ICommandOutput
     void WriteCommand(string command);
     void WriteBulletInfo(string message);
     void WriteError(string message);
+    void WriteWarning(string message);
     void WriteCancellation(string message);
     void ShowScreenshot(byte[] imageData, HighlightInfo? highlight = null, WindowDimensions? windowDimensions = null);
     void ClearScreenshot();

@@ -15,6 +15,7 @@ internal sealed class WcInspectorSession : IInspectorSession, IAsyncDisposable
     public bool HasApp => _app is not null;
     public bool HasSelectedElement => _selectedElement is not null;
     public bool AllowSelfSignedCerts { get; set; } = true;
+    public string? ServerVersion => _session?.ServerVersion;
 
     public async Task ConnectAsync(string url, string? authToken = null, CancellationToken ct = default)
     {

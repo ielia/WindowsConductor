@@ -90,6 +90,10 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
                 await session.ConnectAsync(cmd.Url, cmd.AuthToken, ct);
                 output.SetConnectionUrl(cmd.Url);
                 output.WriteInfo($"Connected to {cmd.Url}");
+                var serverVersion = session.ServerVersion ?? "Unknown";
+                output.WriteInfo($"Server version: {serverVersion}");
+                if (serverVersion != WcDefaults.Version)
+                    output.WriteWarning($"Version mismatch — client: {WcDefaults.Version}, server: {serverVersion}");
                 break;
 
             case LaunchCommand cmd:

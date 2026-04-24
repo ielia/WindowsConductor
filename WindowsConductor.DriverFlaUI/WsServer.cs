@@ -161,6 +161,15 @@ public sealed class WsServer
         {
             switch (req.Command)
             {
+                case "version":
+                    {
+                        var clientVersion = req.GetString("clientVersion", "Unknown");
+                        var serverVersion = WcDefaults.Version;
+                        var clientVersionWarning = serverVersion == clientVersion ? "" : "  <<< VERSION MISMATCH >>>";
+                        Console.WriteLine($"[i] Client version: {clientVersion}{clientVersionWarning}");
+                        return WcResponse.Ok(req.Id, serverVersion);
+                    }
+
                 case "launch":
                     {
                         var mwt = req.GetInt("mainWindowTimeout");

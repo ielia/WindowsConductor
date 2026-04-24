@@ -64,6 +64,7 @@ public partial class MainWindow : Window, ICommandOutput
     private const int ODS_SELECTED = 0x0001;
     private const int ODS_CHECKED = 0x0008;
 
+    private const int SC_CLIENT_VERSION = 0x0FFF;
     private const int SC_STOP_ON_ERROR = 0x1000;
     private const int SC_ALLOW_SELF_SIGNED = 0x1001;
     private const int SC_HIGHLIGHT_TITLE = 0x1100;
@@ -207,6 +208,8 @@ public partial class MainWindow : Window, ICommandOutput
     {
         var hwnd = new WindowInteropHelper(this).Handle;
         var sysMenu = GetSystemMenu(hwnd, false);
+        AppendMenu(sysMenu, MF_SEPARATOR, 0, string.Empty);
+        AppendMenu(sysMenu, MF_STRING | MF_GRAYED, SC_CLIENT_VERSION, $"Client version: {Client.WcDefaults.Version}");
         AppendMenu(sysMenu, MF_SEPARATOR, 0, string.Empty);
         AppendMenu(sysMenu, MF_STRING | MF_UNCHECKED, SC_STOP_ON_ERROR, "Stop on error");
         AppendMenu(sysMenu, MF_STRING | MF_CHECKED, SC_ALLOW_SELF_SIGNED, "Allow self-signed certs");
@@ -583,6 +586,9 @@ public partial class MainWindow : Window, ICommandOutput
 
     void ICommandOutput.WriteError(string message) =>
         Dispatcher.Invoke(() => AppendLog($"ERROR: {message}", brush: ErrorBrush));
+
+    void ICommandOutput.WriteWarning(string message) =>
+        Dispatcher.Invoke(() => AppendLog($"Warning: {message}", brush: WarningBrush));
 
     void ICommandOutput.WriteCancellation(string message) =>
         Dispatcher.Invoke(() => AppendLog($"{message}", brush: ErrorBrush));
@@ -1489,6 +1495,7 @@ public partial class MainWindow : Window, ICommandOutput
     private static readonly SolidColorBrush ResponseBrush = Frozen(new(WpfColor.FromRgb(0xCC, 0xCC, 0xCC)));
     private static readonly SolidColorBrush CommandBrush = Frozen(new(WpfColor.FromRgb(0x80, 0xC0, 0xFF)));
     private static readonly SolidColorBrush ErrorBrush = Frozen(new(WpfColor.FromRgb(0xFF, 0x80, 0x80)));
+    private static readonly SolidColorBrush WarningBrush = Frozen(new(WpfColor.FromRgb(0xFF, 0xFF, 0x00)));
     private static readonly SolidColorBrush FocusBorderBrush = Frozen(new(WpfColor.FromRgb(0x40, 0xA0, 0xF0)));
     private static readonly SolidColorBrush DefaultBorderBrush = Frozen(new(WpfColor.FromRgb(0x33, 0x33, 0x33)));
 

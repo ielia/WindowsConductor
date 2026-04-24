@@ -107,7 +107,7 @@ Console.CancelKeyPress += (_, e) =>
 AppDomain.CurrentDomain.UnhandledException += (_, e) =>
     Console.Error.WriteLine($"Unhandled: {e.ExceptionObject}");
 
-Console.WriteLine($"WindowsConductor Driver  |  .NET {Environment.Version}");
+Console.WriteLine($"WindowsConductor Driver v{WcDefaults.Version}  |  .NET {Environment.Version}");
 
 var server = new WsServer(effectiveHttpPort, tlsPort, httpsCert, confineToApp, ffmpegPath, authValidator);
 await server.StartAsync(cts.Token);

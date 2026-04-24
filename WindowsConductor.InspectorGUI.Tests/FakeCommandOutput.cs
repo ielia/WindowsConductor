@@ -22,6 +22,8 @@ internal sealed class FakeCommandOutput : ICommandOutput
     public List<string> BulletInfoMessages { get; } = new();
     public void WriteBulletInfo(string message) => BulletInfoMessages.Add(message);
     public void WriteError(string message) => ErrorMessages.Add(message);
+    public List<string> WarningMessages { get; } = new();
+    public void WriteWarning(string message) => WarningMessages.Add(message);
     public void WriteCancellation(string message) => CancellationMessages.Add(message);
 
     public void ShowScreenshot(byte[] imageData, HighlightInfo? highlight = null, WindowDimensions? windowDimensions = null) =>

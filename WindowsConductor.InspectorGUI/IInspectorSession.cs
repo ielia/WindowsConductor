@@ -8,6 +8,7 @@ internal interface IInspectorSession
     bool HasApp { get; }
     bool HasSelectedElement { get; }
     bool AllowSelfSignedCerts { get; set; }
+    string? ServerVersion { get; }
 
     Task ConnectAsync(string url, string? authToken = null, CancellationToken ct = default);
     Task LaunchAsync(string path, string[] args, string? detachedTitleRegex, uint? mainWindowTimeout, CancellationToken ct = default);

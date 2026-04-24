@@ -84,16 +84,50 @@ public class WcSessionTests
         await session.DisposeAsync();
     }
 
+    /// <summary>
+    /// Handles the "version" handshake that ConnectAsync sends automatically.
+    /// Must be called on the server side right after AcceptClientAsync.
+    /// </summary>
+    private static async Task HandleVersionHandshakeAsync(WebSocket serverWs, CancellationToken ct)
+    {
+        using var reqDoc = await ReceiveJsonAsync(serverWs, ct);
+        var id = reqDoc.RootElement.GetProperty("id").GetString()!;
+        Assert.That(reqDoc.RootElement.GetProperty("command").GetString(), Is.EqualTo("version"));
+        await SendJsonAsync(serverWs, new { id, success = true, result = "1.0.0-test" }, ct);
+    }
+
+    /// <summary>
+    /// Connects a client and completes the version handshake on the server side.
+    /// ConnectAsync blocks until the version response arrives, so we must not await
+    /// it before the server handles the handshake.
+    /// </summary>
+    private async Task<(WcSession Session, WebSocket ServerWs)> ConnectWithHandshakeAsync()
+    {
+        var acceptTask = AcceptClientAsync();
+        var connectTask = WcSession.ConnectAsync(_wsUrl, _cts.Token);
+        var serverWs = await acceptTask;
+        await HandleVersionHandshakeAsync(serverWs, _cts.Token);
+        var session = await connectTask;
+        return (session, serverWs);
+    }
+
     // ── ConnectAsync ─────────────────────────────────────────────────────────
 
     [Test]
     public async Task ConnectAsync_EstablishesConnection()
     {
-        var acceptTask = AcceptClientAsync();
-        var session = await WcSession.ConnectAsync(_wsUrl, _cts.Token);
-        var serverWs = await acceptTask;
+        var (session, serverWs) = await ConnectWithHandshakeAsync();
 
         Assert.That(serverWs.State, Is.EqualTo(WebSocketState.Open));
+        await CleanupAsync(serverWs, session);
+    }
+
+    [Test]
+    public async Task ConnectAsync_SetsServerVersion()
+    {
+        var (session, serverWs) = await ConnectWithHandshakeAsync();
+
+        Assert.That(session.ServerVersion, Is.EqualTo("1.0.0-test"));
         await CleanupAsync(serverWs, session);
     }
 
@@ -102,9 +136,7 @@ public class WcSessionTests
     [Test]
     public async Task SendAsync_SendsCommandAndReceivesResult()
     {
-        var acceptTask = AcceptClientAsync();
-        var session = await WcSession.ConnectAsync(_wsUrl, _cts.Token);
-        var serverWs = await acceptTask;
+        var (session, serverWs) = await ConnectWithHandshakeAsync();
 
         var sendTask = session.SendAsync("getText", new { elementId = "el-1" }, _cts.Token);
 
@@ -122,9 +154,7 @@ public class WcSessionTests
     [Test]
     public async Task SendAsync_BoolResult_RoundTrips()
     {
-        var acceptTask = AcceptClientAsync();
-        var session = await WcSession.ConnectAsync(_wsUrl, _cts.Token);
-        var serverWs = await acceptTask;
+        var (session, serverWs) = await ConnectWithHandshakeAsync();
 
         var sendTask = session.SendAsync("isEnabled", new { elementId = "el-1" }, _cts.Token);
 
@@ -139,9 +169,7 @@ public class WcSessionTests
     [Test]
     public async Task SendAsync_ArrayResult_RoundTrips()
     {
-        var acceptTask = AcceptClientAsync();
-        var session = await WcSession.ConnectAsync(_wsUrl, _cts.Token);
-        var serverWs = await acceptTask;
+        var (session, serverWs) = await ConnectWithHandshakeAsync();
 
         var sendTask = session.SendAsync("findElements",
             new { appId = "a1", selector = "type=Button" }, _cts.Token);
@@ -161,9 +189,7 @@ public class WcSessionTests
     [Test]
     public async Task SendAsync_DriverError_ThrowsWcException()
     {
-        var acceptTask = AcceptClientAsync();
-        var session = await WcSession.ConnectAsync(_wsUrl, _cts.Token);
-        var serverWs = await acceptTask;
+        var (session, serverWs) = await ConnectWithHandshakeAsync();
 
         var sendTask = session.SendAsync("click", new { elementId = "bad" }, _cts.Token);
 
@@ -180,9 +206,7 @@ public class WcSessionTests
     [Test]
     public async Task SendAsync_DriverErrorNoMessage_ThrowsGenericMessage()
     {
-        var acceptTask = AcceptClientAsync();
-        var session = await WcSession.ConnectAsync(_wsUrl, _cts.Token);
-        var serverWs = await acceptTask;
+        var (session, serverWs) = await ConnectWithHandshakeAsync();
 
         var sendTask = session.SendAsync("click", new { elementId = "x" }, _cts.Token);
 
@@ -201,9 +225,7 @@ public class WcSessionTests
     [Test]
     public async Task SendAsync_MultipleConcurrent_CorrelatesById()
     {
-        var acceptTask = AcceptClientAsync();
-        var session = await WcSession.ConnectAsync(_wsUrl, _cts.Token);
-        var serverWs = await acceptTask;
+        var (session, serverWs) = await ConnectWithHandshakeAsync();
 
         var task1 = session.SendAsync("getText", new { elementId = "e1" }, _cts.Token);
         var task2 = session.SendAsync("getText", new { elementId = "e2" }, _cts.Token);
@@ -227,9 +249,7 @@ public class WcSessionTests
     [Test]
     public async Task LaunchAsync_ReturnsWcApp()
     {
-        var acceptTask = AcceptClientAsync();
-        var session = await WcSession.ConnectAsync(_wsUrl, _cts.Token);
-        var serverWs = await acceptTask;
+        var (session, serverWs) = await ConnectWithHandshakeAsync();
 
         var launchTask = session.LaunchAsync("calc.exe", ct: _cts.Token);
 
@@ -245,9 +265,7 @@ public class WcSessionTests
     [Test]
     public async Task LaunchAsync_NullResult_Throws()
     {
-        var acceptTask = AcceptClientAsync();
-        var session = await WcSession.ConnectAsync(_wsUrl, _cts.Token);
-        var serverWs = await acceptTask;
+        var (session, serverWs) = await ConnectWithHandshakeAsync();
 
         var launchTask = session.LaunchAsync("bad.exe", ct: _cts.Token);
 
@@ -262,9 +280,7 @@ public class WcSessionTests
     [Test]
     public async Task LaunchAsync_SendsAllParameters()
     {
-        var acceptTask = AcceptClientAsync();
-        var session = await WcSession.ConnectAsync(_wsUrl, _cts.Token);
-        var serverWs = await acceptTask;
+        var (session, serverWs) = await ConnectWithHandshakeAsync();
 
         var launchTask = session.LaunchAsync(
             "app.exe",
@@ -292,9 +308,7 @@ public class WcSessionTests
     [Test]
     public async Task AttachAsync_ReturnsWcApp_WithOwnsAppFalse()
     {
-        var acceptTask = AcceptClientAsync();
-        var session = await WcSession.ConnectAsync(_wsUrl, _cts.Token);
-        var serverWs = await acceptTask;
+        var (session, serverWs) = await ConnectWithHandshakeAsync();
 
         var attachTask = session.AttachAsync("Calc.*", ct: _cts.Token);
 
@@ -312,9 +326,7 @@ public class WcSessionTests
     [Test]
     public async Task AttachAsync_SendsAllParameters()
     {
-        var acceptTask = AcceptClientAsync();
-        var session = await WcSession.ConnectAsync(_wsUrl, _cts.Token);
-        var serverWs = await acceptTask;
+        var (session, serverWs) = await ConnectWithHandshakeAsync();
 
         var attachTask = session.AttachAsync("MyApp.*", mainWindowTimeout: 3000, ct: _cts.Token);
 
@@ -333,9 +345,7 @@ public class WcSessionTests
     [Test]
     public async Task AttachAsync_NullResult_Throws()
     {
-        var acceptTask = AcceptClientAsync();
-        var session = await WcSession.ConnectAsync(_wsUrl, _cts.Token);
-        var serverWs = await acceptTask;
+        var (session, serverWs) = await ConnectWithHandshakeAsync();
 
         var attachTask = session.AttachAsync("Bad.*", ct: _cts.Token);
 
@@ -350,9 +360,7 @@ public class WcSessionTests
     [Test]
     public async Task LaunchAsync_ReturnsWcApp_WithOwnsAppTrue()
     {
-        var acceptTask = AcceptClientAsync();
-        var session = await WcSession.ConnectAsync(_wsUrl, _cts.Token);
-        var serverWs = await acceptTask;
+        var (session, serverWs) = await ConnectWithHandshakeAsync();
 
         var launchTask = session.LaunchAsync("calc.exe", ct: _cts.Token);
 
@@ -370,9 +378,7 @@ public class WcSessionTests
     [Test]
     public async Task SendAsync_Cancelled_ThrowsOperationCancelled()
     {
-        var acceptTask = AcceptClientAsync();
-        var session = await WcSession.ConnectAsync(_wsUrl, _cts.Token);
-        var serverWs = await acceptTask;
+        var (session, serverWs) = await ConnectWithHandshakeAsync();
 
         using var localCts = new CancellationTokenSource();
         var sendTask = session.SendAsync("click", new { elementId = "e1" }, localCts.Token);
@@ -388,9 +394,7 @@ public class WcSessionTests
     [Test]
     public async Task DisposeAsync_ClosesWebSocket()
     {
-        var acceptTask = AcceptClientAsync();
-        var session = await WcSession.ConnectAsync(_wsUrl, _cts.Token);
-        var serverWs = await acceptTask;
+        var (session, serverWs) = await ConnectWithHandshakeAsync();
 
         // Start reading on server side before client disposes, so the close frame is received
         var receiveTask = serverWs.ReceiveAsync(new byte[1024], _cts.Token);
