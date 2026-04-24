@@ -573,6 +573,40 @@ public class CommandExecutorTests
         Assert.That(_output.InfoMessages[0], Does.Contain("Hovered"));
     }
 
+    // ── hitkeys ─────────────────────────────────────────────────────────────
+
+    [Test]
+    public async Task Execute_HitKeys_NoElement_WritesError()
+    {
+        _session.IsConnected = true;
+        _session.HasApp = true;
+        await _executor.ExecuteAsync("hitkeys escape");
+        Assert.That(_output.ErrorMessages[0], Does.Contain("No element selected"));
+    }
+
+    [Test]
+    public async Task Execute_HitKeys_CallsHitKeys()
+    {
+        _session.IsConnected = true;
+        _session.HasApp = true;
+        _session.HasSelectedElement = true;
+        await _executor.ExecuteAsync("hitkeys control key_a");
+        var hitKeysCall = _session.Calls.First(c => c.Method == "HitKeys");
+        Assert.That(hitKeysCall.Args[0], Is.EqualTo(new[] { Key.CONTROL, Key.KEY_A }));
+        Assert.That(_output.InfoMessages[0], Does.Contain("Hit keys"));
+    }
+
+    [Test]
+    public async Task Execute_HitKeys_RefreshesScreenshotAndAttributes()
+    {
+        _session.IsConnected = true;
+        _session.HasApp = true;
+        _session.HasSelectedElement = true;
+        await _executor.ExecuteAsync("hitkeys escape");
+        Assert.That(_output.Screenshots, Has.Count.EqualTo(1));
+        Assert.That(_output.AttributesSets, Has.Count.EqualTo(1));
+    }
+
     // ── type ────────────────────────────────────────────────────────────────
 
     [Test]

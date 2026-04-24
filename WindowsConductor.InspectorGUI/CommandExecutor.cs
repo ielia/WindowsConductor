@@ -29,6 +29,7 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
         bool isChain = commands.Length > 1;
         using var chainCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         _chainCts = chainCts;
+        output.ShowCancel(() => _chainCts?.Cancel(), isChain);
         try
         {
             foreach (var cmd in commands)
@@ -36,6 +37,7 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
                 if (chainCts.Token.IsCancellationRequested)
                     return;
 
+                output.ResetCancelCommandTimer();
                 if (isChain)
                     output.WriteCommand(cmd);
 
@@ -55,6 +57,11 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
                 {
                     await ExecuteCommandAsync(command, chainCts.Token);
                 }
+                catch (OperationCanceledException)
+                {
+                    output.WriteCancellation("Cancelled.");
+                    return;
+                }
                 catch (Exception ex)
                 {
                     output.WriteError(ex.Message);
@@ -65,6 +72,7 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
         finally
         {
             _chainCts = null;
+            output.HideCancel();
         }
     }
 
@@ -297,6 +305,14 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
                 await ShowAttributesAsync(ct);
                 break;
 
+            case HitKeysCommand cmd:
+                RequireElement();
+                await session.HitKeysAsync(cmd.Keys, ct);
+                output.WriteInfo($"Hit keys: {string.Join('+', cmd.Keys)}.");
+                await ShowWindowScreenshotWithHighlightAsync(ct);
+                await ShowAttributesAsync(ct);
+                break;
+
             case TypeCommand cmd:
                 RequireElement();
                 await session.TypeAsync(cmd.Text, cmd.Modifiers, ct);
@@ -422,19 +438,21 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
                 break;
 
             case SleepCommand sleepCmd:
-                output.ShowSleepCancel(sleepCmd.Milliseconds, () => _chainCts?.Cancel());
+                var sleepCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                output.ShowSleepCancel(sleepCmd.Milliseconds, () => sleepCts.Cancel());
                 try
                 {
-                    await Task.Delay(sleepCmd.Milliseconds, ct);
+                    await Task.Delay(sleepCmd.Milliseconds, sleepCts.Token);
                     output.WriteInfo($"Slept {sleepCmd.Milliseconds}ms.");
                 }
-                catch (OperationCanceledException)
+                catch (OperationCanceledException) when (!ct.IsCancellationRequested)
                 {
-                    output.WriteInfo("Sleep and all remaining commands stopped.");
+                    output.WriteCancellation("Sleep skipped.");
                 }
                 finally
                 {
                     await output.HideSleepCancelAsync();
+                    sleepCts.Dispose();
                 }
                 break;
 

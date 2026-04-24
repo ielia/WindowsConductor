@@ -6,6 +6,7 @@ internal sealed class FakeCommandOutput : ICommandOutput
 {
     public List<string> InfoMessages { get; } = new();
     public List<string> ErrorMessages { get; } = new();
+    public List<string> CancellationMessages { get; } = new();
     public List<(byte[] Data, HighlightInfo? Highlight)> Screenshots { get; } = new();
     public int ClearScreenshotCount { get; private set; }
     public int ClearHighlightCount { get; private set; }
@@ -21,6 +22,7 @@ internal sealed class FakeCommandOutput : ICommandOutput
     public List<string> BulletInfoMessages { get; } = new();
     public void WriteBulletInfo(string message) => BulletInfoMessages.Add(message);
     public void WriteError(string message) => ErrorMessages.Add(message);
+    public void WriteCancellation(string message) => CancellationMessages.Add(message);
 
     public void ShowScreenshot(byte[] imageData, HighlightInfo? highlight = null, WindowDimensions? windowDimensions = null) =>
         Screenshots.Add((imageData, highlight));
@@ -48,6 +50,22 @@ internal sealed class FakeCommandOutput : ICommandOutput
 
     public int HideSleepCancelCount { get; private set; }
     public Task HideSleepCancelAsync() { HideSleepCancelCount++; return Task.CompletedTask; }
+
+    public int ShowCancelCount { get; private set; }
+    public Action? LastCancelAction { get; private set; }
+    public bool LastCancelIsChain { get; private set; }
+    public void ShowCancel(Action cancelAction, bool isChain)
+    {
+        ShowCancelCount++;
+        LastCancelAction = cancelAction;
+        LastCancelIsChain = isChain;
+    }
+
+    public int HideCancelCount { get; private set; }
+    public void HideCancel() => HideCancelCount++;
+
+    public int ResetCancelCommandTimerCount { get; private set; }
+    public void ResetCancelCommandTimer() => ResetCancelCommandTimerCount++;
 
     public string? ConnectionUrl { get; private set; }
     public void SetConnectionUrl(string? url) => ConnectionUrl = url;

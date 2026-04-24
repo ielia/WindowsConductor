@@ -54,6 +54,7 @@ internal sealed class FakeAppOperations : IAppOperations
     public void DoubleClick(string elementId, string? anchor = null, int x = 0, int y = 0) => Record("DoubleClick", elementId, anchor, x, y);
     public void RightClick(string elementId, string? anchor = null, int x = 0, int y = 0) => Record("RightClick", elementId, anchor, x, y);
     public void Hover(string elementId, string? anchor = null, int x = 0, int y = 0) => Record("Hover", elementId, anchor, x, y);
+    public void HitKeys(string elementId, string[] keys) => Record("HitKeys", elementId, keys);
     public void TypeText(string elementId, string text, int modifiers = 0) => Record("TypeText", elementId, text, modifiers);
     public string GetText(string elementId) { Record("GetText", elementId); return GetTextResult; }
 
@@ -410,6 +411,46 @@ public class ProcessRequestTests
     {
         var resp = WsServer.ProcessRequest(_fake, MakeRequest("hover", new() { ["elementId"] = "e1" }));
         Assert.That(_fake.Calls[0].Method, Is.EqualTo("Hover"));
+    }
+
+    // ── hitKeys ──────────────────────────────────────────────────────────────
+
+    [Test]
+    public void HitKeys_CallsHitKeys()
+    {
+        var resp = WsServer.ProcessRequest(_fake, MakeRequest("hitKeys", new()
+        {
+            ["elementId"] = "e1",
+            ["keys"] = new[] { "CONTROL", "KEY_A" }
+        }));
+        Assert.That(resp.Success, Is.True);
+        Assert.That(_fake.Calls[0].Method, Is.EqualTo("HitKeys"));
+        Assert.That(_fake.Calls[0].Args[0], Is.EqualTo("e1"));
+        Assert.That(_fake.Calls[0].Args[1], Is.EqualTo(new[] { "CONTROL", "KEY_A" }));
+    }
+
+    [Test]
+    public void HitKeys_SingleKey_CallsHitKeys()
+    {
+        var resp = WsServer.ProcessRequest(_fake, MakeRequest("hitKeys", new()
+        {
+            ["elementId"] = "e1",
+            ["keys"] = new[] { "ESCAPE" }
+        }));
+        Assert.That(resp.Success, Is.True);
+        Assert.That(_fake.Calls[0].Args[1], Is.EqualTo(new[] { "ESCAPE" }));
+    }
+
+    [Test]
+    public void HitKeys_EmptyKeys_CallsHitKeys()
+    {
+        var resp = WsServer.ProcessRequest(_fake, MakeRequest("hitKeys", new()
+        {
+            ["elementId"] = "e1",
+            ["keys"] = Array.Empty<string>()
+        }));
+        Assert.That(resp.Success, Is.True);
+        Assert.That(_fake.Calls[0].Args[1], Is.EqualTo(Array.Empty<string>()));
     }
 
     // ── typeText ─────────────────────────────────────────────────────────────

@@ -205,6 +205,12 @@ internal sealed class FakeInspectorSession : IInspectorSession
         return Task.CompletedTask;
     }
 
+    public Task HitKeysAsync(Key[] keys, CancellationToken ct = default)
+    {
+        Record("HitKeys", keys);
+        return Task.CompletedTask;
+    }
+
     public Task TypeAsync(string text, KeyModifiers modifiers = KeyModifiers.None, CancellationToken ct = default)
     {
         Record("Type", text, modifiers);

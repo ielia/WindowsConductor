@@ -116,6 +116,17 @@ internal sealed record HelpCommand(string? CommandName) : ParsedCommand
     internal override string[] Examples => ["help", "help connect"];
 }
 
+internal sealed record HitKeysCommand(Key[] Keys) : ParsedCommand
+{
+    private static readonly string KeyNames = string.Join(", ",
+        Enum.GetNames<Key>().Select(s => s.ToString().ToLowerInvariant()));
+
+    internal override string Name => "hitkeys";
+    internal override string Usage => $"hitkeys {{{KeyNames}}}+";
+    internal override string Description => "Presses and releases all selected keyboard keys at the same time (pressing order may matter).";
+    internal override string[] Examples => ["hitkeys escape", "hitkeys rshift lcontrol key_a"];
+}
+
 internal sealed record HoverCommand(string? OcrText = null, int MaxDistance = 0) : ParsedCommand
 {
     internal override string Name => "hover";
@@ -244,7 +255,7 @@ internal sealed record TextCommand : ParsedCommand
 internal sealed record TypeCommand(string Text, KeyModifiers Modifiers = KeyModifiers.None) : ParsedCommand
 {
     internal override string Name => "type";
-    internal override string Usage => "type <text> [ctrl alt shift meta]";
+    internal override string Usage => "type <text> [[{ctrl,alt,shift,meta}+]]";
     internal override string Description => "Types text into the currently selected element.\nOptional modifiers: ctrl, alt, shift, meta (in any order).";
     internal override string[] Examples => ["type \"Hello World\"", "type \"a\" [ctrl]", "type \"v\" [ctrl shift]"];
 }

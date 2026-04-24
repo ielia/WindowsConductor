@@ -34,6 +34,7 @@ internal static class CommandParser
             "reset" => new ResetCommand(),
             "rightclick" => ParseRightClick(parts),
             "hover" => ParseHover(parts),
+            "hitkeys" => ParseHitKeys(parts),
             "type" => ParseType(parts),
             "ocr" => new OcrCommand(),
             "focus" => new FocusCommand(),
@@ -210,6 +211,24 @@ internal static class CommandParser
         if (parts.Length < 2)
             throw new ArgumentException("Usage: attribute <attributeName>");
         return new AttributeCommand(parts[1]);
+    }
+
+    private static HitKeysCommand ParseHitKeys(string[] parts)
+    {
+        if (parts.Length < 2)
+            throw new ArgumentException($"No keys passed. Usage: hitkeys <space-separated-keys> [{{{string.Join(", ", Enum.GetNames<Key>().Select(k => k.ToLowerInvariant()))}}}]");
+
+        Key[] keys;
+        try
+        {
+            keys = [.. parts.Skip(1).Select(p => Enum.Parse<Key>(p.ToUpperInvariant()))];
+        }
+        catch (ArgumentException ex)
+        {
+            throw new ArgumentException($"{ex.Message} Verify all key names are valid before sending. Usage: hitkeys <space-separated-keys> [{{{string.Join(", ", Enum.GetNames<Key>().Select(k => k.ToLowerInvariant()))}}}]", ex);
+        }
+
+        return new HitKeysCommand(keys);
     }
 
     private static TypeCommand ParseType(string[] parts)

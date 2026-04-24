@@ -7,6 +7,7 @@ internal interface ICommandOutput
     void WriteCommand(string command);
     void WriteBulletInfo(string message);
     void WriteError(string message);
+    void WriteCancellation(string message);
     void ShowScreenshot(byte[] imageData, HighlightInfo? highlight = null, WindowDimensions? windowDimensions = null);
     void ClearScreenshot();
     void ClearHighlight();
@@ -15,6 +16,9 @@ internal interface ICommandOutput
     void UpdateMatchNavigation(int currentIndex, int totalCount);
     void ShowSleepCancel(int totalMilliseconds, Action cancelAction);
     Task HideSleepCancelAsync();
+    void ShowCancel(Action cancelAction, bool isChain);
+    void HideCancel();
+    void ResetCancelCommandTimer();
     void SetConnectionUrl(string? url);
     Task RunSnapshotAsync();
     void RequestExit();

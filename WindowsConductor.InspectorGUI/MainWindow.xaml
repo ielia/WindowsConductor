@@ -251,6 +251,7 @@
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
                     <TextBlock Grid.Column="0" Text="&gt; " Foreground="#CCCCCC"
                                FontFamily="Consolas" FontSize="14"
@@ -266,6 +267,11 @@
                             Visibility="Collapsed"
                             ToolTip="Stop sleep and remaining commands (Alt+S)"
                             Click="SleepStopButton_Click" />
+                    <Button Grid.Column="3" x:Name="CancelButton"
+                            Content="Cancel" Padding="12,3"
+                            Visibility="Collapsed"
+                            ToolTip="Cancel current and remaining commands"
+                            Click="CancelButton_Click" />
                 </Grid>
             </Border>
         </Grid>

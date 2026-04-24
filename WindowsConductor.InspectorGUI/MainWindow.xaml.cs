@@ -1,8 +1,8 @@
 using System.Diagnostics.CodeAnalysis;
-using System.Drawing;
 using System.IO;
 using WindowsConductor.Client;
 using System.Runtime.InteropServices;
+using Key = System.Windows.Input.Key;
 #pragma warning disable CA2101 // Specify marshaling for P/Invoke string arguments - CharSet.Unicode is set
 #pragma warning disable SYSLIB1054 // Use LibraryImportAttribute - requires AllowUnsafeBlocks
 using System.Windows;
@@ -584,6 +584,9 @@ public partial class MainWindow : Window, ICommandOutput
     void ICommandOutput.WriteError(string message) =>
         Dispatcher.Invoke(() => AppendLog($"ERROR: {message}", brush: ErrorBrush));
 
+    void ICommandOutput.WriteCancellation(string message) =>
+        Dispatcher.Invoke(() => AppendLog($"{message}", brush: ErrorBrush));
+
     void ICommandOutput.ShowScreenshot(byte[] imageData, HighlightInfo? highlight, WindowDimensions? windowDimensions)
     {
         Dispatcher.Invoke(() =>
@@ -654,6 +657,68 @@ public partial class MainWindow : Window, ICommandOutput
             MatchCountLabel.Text = hasMultiple ? $"({currentIndex + 1}/{totalCount})" : "";
         });
 
+    private Action? _cancelAction;
+    private DispatcherTimer? _cancelElapsedTimer;
+    private DateTime _cancelCommandStartTime;
+    private DateTime _cancelChainStartTime;
+    private bool _cancelIsChain;
+
+    void ICommandOutput.ShowCancel(Action cancelAction, bool isChain)
+    {
+        Dispatcher.Invoke(() =>
+        {
+            _cancelAction = cancelAction;
+            _cancelIsChain = isChain;
+            var now = DateTime.UtcNow;
+            _cancelCommandStartTime = now;
+            _cancelChainStartTime = now;
+            UpdateCancelButtonLabel();
+            CancelButton.Visibility = Visibility.Visible;
+            _cancelElapsedTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(100) };
+            _cancelElapsedTimer.Tick += (_, _) => UpdateCancelButtonLabel();
+            _cancelElapsedTimer.Start();
+        });
+    }
+
+    void ICommandOutput.HideCancel()
+    {
+        Dispatcher.Invoke(() =>
+        {
+            _cancelElapsedTimer?.Stop();
+            _cancelElapsedTimer = null;
+            CancelButton.Visibility = Visibility.Collapsed;
+            _cancelAction = null;
+        });
+    }
+
+    void ICommandOutput.ResetCancelCommandTimer() =>
+        Dispatcher.Invoke(() => _cancelCommandStartTime = DateTime.UtcNow);
+
+    private void UpdateCancelButtonLabel()
+    {
+        var now = DateTime.UtcNow;
+        var cmdElapsed = now - _cancelCommandStartTime;
+        var cmdMin = (int)cmdElapsed.TotalMinutes;
+        var cmdSec = cmdElapsed.Seconds;
+        var cmdMillis = cmdElapsed.Milliseconds;
+
+        if (_cancelIsChain)
+        {
+            var chainElapsed = now - _cancelChainStartTime;
+            var chainMin = (int)chainElapsed.TotalMinutes;
+            var chainSec = chainElapsed.Seconds;
+            var chainMillis = chainElapsed.Milliseconds;
+            CancelButton.Content = $"({cmdMin}:{cmdSec:D2}.{cmdMillis:D3}) [{chainMin}:{chainSec:D2}.{chainMillis:D3}] Cancel";
+        }
+        else
+        {
+            CancelButton.Content = $"({cmdMin}:{cmdSec:D2}.{cmdMillis:D3}) Cancel";
+        }
+    }
+
+    private void CancelButton_Click(object sender, RoutedEventArgs e) =>
+        _cancelAction?.Invoke();
+
     private Action? _sleepStopAction;
     private DispatcherTimer? _sleepCountdownTimer;
     private DateTime _sleepEndTime;
@@ -694,7 +759,7 @@ public partial class MainWindow : Window, ICommandOutput
     private void UpdateSleepButtonLabel()
     {
         var remaining = Math.Max(0, (int)(_sleepEndTime - DateTime.UtcNow).TotalMilliseconds);
-        SleepStopButton.Content = $"{remaining} - Stop";
+        SleepStopButton.Content = $"{remaining} - Skip Sleep";
     }
 
     private void SleepStopButton_Click(object sender, RoutedEventArgs e) =>

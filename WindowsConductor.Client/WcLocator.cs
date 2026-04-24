@@ -316,6 +316,16 @@ public sealed class WcLocator
     }
 
     /// <summary>
+    /// Focuses the first matching element and hits keys <paramref name="keys"/>
+    /// using keyboard simulation.
+    /// </summary>
+    public async Task HitKeysAsync(Key[] keys, CancellationToken ct = default)
+    {
+        var el = await GetElementAsync(ct);
+        await el.HitKeysAsync(keys, ct);
+    }
+
+    /// <summary>
     /// Focuses the first matching element and types <paramref name="text"/>
     /// using keyboard simulation.
     /// </summary>

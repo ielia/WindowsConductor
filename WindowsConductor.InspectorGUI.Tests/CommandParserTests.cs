@@ -297,6 +297,42 @@ public class CommandParserTests
         Assert.That(CommandParser.Parse("hover"), Is.InstanceOf<HoverCommand>());
     }
 
+    // ── hitkeys ─────────────────────────────────────────────────────────────
+
+    [Test]
+    public void Parse_HitKeys_SingleKey_ReturnsHitKeysCommand()
+    {
+        var cmd = (HitKeysCommand)CommandParser.Parse("hitkeys escape");
+        Assert.That(cmd.Keys, Is.EqualTo(new[] { Key.ESCAPE }));
+    }
+
+    [Test]
+    public void Parse_HitKeys_MultipleKeys_ReturnsAllKeys()
+    {
+        var cmd = (HitKeysCommand)CommandParser.Parse("hitkeys control key_a");
+        Assert.That(cmd.Keys, Is.EqualTo(new[] { Key.CONTROL, Key.KEY_A }));
+    }
+
+    [Test]
+    public void Parse_HitKeys_CaseInsensitive()
+    {
+        var cmd = (HitKeysCommand)CommandParser.Parse("hitkeys ESCAPE");
+        Assert.That(cmd.Keys, Is.EqualTo(new[] { Key.ESCAPE }));
+    }
+
+    [Test]
+    public void Parse_HitKeys_NoKeys_Throws()
+    {
+        Assert.Throws<ArgumentException>(() => CommandParser.Parse("hitkeys"));
+    }
+
+    [Test]
+    public void Parse_HitKeys_InvalidKey_Throws()
+    {
+        var ex = Assert.Throws<ArgumentException>(() => CommandParser.Parse("hitkeys boguskey"));
+        Assert.That(ex!.Message, Does.Contain("Usage: hitkeys"));
+    }
+
     // ── type ────────────────────────────────────────────────────────────────
 
     [Test]

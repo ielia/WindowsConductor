@@ -337,7 +337,7 @@ public sealed class AppManager : IAppOperations, IDisposable
         }
     }
 
-    private static System.Drawing.Point ResolveAbsolutePoint(AutomationElement el, string? anchorName, int offsetX, int offsetY)
+    private static Point ResolveAbsolutePoint(AutomationElement el, string? anchorName, int offsetX, int offsetY)
     {
         var rect = el.BoundingRectangle;
         var (ax, ay) = (anchorName?.ToLowerInvariant()) switch
@@ -352,11 +352,21 @@ public sealed class AppManager : IAppOperations, IDisposable
             "northwest" => ((double)rect.X, (double)rect.Y),
             _ => (rect.X + rect.Width / 2.0, rect.Y + rect.Height / 2.0) // Center
         };
-        var pt = new System.Drawing.Point((int)(ax + offsetX), (int)(ay + offsetY));
+        var pt = new Point((int)(ax + offsetX), (int)(ay + offsetY));
         if (!rect.Contains(pt))
             throw new LocationOutOfRangeException(
                 $"Click target ({pt.X}, {pt.Y}) is outside element bounds ({rect.X}, {rect.Y}, {rect.Width}x{rect.Height}).");
         return pt;
+    }
+
+    /// <summary>
+    /// Focuses the element and sends keys <paramref name="keys"/> all together using keyboard simulation.
+    /// </summary>
+    public void HitKeys(string elementId, string[] keys)
+    {
+        var el = GetElement(elementId);
+        el.Focus();
+        Keyboard.TypeSimultaneously(KeyTranslator.GetAll(keys));
     }
 
     /// <summary>
