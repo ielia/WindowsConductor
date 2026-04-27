@@ -1,4 +1,5 @@
 using FlaUI.Core.AutomationElements;
+using FlaUI.Core.Conditions;
 using FlaUI.Core.Definitions;
 
 namespace WindowsConductor.DriverFlaUI;
@@ -45,7 +46,7 @@ public sealed class XPathEngine
                 if (step.Axis == XPathAxis.Ancestor)
                 {
                     var adjusted = step with { Axis = XPathAxis.AncestorOrSelf };
-                    currentElements = ApplyStep(currentElements, adjusted, subPathCache, ct);
+                    currentElements = ApplyStep(currentElements, adjusted, root, subPathCache, ct);
                     continue;
                 }
             }
@@ -61,7 +62,7 @@ public sealed class XPathEngine
             }
             else
             {
-                currentElements = ApplyStep(currentElements, step, subPathCache, ct);
+                currentElements = ApplyStep(currentElements, step, root, subPathCache, ct);
             }
         }
 
@@ -94,15 +95,19 @@ public sealed class XPathEngine
 
     private static IEnumerable<AutomationElement> ApplyStep(
         IEnumerable<AutomationElement> roots, XPathStep step,
+        AutomationElement referenceElement,
         Dictionary<SubPathExpr, XPathValue> subPathCache, CancellationToken ct)
     {
-        return Deduplicate(ApplyStepCore(roots, step, subPathCache, ct));
+        return Deduplicate(ApplyStepCore(roots, step, referenceElement, subPathCache, ct));
     }
 
     private static IEnumerable<AutomationElement> ApplyStepCore(
         IEnumerable<AutomationElement> roots, XPathStep step,
+        AutomationElement referenceElement,
         Dictionary<SubPathExpr, XPathValue> subPathCache, CancellationToken ct)
     {
+        var condition = ConditionTranslator.BuildStepCondition(step, referenceElement);
+
         if (step.Axis == XPathAxis.Self)
         {
             var selfCandidates = FilterByType(roots, step.Type, ct);
@@ -119,24 +124,24 @@ public sealed class XPathEngine
             return ApplyAncestorStep(roots, step, subPathCache, ct);
 
         if (step.Axis is XPathAxis.Sibling or XPathAxis.PrecedingSibling or XPathAxis.FollowingSibling)
-            return ApplySiblingStep(roots, step, subPathCache, ct);
+            return ApplySiblingStep(roots, step, condition, subPathCache, ct);
 
         if (step.Axis == XPathAxis.DescendantOrSelf)
         {
-            var candidates = EnumerateDescendantOrSelf(roots, step.Type, ct);
+            var candidates = EnumerateDescendantOrSelf(roots, step.Type, condition, ct);
             return ApplyFiltersToResults(candidates, step, subPathCache, ct);
         }
 
         if (step.Axis == XPathAxis.Frontmost)
         {
-            var descendants = EnumerateDescendants(roots, step.Type, ct);
+            var descendants = EnumerateDescendants(roots, step.Type, condition, ct);
             var frontmost = ElementFilter.Frontmost(Materialize(descendants).ToList());
             return ApplyFiltersToResults(frontmost, step, subPathCache, ct);
         }
 
         var childCandidates = step.Axis == XPathAxis.Descendant
-            ? EnumerateDescendants(roots, step.Type, ct)
-            : EnumerateChildren(roots, step.Type, ct);
+            ? EnumerateDescendants(roots, step.Type, condition, ct)
+            : EnumerateChildren(roots, step.Type, condition, ct);
 
         return ApplyFiltersToResults(childCandidates, step, subPathCache, ct);
     }
@@ -178,12 +183,16 @@ public sealed class XPathEngine
     }
 
     private static IEnumerable<AutomationElement> EnumerateChildren(
-        IEnumerable<AutomationElement> roots, string type, CancellationToken ct)
+        IEnumerable<AutomationElement> roots, string type,
+        ConditionBase? condition, CancellationToken ct)
     {
         foreach (var root in roots)
         {
             ct.ThrowIfCancellationRequested();
-            foreach (var child in root.FindAllChildren())
+            var children = condition is not null
+                ? root.FindAllChildren(condition)
+                : root.FindAllChildren();
+            foreach (var child in children)
             {
                 if (MatchesType(type, child))
                     yield return child;
@@ -192,12 +201,16 @@ public sealed class XPathEngine
     }
 
     private static IEnumerable<AutomationElement> EnumerateDescendants(
-        IEnumerable<AutomationElement> roots, string type, CancellationToken ct)
+        IEnumerable<AutomationElement> roots, string type,
+        ConditionBase? condition, CancellationToken ct)
     {
         foreach (var root in roots)
         {
             ct.ThrowIfCancellationRequested();
-            foreach (var el in root.FindAllDescendants())
+            var descendants = condition is not null
+                ? root.FindAllDescendants(condition)
+                : root.FindAllDescendants();
+            foreach (var el in descendants)
             {
                 ct.ThrowIfCancellationRequested();
                 if (MatchesType(type, el))
@@ -207,14 +220,19 @@ public sealed class XPathEngine
     }
 
     private static IEnumerable<AutomationElement> EnumerateDescendantOrSelf(
-        IEnumerable<AutomationElement> roots, string type, CancellationToken ct)
+        IEnumerable<AutomationElement> roots, string type,
+        ConditionBase? condition, CancellationToken ct)
     {
         foreach (var root in roots)
         {
             ct.ThrowIfCancellationRequested();
             if (MatchesType(type, root))
+                // This does not need to test the root. Filters will later be applied.
                 yield return root;
-            foreach (var el in root.FindAllDescendants())
+            var descendants = condition is not null
+                ? root.FindAllDescendants(condition)
+                : root.FindAllDescendants();
+            foreach (var el in descendants)
             {
                 ct.ThrowIfCancellationRequested();
                 if (MatchesType(type, el))
@@ -254,14 +272,16 @@ public sealed class XPathEngine
 
     private static IEnumerable<AutomationElement> ApplySiblingStep(
         IEnumerable<AutomationElement> roots, XPathStep step,
+        ConditionBase? condition,
         Dictionary<SubPathExpr, XPathValue> subPathCache, CancellationToken ct)
     {
-        var candidates = EnumerateSiblings(roots, step, ct);
+        var candidates = EnumerateSiblings(roots, step, condition, ct);
         return ApplyFiltersToResults(candidates, step, subPathCache, ct);
     }
 
     private static IEnumerable<AutomationElement> EnumerateSiblings(
-        IEnumerable<AutomationElement> roots, XPathStep step, CancellationToken ct)
+        IEnumerable<AutomationElement> roots, XPathStep step,
+        ConditionBase? condition, CancellationToken ct)
     {
         foreach (var root in roots)
         {
@@ -269,7 +289,10 @@ public sealed class XPathEngine
             var parent = SafeGetParent(root);
             if (parent is null) continue;
 
-            var siblings = parent.FindAllChildren();
+            var siblingCondition = EnsureMatchesSelf(condition, root);
+            var siblings = siblingCondition is not null
+                ? parent.FindAllChildren(siblingCondition)
+                : parent.FindAllChildren();
             bool foundSelf = false;
 
             foreach (var sibling in siblings)
@@ -326,6 +349,7 @@ public sealed class XPathEngine
     private static IEnumerable<AutomationElement> EnumerateAncestors(
         IEnumerable<AutomationElement> roots, XPathStep step, CancellationToken ct)
     {
+        var seen = new HashSet<string>();
         foreach (var root in roots)
         {
             ct.ThrowIfCancellationRequested();
@@ -337,6 +361,9 @@ public sealed class XPathEngine
             while (current is not null)
             {
                 ct.ThrowIfCancellationRequested();
+                var key = ElementFilter.RuntimeIdKey(current);
+                if (key is not null && !seen.Add(key))
+                    break;
                 if (MatchesType(step.Type, current))
                     yield return current;
                 current = SafeGetParent(current);
@@ -552,7 +579,7 @@ public sealed class XPathEngine
                 if (step.Axis == XPathAxis.Ancestor)
                 {
                     var adjusted = step with { Axis = XPathAxis.AncestorOrSelf };
-                    currentElements = ApplyStep(currentElements, adjusted, subPathCache, default);
+                    currentElements = ApplyStep(currentElements, adjusted, root, subPathCache, default);
                     continue;
                 }
             }
@@ -568,7 +595,7 @@ public sealed class XPathEngine
             }
             else
             {
-                currentElements = ApplyStep(currentElements, step, subPathCache, default);
+                currentElements = ApplyStep(currentElements, step, root, subPathCache, default);
             }
         }
 
@@ -592,6 +619,14 @@ public sealed class XPathEngine
             if (parent is null) return current;
             current = parent;
         }
+    }
+
+    private static ConditionBase? EnsureMatchesSelf(ConditionBase? condition, AutomationElement self)
+    {
+        if (condition is null) return null;
+        if (self.FindFirst(TreeScope.Element, condition) is not null) return condition;
+        var selfCondition = self.ConditionFactory.ByControlType(self.Properties.ControlType.ValueOrDefault);
+        return condition.Or(selfCondition);
     }
 
     private static AutomationElement? SafeGetParent(AutomationElement el)
