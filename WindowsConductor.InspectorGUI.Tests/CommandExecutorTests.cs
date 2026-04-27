@@ -380,7 +380,7 @@ public class CommandExecutorTests
         _session.HasApp = true;
         _session.LocateAllResult = 4;
         await _executor.ExecuteAsync("locate //Button");
-        Assert.That(_output.AttributesSets[0].LocatorChain, Is.EqualTo("//Button"));
+        Assert.That(_output.AttributesSets[0].LocatorChain, Is.EqualTo("(//Button)[1]"));
     }
 
     [Test]
@@ -393,7 +393,7 @@ public class CommandExecutorTests
         _output.AttributesSets.Clear();
 
         await _executor.NavigateMatchAsync(1);
-        Assert.That(_output.AttributesSets[0].LocatorChain, Is.EqualTo("//Button[2]"));
+        Assert.That(_output.AttributesSets[0].LocatorChain, Is.EqualTo("(//Button)[2]"));
     }
 
     [Test]
@@ -411,7 +411,7 @@ public class CommandExecutorTests
         _output.AttributesSets.Clear();
 
         await _executor.ExecuteAsync("locate ..");
-        Assert.That(_output.AttributesSets[0].LocatorChain, Is.EqualTo("//Button[5]/.."));
+        Assert.That(_output.AttributesSets[0].LocatorChain, Is.EqualTo("(//Button)[5] >> (..)[1]"));
     }
 
     [Test]

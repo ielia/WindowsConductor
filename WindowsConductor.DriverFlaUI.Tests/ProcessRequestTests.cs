@@ -40,14 +40,14 @@ internal sealed class FakeAppOperations : IAppOperations
 
     public void CloseApp(string appId) => Record("CloseApp", appId);
 
-    public string FindElement(string appId, string selector, string? rootElementId = null)
+    public string FindElement(string appId, string selector, string? rootElementId = null, CancellationToken ct = default)
     { Record("FindElement", appId, selector, rootElementId); return FindElementResult; }
 
-    public string[] FindElements(string appId, string selector, string? rootElementId = null)
+    public string[] FindElements(string appId, string selector, string? rootElementId = null, CancellationToken ct = default)
     { Record("FindElements", appId, selector, rootElementId); return FindElementsResult; }
 
     public object ResolveValueResult { get; set; } = new { type = "ListValue", items = new object[] { new { type = "StringValue", value = "btn", elementId = "el-1", name = "class" } } };
-    public object ResolveValue(string appId, string selector, string? rootElementId = null)
+    public object ResolveValue(string appId, string selector, string? rootElementId = null, CancellationToken ct = default)
     { Record("ResolveValue", appId, selector, rootElementId); return ResolveValueResult; }
 
     public void Click(string elementId, string? anchor = null, int x = 0, int y = 0) => Record("Click", elementId, anchor, x, y);
@@ -104,26 +104,26 @@ internal sealed class FakeAppOperations : IAppOperations
     public byte[] StopRecording(string appId) { Record("StopRecording", appId); return StopRecordingResult; }
 
     public string[] FindElementsAtPointResult { get; set; } = { "el-p1", "el-p2" };
-    public string[] FindElementsAtPoint(string appId, double x, double y, string? rootElementId = null)
+    public string[] FindElementsAtPoint(string appId, double x, double y, string? rootElementId = null, CancellationToken ct = default)
     { Record("FindElementsAtPoint", appId, x, y, rootElementId); return FindElementsAtPointResult; }
 
     public string FindFrontElementAtPointResult { get; set; } = "el-front";
-    public string FindFrontElementAtPoint(string appId, double x, double y, string? rootElementId = null)
+    public string FindFrontElementAtPoint(string appId, double x, double y, string? rootElementId = null, CancellationToken ct = default)
     { Record("FindFrontElementAtPoint", appId, x, y, rootElementId); return FindFrontElementAtPointResult; }
 
     public string WaitForElementResult { get; set; } = "el-wait-1";
     public string[] WaitForElementsResult { get; set; } = { "el-w1", "el-w2" };
 
-    public string WaitForElement(string appId, string selector, string? rootElementId, uint timeout)
+    public string WaitForElement(string appId, string selector, string? rootElementId, uint timeout, CancellationToken ct = default)
     { Record("WaitForElement", appId, selector, rootElementId, timeout); return WaitForElementResult; }
 
-    public string[] WaitForElements(string appId, string selector, string? rootElementId, uint timeout)
+    public string[] WaitForElements(string appId, string selector, string? rootElementId, uint timeout, CancellationToken ct = default)
     { Record("WaitForElements", appId, selector, rootElementId, timeout); return WaitForElementsResult; }
 
-    public object WaitForResolvedValue(string appId, string selector, string? rootElementId, uint timeout)
+    public object WaitForResolvedValue(string appId, string selector, string? rootElementId, uint timeout, CancellationToken ct = default)
     { Record("WaitForResolvedValue", appId, selector, rootElementId, timeout); return ResolveValueResult; }
 
-    public void WaitForVanish(string appId, string selector, string? rootElementId, uint timeout)
+    public void WaitForVanish(string appId, string selector, string? rootElementId, uint timeout, CancellationToken ct = default)
     { Record("WaitForVanish", appId, selector, rootElementId, timeout); }
 
     public string[] GetChildrenResult { get; set; } = ["child-1", "child-2"];

@@ -82,6 +82,10 @@ internal static class XPathSyntaxParser
         var allTokens = CollectRemainingTokens(input);
         if (allTokens.Length == 0) return TokenListParserResult.Empty<XPathToken, XPathExpr>(input);
 
+        // Grouped path: (path)[filter...] — only when ( contains a path and is followed by [
+        if (allTokens[0].Kind == XPathToken.LParen)
+            return ParseGroupedPathExpression(input, allTokens);
+
         // Sub-path must start with a path-like token or a named axis (identifier::)
         var firstKind = allTokens[0].Kind;
         bool isNamedAxisStart = firstKind == XPathToken.Identifier
@@ -141,6 +145,23 @@ internal static class XPathSyntaxParser
         {
             return TokenListParserResult.Empty<XPathToken, XPathExpr>(input);
         }
+    }
+
+    private static TokenListParserResult<XPathToken, XPathExpr> ParseGroupedPathExpression(
+        TokenList<XPathToken> input, Token<XPathToken>[] allTokens)
+    {
+        var result = TryParseGroupedPath(allTokens, 0, requireFilter: true);
+        if (result is null)
+            return TokenListParserResult.Empty<XPathToken, XPathExpr>(input);
+
+        var (steps, isAbsolute, consumed) = result.Value;
+
+        var remaining = input;
+        for (int j = 0; j < consumed; j++)
+            remaining = remaining.ConsumeToken().Remainder;
+
+        return TokenListParserResult.Value<XPathToken, XPathExpr>(
+            new SubPathExpr(steps, isAbsolute), input, remaining);
     }
 
     private static Token<XPathToken>[] CollectRemainingTokens(TokenList<XPathToken> input)
@@ -284,6 +305,12 @@ internal static class XPathSyntaxParser
 
         while (pos < tokens.Length)
         {
+            if (tokens[pos].Kind == XPathToken.LParen)
+            {
+                ParseGroupedSteps(tokens, ref pos, xpath, steps);
+                continue;
+            }
+
             int prevPos = pos;
             ParseStep(tokens, ref pos, xpath, steps);
             if (pos == prevPos)
@@ -441,6 +468,113 @@ internal static class XPathSyntaxParser
             steps.Add(new XPathStep(XPathAxis.DescendantOrSelf, "*", []));
 
         steps.Add(new XPathStep(axis, type, filters));
+    }
+
+    private static void ParseGroupedSteps(Token<XPathToken>[] tokens, ref int pos, string xpath, List<XPathStep> steps)
+    {
+        // Pre-validate for specific error messages
+        int depth = 1;
+        int i = pos + 1;
+        while (i < tokens.Length && depth > 0)
+        {
+            if (tokens[i].Kind == XPathToken.LParen) depth++;
+            else if (tokens[i].Kind == XPathToken.RParen) depth--;
+            i++;
+        }
+        if (depth != 0)
+            throw new ArgumentException(
+                $"Unclosed parenthesis in XPath expression: '{xpath}'", nameof(xpath));
+        if (i - pos == 2) // only ( and )
+            throw new ArgumentException(
+                $"Empty parenthesized group in XPath expression: '{xpath}'", nameof(xpath));
+
+        var result = TryParseGroupedPath(tokens, pos, requireFilter: false)
+            ?? throw new ArgumentException(
+                $"Invalid parenthesized group in XPath expression: '{xpath}'", nameof(xpath));
+
+        steps.AddRange(result.Steps);
+        pos = result.Consumed;
+    }
+
+    /// <summary>
+    /// Shared parser for parenthesized path groups: (path)[filter...]
+    /// Returns parsed steps (including SetFilter if filters exist), whether the path is absolute,
+    /// and the number of tokens consumed. Returns null on failure.
+    /// When <paramref name="requireFilter"/> is true, at least one [filter] after ) is required.
+    /// </summary>
+    private static (List<XPathStep> Steps, bool IsAbsolute, int Consumed)? TryParseGroupedPath(
+        Token<XPathToken>[] tokens, int startPos, bool requireFilter)
+    {
+        if (startPos >= tokens.Length || tokens[startPos].Kind != XPathToken.LParen)
+            return null;
+
+        // Find matching )
+        int depth = 1;
+        int i = startPos + 1;
+        while (i < tokens.Length && depth > 0)
+        {
+            if (tokens[i].Kind == XPathToken.LParen) depth++;
+            else if (tokens[i].Kind == XPathToken.RParen) depth--;
+            i++;
+        }
+        if (depth != 0) return null;
+
+        int afterClose = i;
+        var innerTokens = tokens[(startPos + 1)..(afterClose - 1)];
+        if (innerTokens.Length == 0) return null;
+
+        // Check inner content starts with a path-like token
+        var firstInner = innerTokens[0].Kind;
+        bool isNamedAxis = firstInner == XPathToken.Identifier
+            && innerTokens.Length >= 2 && innerTokens[1].Kind == XPathToken.DoubleColon;
+        if (!isNamedAxis
+            && firstInner is not (XPathToken.DoubleSlash or XPathToken.Slash or XPathToken.Dot or XPathToken.DoubleDot))
+            return null;
+
+        if (requireFilter && (afterClose >= tokens.Length || tokens[afterClose].Kind != XPathToken.LBracket))
+            return null;
+
+        // Parse inner steps
+        bool isAbsolute = firstInner is XPathToken.Slash or XPathToken.DoubleSlash;
+        var steps = new List<XPathStep>();
+        int innerPos = 0;
+        while (innerPos < innerTokens.Length)
+        {
+            int prevCount = steps.Count;
+            ParseStep(innerTokens, ref innerPos, "<grouped-path>", steps);
+            if (steps.Count == prevCount) break;
+        }
+
+        if (steps.Count > 1)
+            steps.RemoveAll(s => s.Axis == XPathAxis.Self && s.Type == "*" && s.Filters.Count == 0);
+
+        if (steps.Count == 0) return null;
+
+        // Parse outer [filter] predicates
+        int pos = afterClose;
+        var filters = new List<XPathFilter>();
+        while (pos < tokens.Length && tokens[pos].Kind == XPathToken.LBracket)
+        {
+            pos++;
+            int filterStart = pos;
+            int filterDepth = 1;
+            while (pos < tokens.Length && filterDepth > 0)
+            {
+                if (tokens[pos].Kind == XPathToken.LBracket) filterDepth++;
+                else if (tokens[pos].Kind == XPathToken.RBracket) filterDepth--;
+                if (filterDepth > 0) pos++;
+            }
+            if (filterDepth != 0) return null;
+
+            var predTokens = tokens[filterStart..pos];
+            pos++;
+            filters.Add(ParseFilter(predTokens, "<grouped-path>"));
+        }
+
+        if (filters.Count > 0)
+            steps.Add(new XPathStep(XPathAxis.SetFilter, "*", filters));
+
+        return (steps, isAbsolute, pos);
     }
 
     private static XPathFilter ParseFilter(Token<XPathToken>[] tokens, string xpath)

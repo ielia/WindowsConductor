@@ -21,7 +21,7 @@ internal static class CommandParser
             "close" => new CloseCommand(),
             "detach" => new DetachCommand(),
             "disconnect" => new DisconnectCommand(),
-            "locate" => ParseLocate(parts),
+            "locate" => ParseLocate(input),
             "matchindex" => ParseMatchIndex(parts),
             "nextmatch" => ParseNextMatch(parts),
             "prevmatch" => ParsePrevMatch(parts),
@@ -29,7 +29,7 @@ internal static class CommandParser
             "attribute" => ParseAttribute(parts),
             "click" => ParseClick(parts),
             "doubleclick" => ParseDoubleClick(parts),
-            "resolve" => ParseResolve(parts),
+            "resolve" => ParseResolve(input),
             "refresh" => new RefreshCommand(),
             "reset" => new ResetCommand(),
             "rightclick" => ParseRightClick(parts),
@@ -148,13 +148,14 @@ internal static class CommandParser
         return new AttachCommand(regex, timeout);
     }
 
-    private static LocateCommand ParseLocate(string[] parts)
+    private static LocateCommand ParseLocate(string rawInput)
     {
-        if (parts.Length < 2)
+        var trimmed = rawInput.Trim();
+        var spaceIdx = trimmed.IndexOf(' ');
+        if (spaceIdx < 0)
             throw new ArgumentException("Usage: locate <selector1> [>> <selector2> ...]");
 
-        // Rejoin everything after "locate" and split by ">>"
-        var rest = string.Join(' ', parts.Skip(1));
+        var rest = trimmed[(spaceIdx + 1)..].Trim();
         var selectors = rest.Split(">>", StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
 
         if (selectors.Length == 0)
@@ -163,11 +164,15 @@ internal static class CommandParser
         return new LocateCommand(selectors);
     }
 
-    private static ResolveCommand ParseResolve(string[] parts)
+    private static ResolveCommand ParseResolve(string rawInput)
     {
-        if (parts.Length < 2)
+        var trimmed = rawInput.Trim();
+        var spaceIdx = trimmed.IndexOf(' ');
+        if (spaceIdx < 0)
             throw new ArgumentException("Usage: resolve <xpath>");
-        var selector = string.Join(' ', parts.Skip(1));
+        var selector = trimmed[(spaceIdx + 1)..].Trim();
+        if (selector.Length == 0)
+            throw new ArgumentException("Usage: resolve <xpath>");
         return new ResolveCommand(selector);
     }
 

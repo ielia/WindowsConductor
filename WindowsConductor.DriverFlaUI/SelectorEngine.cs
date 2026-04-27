@@ -26,22 +26,26 @@ public static class SelectorEngine
     public static AutomationElement? FindElement(
         AutomationElement root, string selector,
         AutomationElement? desktopRoot = null,
-        int? confineToProcessId = null) =>
-        FindElements(root, selector, desktopRoot, confineToProcessId).FirstOrDefault();
+        int? confineToProcessId = null,
+        CancellationToken ct = default) =>
+        (FindFull(root, selector, desktopRoot, confineToProcessId, ct) as ElementsResult)
+            ?.Elements.FirstOrDefault();
 
     public static AutomationElement[] FindElements(
         AutomationElement root, string selector,
         AutomationElement? desktopRoot = null,
-        int? confineToProcessId = null)
+        int? confineToProcessId = null,
+        CancellationToken ct = default)
     {
-        var result = FindFull(root, selector, desktopRoot, confineToProcessId);
+        var result = FindFull(root, selector, desktopRoot, confineToProcessId, ct);
         return result is ElementsResult er ? er.Elements.ToArray() : [];
     }
 
     public static XPathEvalResult FindFull(
         AutomationElement root, string selector,
         AutomationElement? desktopRoot = null,
-        int? confineToProcessId = null)
+        int? confineToProcessId = null,
+        CancellationToken ct = default)
     {
         Validate(selector);
 
@@ -52,9 +56,9 @@ public static class SelectorEngine
             var effectiveRoot = IsAbsoluteXPath(selector) && desktopRoot is not null
                 ? desktopRoot
                 : root;
-            var evalResult = XPathEngine.EvaluateFull(effectiveRoot, selector);
+            var evalResult = XPathEngine.EvaluateFull(effectiveRoot, selector, ct);
             if (evalResult is ElementsResult er)
-                return new ElementsResult(ApplyProcessFilter(er.Elements.ToArray(), confineToProcessId));
+                return new ElementsResult(ApplyProcessFilter(er.Elements, confineToProcessId));
             return evalResult;
         }
 
@@ -62,15 +66,14 @@ public static class SelectorEngine
             return XPathEngine.EvaluateExpression(root, selector);
 
         var parts = selector.Split("&&", StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
-        AutomationElement[]? current = null;
+        IEnumerable<AutomationElement>? current = null;
         foreach (var part in parts)
         {
             var (key, value) = ParsePart(part);
-            var pool = current as IEnumerable<AutomationElement> ?? root.FindAllDescendants();
-            current = Filter(pool, key, value);
+            current = Filter(current ?? root.FindAllDescendants(), key, value);
         }
 
-        return new ElementsResult(ApplyProcessFilter(current ?? [], confineToProcessId));
+        return new ElementsResult(ApplyProcessFilter(current ?? Enumerable.Empty<AutomationElement>(), confineToProcessId));
     }
 
     private static bool IsExpression(string selector)
@@ -90,7 +93,7 @@ public static class SelectorEngine
     };
 
     private static bool IsXPath(string selector) =>
-        selector.StartsWith('/') || selector.StartsWith('.') || StartsWithAxis(selector);
+        selector.StartsWith('/') || selector.StartsWith('.') || selector.StartsWith('(') || StartsWithAxis(selector);
 
     private static bool StartsWithAxis(string selector)
     {
@@ -100,19 +103,18 @@ public static class SelectorEngine
         return AxisNames.Contains(candidate);
     }
 
-    private static bool IsAbsoluteXPath(string selector) =>
-        selector.StartsWith('/') && !selector.StartsWith("//", StringComparison.Ordinal);
-
-    private static AutomationElement[] ApplyProcessFilter(AutomationElement[] results, int? confineToProcessId)
+    private static bool IsAbsoluteXPath(string selector)
     {
-        if (confineToProcessId is not { } pid || results.Length == 0)
+        var s = selector.AsSpan().TrimStart('(');
+        return s.Length > 0 && s[0] == '/' && (s.Length < 2 || s[1] != '/');
+    }
+
+    private static IEnumerable<AutomationElement> ApplyProcessFilter(IEnumerable<AutomationElement> results, int? confineToProcessId)
+    {
+        if (confineToProcessId is not { } pid)
             return results;
 
-        var inProcess = results.Where(el => BelongsToProcess(el, pid)).ToArray();
-        if (inProcess.Length == 0)
-            throw new AccessRestrictedException(
-                $"All matched elements belong to a different process (confined to PID {pid}).");
-        return inProcess;
+        return results.Where(el => BelongsToProcess(el, pid));
     }
 
     private static bool BelongsToProcess(AutomationElement el, int processId)
@@ -199,12 +201,11 @@ public static class SelectorEngine
         return ("name", part);
     }
 
-    private static AutomationElement[] Filter(
+    private static IEnumerable<AutomationElement> Filter(
         IEnumerable<AutomationElement> source, string key, string value)
     {
         return source.Where(el =>
-            MatchesProperty(key, value, k => ElementProperties.Resolve(el, k))
-        ).ToArray();
+            MatchesProperty(key, value, k => ElementProperties.Resolve(el, k)));
     }
 
     internal static bool MatchesProperty(string key, string value, Func<string, string?> getProperty)

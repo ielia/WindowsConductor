@@ -1306,6 +1306,73 @@ public class XPathEngineValidationTests
         Assert.DoesNotThrow(() => XPathSyntaxParser.Parse("//Button[self::*]"));
     }
 
+    // ── Parenthesized path groups ─────────────────────────────────────────
+
+    [TestCase("(.//*)[position() > 50]")]
+    [TestCase("(//Button)[1]")]
+    [TestCase("(//Button[@Name='OK'])[position() > 2]")]
+    [TestCase("(.//*)[position() >= 10 and position() <= 20]")]
+    [TestCase("(.//Button)[last()]")]
+    [TestCase("(.//*)[position() > 1][position() < 3]")]
+    public void ParseXPath_ParenthesizedGroup_DoesNotThrow(string xpath)
+    {
+        Assert.DoesNotThrow(() => XPathEngine.Validate(xpath));
+    }
+
+    [Test]
+    public void ParseXPath_ParenthesizedGroup_ParsesInnerStepsAndSetFilter()
+    {
+        var steps = XPathSyntaxParser.Parse("(.//*)[position() > 50]");
+        Assert.That(steps.Count, Is.GreaterThanOrEqualTo(2));
+        var lastStep = steps[^1];
+        Assert.That(lastStep.Axis, Is.EqualTo(XPathAxis.SetFilter));
+        Assert.That(lastStep.Filters, Has.Count.EqualTo(1));
+        Assert.That(lastStep.Filters[0], Is.InstanceOf<ExpressionFilter>());
+    }
+
+    [Test]
+    public void ParseXPath_ParenthesizedGroup_IndexFilter_ParsesCorrectly()
+    {
+        var steps = XPathSyntaxParser.Parse("(//Button)[1]");
+        var lastStep = steps[^1];
+        Assert.That(lastStep.Axis, Is.EqualTo(XPathAxis.SetFilter));
+        Assert.That(lastStep.Filters, Has.Count.EqualTo(1));
+        Assert.That(lastStep.Filters[0], Is.InstanceOf<IndexFilter>());
+        Assert.That(((IndexFilter)lastStep.Filters[0]).Index, Is.EqualTo(1));
+    }
+
+    [Test]
+    public void ParseXPath_ParenthesizedGroup_MultipleFilters_ParsesAll()
+    {
+        var steps = XPathSyntaxParser.Parse("(.//*)[position() > 1][position() < 3]");
+        var lastStep = steps[^1];
+        Assert.That(lastStep.Axis, Is.EqualTo(XPathAxis.SetFilter));
+        Assert.That(lastStep.Filters, Has.Count.EqualTo(2));
+        Assert.That(lastStep.Filters[0], Is.InstanceOf<ExpressionFilter>());
+        Assert.That(lastStep.Filters[1], Is.InstanceOf<ExpressionFilter>());
+    }
+
+    [Test]
+    public void ParseXPath_ParenthesizedGroupWithoutFilter_NoSetFilterStep()
+    {
+        var steps = XPathSyntaxParser.Parse("(//Button)");
+        Assert.That(steps.All(s => s.Axis != XPathAxis.SetFilter), Is.True);
+    }
+
+    [Test]
+    public void ParseXPath_UnclosedParenthesis_Throws()
+    {
+        var ex = Assert.Throws<ArgumentException>(() => XPathEngine.Validate("(.//*[position() > 50]"));
+        Assert.That(ex!.Message, Does.Contain("Unclosed parenthesis"));
+    }
+
+    [Test]
+    public void ParseXPath_EmptyParenthesizedGroup_Throws()
+    {
+        var ex = Assert.Throws<ArgumentException>(() => XPathEngine.Validate("()[1]"));
+        Assert.That(ex!.Message, Does.Contain("Empty parenthesized group"));
+    }
+
     // ── Helpers ──────────────────────────────────────────────────────────────
 
     private static (string Attr, string Value) GetAttrEqLiteral(XPathFilter filter)

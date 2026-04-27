@@ -536,8 +536,16 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
         var chain = _currentSelectors is not null
             ? string.Join(" >> ", _currentSelectors)
             : "";
-        if (_matchCount > 1 && _matchIndex > 0)
-            chain += $"[{_matchIndex + 1}]";
+        if (_matchCount > 1 && _currentSelectors is { Length: > 0 })
+        {
+            var last = _currentSelectors[^1];
+            var suffix = IsXPath(last)
+                ? $"({last})[{_matchIndex + 1}]"
+                : last + $"[{_matchIndex + 1}]";
+            chain = _currentSelectors.Length > 1
+                ? string.Join(" >> ", [.. _currentSelectors[..^1], suffix])
+                : suffix;
+        }
         var attrs = await session.GetAttributesAsync(ct);
         output.ShowAttributes(chain, attrs);
     }
@@ -607,8 +615,14 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
 
     private void BakeMatchIndex()
     {
-        if (_matchCount > 1 && _matchIndex > 0 && _currentSelectors is { Length: > 0 })
-            _currentSelectors = [.. _currentSelectors[..^1], _currentSelectors[^1] + $"[{_matchIndex + 1}]"];
+        if (_matchCount > 1 && _currentSelectors is { Length: > 0 })
+        {
+            var last = _currentSelectors[^1];
+            var baked = IsXPath(last)
+                ? $"({last})[{_matchIndex + 1}]"
+                : last + $"[{_matchIndex + 1}]";
+            _currentSelectors = [.. _currentSelectors[..^1], baked];
+        }
     }
 
     private void ResetMatchState()
@@ -629,7 +643,8 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
     private static bool IsRelativeXPath(string selector)
     {
         var s = selector.TrimStart();
-        return s.StartsWith('.') || s.StartsWith("//", StringComparison.Ordinal) || StartsWithAxis(s);
+        return s.StartsWith('.') || s.StartsWith("//", StringComparison.Ordinal)
+            || s.StartsWith('(') || StartsWithAxis(s);
     }
 
     private static readonly HashSet<string> AxisNames = new(StringComparer.OrdinalIgnoreCase)

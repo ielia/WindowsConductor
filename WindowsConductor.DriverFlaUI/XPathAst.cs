@@ -9,7 +9,8 @@ public enum XPathAxis
     Child, Descendant, DescendantOrSelf, Parent, Self, Frontmost,
     Ancestor, AncestorOrSelf,
     Sibling, PrecedingSibling, FollowingSibling,
-    Attribute
+    Attribute,
+    SetFilter
 }
 
 public enum XPathBinaryOp { Eq, NotEq, Lt, Gt, LtEq, GtEq, Add, Sub, Mul, Div, IntDiv, Mod, And, Or }

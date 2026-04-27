@@ -131,7 +131,7 @@ public sealed class WsServer
                 {
                     var request = JsonSerializer.Deserialize<WcRequest>(rawJson, _jsonOpts)
                         ?? throw new InvalidOperationException("Received null request.");
-                    response = ProcessRequest(appManager, request);
+                    response = ProcessRequest(appManager, request, ct);
                 }
                 catch (Exception ex)
                 {
@@ -155,7 +155,7 @@ public sealed class WsServer
         }
     }
 
-    internal static WcResponse ProcessRequest(IAppOperations mgr, WcRequest req)
+    internal static WcResponse ProcessRequest(IAppOperations mgr, WcRequest req, CancellationToken ct = default)
     {
         try
         {
@@ -202,7 +202,8 @@ public sealed class WsServer
                         var elementId = mgr.FindElement(
                             req.GetString("appId"),
                             req.GetString("selector"),
-                            string.IsNullOrEmpty(rootElId) ? null : rootElId);
+                            string.IsNullOrEmpty(rootElId) ? null : rootElId,
+                            ct);
                         return WcResponse.Ok(req.Id, elementId);
                     }
 
@@ -212,7 +213,8 @@ public sealed class WsServer
                         var ids = mgr.FindElements(
                             req.GetString("appId"),
                             req.GetString("selector"),
-                            string.IsNullOrEmpty(rootElId) ? null : rootElId);
+                            string.IsNullOrEmpty(rootElId) ? null : rootElId,
+                            ct);
                         return WcResponse.Ok(req.Id, ids);
                     }
 
@@ -222,7 +224,8 @@ public sealed class WsServer
                         var value = mgr.ResolveValue(
                             req.GetString("appId"),
                             req.GetString("selector"),
-                            string.IsNullOrEmpty(rootElId) ? null : rootElId);
+                            string.IsNullOrEmpty(rootElId) ? null : rootElId,
+                            ct);
                         return WcResponse.Ok(req.Id, value);
                     }
 
@@ -233,7 +236,8 @@ public sealed class WsServer
                             req.GetString("appId"),
                             req.GetDouble("x"),
                             req.GetDouble("y"),
-                            string.IsNullOrEmpty(rootElId) ? null : rootElId);
+                            string.IsNullOrEmpty(rootElId) ? null : rootElId,
+                            ct);
                         return WcResponse.Ok(req.Id, ids);
                     }
 
@@ -244,7 +248,8 @@ public sealed class WsServer
                             req.GetString("appId"),
                             req.GetDouble("x"),
                             req.GetDouble("y"),
-                            string.IsNullOrEmpty(rootElId) ? null : rootElId);
+                            string.IsNullOrEmpty(rootElId) ? null : rootElId,
+                            ct);
                         return WcResponse.Ok(req.Id, elementId);
                     }
 
@@ -255,7 +260,8 @@ public sealed class WsServer
                             req.GetString("appId"),
                             req.GetString("selector"),
                             string.IsNullOrEmpty(rootElId) ? null : rootElId,
-                            (uint)req.GetInt("timeout"));
+                            (uint)req.GetInt("timeout"),
+                            ct);
                         return WcResponse.Ok(req.Id, elementId);
                     }
 
@@ -266,7 +272,8 @@ public sealed class WsServer
                             req.GetString("appId"),
                             req.GetString("selector"),
                             string.IsNullOrEmpty(rootElId) ? null : rootElId,
-                            (uint)req.GetInt("timeout"));
+                            (uint)req.GetInt("timeout"),
+                            ct);
                         return WcResponse.Ok(req.Id, ids);
                     }
 
@@ -277,7 +284,8 @@ public sealed class WsServer
                             req.GetString("appId"),
                             req.GetString("selector"),
                             string.IsNullOrEmpty(rootElId) ? null : rootElId,
-                            (uint)req.GetInt("timeout"));
+                            (uint)req.GetInt("timeout"),
+                            ct);
                         return WcResponse.Ok(req.Id, value);
                     }
 
@@ -288,7 +296,8 @@ public sealed class WsServer
                             req.GetString("appId"),
                             req.GetString("selector"),
                             string.IsNullOrEmpty(rootElId) ? null : rootElId,
-                            (uint)req.GetInt("timeout"));
+                            (uint)req.GetInt("timeout"),
+                            ct);
                         return WcResponse.Ok(req.Id);
                     }
 

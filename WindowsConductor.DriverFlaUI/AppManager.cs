@@ -111,10 +111,10 @@ public sealed class AppManager : IAppOperations, IDisposable
     // ── Element discovery ───────────────────────────────────────────────────
 
     /// <summary>Returns the element ID of the first element matching <paramref name="selector"/>.</summary>
-    public string FindElement(string appId, string selector, string? rootElementId = null)
+    public string FindElement(string appId, string selector, string? rootElementId = null, CancellationToken ct = default)
     {
         var root = rootElementId != null ? GetElement(rootElementId) : GetAppRoot(appId);
-        var element = SelectorEngine.FindElement(root, selector, GetDesktopRoot(), GetConfineProcessId(appId))
+        var element = SelectorEngine.FindElement(root, selector, GetDesktopRoot(), GetConfineProcessId(appId), ct)
             ?? throw new InvalidOperationException(
                 $"No element found for selector '{selector}'.");
 
@@ -122,18 +122,18 @@ public sealed class AppManager : IAppOperations, IDisposable
     }
 
     /// <summary>Returns element IDs for all elements matching <paramref name="selector"/>.</summary>
-    public string[] FindElements(string appId, string selector, string? rootElementId = null)
+    public string[] FindElements(string appId, string selector, string? rootElementId = null, CancellationToken ct = default)
     {
         var root = rootElementId != null ? GetElement(rootElementId) : GetAppRoot(appId);
-        return SelectorEngine.FindElements(root, selector, GetDesktopRoot(), GetConfineProcessId(appId))
+        return SelectorEngine.FindElements(root, selector, GetDesktopRoot(), GetConfineProcessId(appId), ct)
             .Select(CacheElement)
             .ToArray();
     }
 
-    public object ResolveValue(string appId, string selector, string? rootElementId = null)
+    public object ResolveValue(string appId, string selector, string? rootElementId = null, CancellationToken ct = default)
     {
         var root = rootElementId != null ? GetElement(rootElementId) : GetAppRoot(appId);
-        var result = SelectorEngine.FindFull(root, selector, GetDesktopRoot(), GetConfineProcessId(appId));
+        var result = SelectorEngine.FindFull(root, selector, GetDesktopRoot(), GetConfineProcessId(appId), ct);
         return result switch
         {
             AttrsResult ar => new
@@ -186,8 +186,9 @@ public sealed class AppManager : IAppOperations, IDisposable
         _ => new { type = nameof(WcAttrType.StringValue), value = (object)value.AsString() }
     };
 
-    public string[] FindElementsAtPoint(string appId, double x, double y, string? rootElementId = null)
+    public string[] FindElementsAtPoint(string appId, double x, double y, string? rootElementId = null, CancellationToken ct = default)
     {
+        ct.ThrowIfCancellationRequested();
         var root = rootElementId != null ? GetElement(rootElementId) : GetAppRoot(appId);
         var point = new System.Drawing.Point((int)x, (int)y);
         return root.FindAllDescendants()
@@ -196,8 +197,9 @@ public sealed class AppManager : IAppOperations, IDisposable
             .ToArray();
     }
 
-    public string FindFrontElementAtPoint(string appId, double x, double y, string? rootElementId = null)
+    public string FindFrontElementAtPoint(string appId, double x, double y, string? rootElementId = null, CancellationToken ct = default)
     {
+        ct.ThrowIfCancellationRequested();
         var root = rootElementId != null ? GetElement(rootElementId) : GetAppRoot(appId);
         var point = new System.Drawing.Point((int)x, (int)y);
         var candidates = root.FindAllDescendants()
@@ -211,15 +213,16 @@ public sealed class AppManager : IAppOperations, IDisposable
 
     // ── Wait operations ──────────────────────────────────────────────────────
 
-    public string WaitForElement(string appId, string selector, string? rootElementId, uint timeout)
+    public string WaitForElement(string appId, string selector, string? rootElementId, uint timeout, CancellationToken ct = default)
     {
         var deadline = Environment.TickCount64 + timeout;
         var desktopRoot = GetDesktopRoot();
         var processId = GetConfineProcessId(appId);
         while (true)
         {
+            ct.ThrowIfCancellationRequested();
             var root = rootElementId != null ? GetElement(rootElementId) : GetAppRoot(appId);
-            var element = SelectorEngine.FindElement(root, selector, desktopRoot, processId);
+            var element = SelectorEngine.FindElement(root, selector, desktopRoot, processId, ct);
             if (element is not null)
                 return CacheElement(element);
             if (Environment.TickCount64 >= deadline)
@@ -229,15 +232,16 @@ public sealed class AppManager : IAppOperations, IDisposable
         }
     }
 
-    public string[] WaitForElements(string appId, string selector, string? rootElementId, uint timeout)
+    public string[] WaitForElements(string appId, string selector, string? rootElementId, uint timeout, CancellationToken ct = default)
     {
         var deadline = Environment.TickCount64 + timeout;
         var desktopRoot = GetDesktopRoot();
         var processId = GetConfineProcessId(appId);
         while (true)
         {
+            ct.ThrowIfCancellationRequested();
             var root = rootElementId != null ? GetElement(rootElementId) : GetAppRoot(appId);
-            var results = SelectorEngine.FindElements(root, selector, desktopRoot, processId);
+            var results = SelectorEngine.FindElements(root, selector, desktopRoot, processId, ct);
             if (results.Length > 0)
                 return results.Select(CacheElement).ToArray();
             if (Environment.TickCount64 >= deadline)
@@ -247,19 +251,20 @@ public sealed class AppManager : IAppOperations, IDisposable
         }
     }
 
-    public object WaitForResolvedValue(string appId, string selector, string? rootElementId, uint timeout)
+    public object WaitForResolvedValue(string appId, string selector, string? rootElementId, uint timeout, CancellationToken ct = default)
     {
         var deadline = Environment.TickCount64 + timeout;
         var desktopRoot = GetDesktopRoot();
         var processId = GetConfineProcessId(appId);
         while (true)
         {
+            ct.ThrowIfCancellationRequested();
             var root = rootElementId != null ? GetElement(rootElementId) : GetAppRoot(appId);
-            var result = SelectorEngine.FindFull(root, selector, desktopRoot, processId);
-            bool hasMatches = result is ElementsResult er ? er.Elements.Count > 0
+            var result = SelectorEngine.FindFull(root, selector, desktopRoot, processId, ct);
+            bool hasMatches = result is ElementsResult er ? er.Elements.Any()
                 : result is AttrsResult ar && ar.Attributes.Count > 0;
             if (hasMatches)
-                return ResolveValue(appId, selector, rootElementId);
+                return ResolveValue(appId, selector, rootElementId, ct);
             if (Environment.TickCount64 >= deadline)
                 throw new NoMatchException(
                     $"No results found for selector '{selector}' within {timeout}ms.");
@@ -267,16 +272,17 @@ public sealed class AppManager : IAppOperations, IDisposable
         }
     }
 
-    public void WaitForVanish(string appId, string selector, string? rootElementId, uint timeout)
+    public void WaitForVanish(string appId, string selector, string? rootElementId, uint timeout, CancellationToken ct = default)
     {
         var deadline = Environment.TickCount64 + timeout;
         var desktopRoot = GetDesktopRoot();
         var processId = GetConfineProcessId(appId);
         while (true)
         {
+            ct.ThrowIfCancellationRequested();
             var root = rootElementId != null ? GetElement(rootElementId) : GetAppRoot(appId);
-            var result = SelectorEngine.FindFull(root, selector, desktopRoot, processId);
-            var hasMatches = result is ElementsResult er ? er.Elements.Count > 0
+            var result = SelectorEngine.FindFull(root, selector, desktopRoot, processId, ct);
+            var hasMatches = result is ElementsResult er ? er.Elements.Any()
                 : result is AttrsResult ar && ar.Attributes.Count > 0;
             if (!hasMatches)
                 return;
