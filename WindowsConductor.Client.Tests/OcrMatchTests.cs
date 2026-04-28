@@ -462,12 +462,214 @@ public class OcrFindBestByEditsTests
         var w1 = Word("Hello", RectA);
         var w2 = Word("World", RectB);
         var matchRect = ExpectedUnion(w1, w2);
-        var ocrMatch = new WcElementOcrMatch(FakeElement, matchRect, "Hello World", null, [w1, w2], 0);
+        var line = Line("Hello World", LineRect1, w1, w2);
+        var ocrMatch = new WcElementOcrMatch(FakeElement, matchRect, "Hello World", null, line, 0, 11, [w1, w2], 0);
         var inner = ocrMatch.FindBestByEdits("World");
         Assert.That(inner, Is.Not.Null);
         Assert.That(inner!.Fragments, Has.Count.EqualTo(1));
         Assert.That(inner.Fragments[0], Is.SameAs(w2));
         AssertMatchRect(inner);
         Assert.That(inner.BoundingRect, Is.EqualTo(RectB));
+    }
+}
+
+[TestFixture]
+[Category("Unit")]
+public class WagnerFischerFindAllTests
+{
+    [Test]
+    public void ExactMatches_MultipleNonOverlapping()
+    {
+        var results = WcElementOcrText.FindAllSubstrings("xxabcxxabcxx", "abc", 0);
+        Assert.That(results, Has.Count.EqualTo(2));
+        Assert.That(results[0], Is.EqualTo((0, 2, 5)));
+        Assert.That(results[1], Is.EqualTo((0, 7, 10)));
+    }
+
+    [Test]
+    public void UserExample_PicksBestOnOverlap()
+    {
+        // "xxabbabcxxababcbcxx", needle "abc", maxEdits 2
+        // The backtrace finds "cbc" at 14-17 (dist=1) for the endpoint at 17, which overlaps
+        // with "abc" at 12-15 (dist=0). Since the exact match wins, "cbc" is discarded.
+        const string haystack = "xxabbabcxxababcbcxx";
+        var results = WcElementOcrText.FindAllSubstrings(haystack, "abc", 2);
+        Assert.That(results, Has.Count.EqualTo(4));
+        Assert.That(results[0], Is.EqualTo((1, 2, 4)));
+        Assert.That(haystack[results[0].Start..results[0].End], Is.EqualTo("ab"));
+        Assert.That(results[1], Is.EqualTo((0, 5, 8)));
+        Assert.That(haystack[results[1].Start..results[1].End], Is.EqualTo("abc"));
+        Assert.That(results[2], Is.EqualTo((1, 10, 12)));
+        Assert.That(haystack[results[2].Start..results[2].End], Is.EqualTo("ab"));
+        Assert.That(results[3], Is.EqualTo((0, 12, 15)));
+        Assert.That(haystack[results[3].Start..results[3].End], Is.EqualTo("abc"));
+        // Verify ordered by position and non-overlapping
+        for (int i = 1; i < results.Count; i++)
+            Assert.That(results[i].Start, Is.GreaterThanOrEqualTo(results[i - 1].End),
+                $"Match {i} overlaps with match {i - 1}");
+    }
+
+    [Test]
+    public void NoMatches_ReturnsEmpty()
+    {
+        var results = WcElementOcrText.FindAllSubstrings("xxxxxxxx", "abc", 0);
+        Assert.That(results, Is.Empty);
+    }
+
+    [Test]
+    public void EmptyNeedle_ReturnsSingleMatch()
+    {
+        var results = WcElementOcrText.FindAllSubstrings("abc", "", 0);
+        Assert.That(results, Has.Count.EqualTo(1));
+        Assert.That(results[0].Distance, Is.EqualTo(0));
+    }
+
+    [Test]
+    public void EmptyHaystack_WithinMaxEdits_ReturnsSingleMatch()
+    {
+        var results = WcElementOcrText.FindAllSubstrings("", "ab", 2);
+        Assert.That(results, Has.Count.EqualTo(1));
+        Assert.That(results[0].Distance, Is.EqualTo(2));
+    }
+
+    [Test]
+    public void EmptyHaystack_ExceedsMaxEdits_ReturnsEmpty()
+    {
+        var results = WcElementOcrText.FindAllSubstrings("", "abc", 1);
+        Assert.That(results, Is.Empty);
+    }
+
+    [Test]
+    public void AdjacentExactMatches()
+    {
+        var results = WcElementOcrText.FindAllSubstrings("abcabc", "abc", 0);
+        Assert.That(results, Has.Count.EqualTo(2));
+        Assert.That(results[0], Is.EqualTo((0, 0, 3)));
+        Assert.That(results[1], Is.EqualTo((0, 3, 6)));
+    }
+
+    [Test]
+    public void OverlappingCandidates_BestDistanceWins()
+    {
+        // "xabxabc" with needle "abc", maxEdits 2
+        // "abx" at 1 (dist=1) and "abc" at 4 (dist=0) don't overlap → both kept
+        var results = WcElementOcrText.FindAllSubstrings("xabxabc", "abc", 2);
+        Assert.That(results, Has.Some.Matches<(int Distance, int Start, int End)>(
+            r => r.Distance == 0 && r.Start == 4 && r.End == 7));
+        for (int i = 1; i < results.Count; i++)
+            Assert.That(results[i].Start, Is.GreaterThanOrEqualTo(results[i - 1].End));
+    }
+
+    [Test]
+    public void ResultsOrderedByStartPosition()
+    {
+        var results = WcElementOcrText.FindAllSubstrings("abcxxabcxxabc", "abc", 0);
+        Assert.That(results, Has.Count.EqualTo(3));
+        for (int i = 1; i < results.Count; i++)
+            Assert.That(results[i].Start, Is.GreaterThan(results[i - 1].Start));
+    }
+
+    [Test]
+    public void CaseInsensitive()
+    {
+        var results = WcElementOcrText.FindAllSubstrings("xxABCxxabcxx", "Abc", 0);
+        Assert.That(results, Has.Count.EqualTo(2));
+        Assert.That(results[0].Distance, Is.EqualTo(0));
+        Assert.That(results[1].Distance, Is.EqualTo(0));
+    }
+
+    [Test]
+    public void SingleCharNeedle_FindsAll()
+    {
+        var results = WcElementOcrText.FindAllSubstrings("abacada", "a", 0);
+        Assert.That(results, Has.Count.EqualTo(4));
+    }
+}
+
+[TestFixture]
+[Category("Unit")]
+public class OcrFindAllByEditsTests
+{
+    private static readonly FakeTransport Transport = new();
+    private static readonly WcElement FakeElement = new("el1", Transport);
+
+    private static readonly BoundingRect RectA = new(0, 0, 50, 20);
+    private static readonly BoundingRect RectB = new(55, 0, 60, 20);
+    private static readonly BoundingRect RectC = new(120, 0, 40, 20);
+
+    private static WcElementOcrWord Word(string text, BoundingRect? box = null) =>
+        new(FakeElement, box ?? RectA, null, text);
+
+    private static WcElementOcrLine Line(string text, BoundingRect? box = null, params WcElementOcrWord[] words) =>
+        new(FakeElement, box ?? new BoundingRect(0, 0, 200, 20), text, null, words);
+
+    [Test]
+    public void EmptyText_ReturnsEmpty()
+    {
+        var word = Word("");
+        Assert.That(word.FindAllByEdits("abc"), Is.Empty);
+    }
+
+    [Test]
+    public void EmptySearch_ReturnsEmpty()
+    {
+        var word = Word("Hello");
+        Assert.That(word.FindAllByEdits(""), Is.Empty);
+    }
+
+    [Test]
+    public void Word_SingleExactMatch()
+    {
+        var word = Word("abc", RectA);
+        var matches = word.FindAllByEdits("abc");
+        Assert.That(matches, Has.Count.EqualTo(1));
+        Assert.That(matches[0].Distance, Is.EqualTo(0));
+        Assert.That(matches[0].Text, Is.EqualTo("abc"));
+    }
+
+    [Test]
+    public void Word_NoMatch_ReturnsEmpty()
+    {
+        var word = Word("xyz");
+        Assert.That(word.FindAllByEdits("abc", 0), Is.Empty);
+    }
+
+    [Test]
+    public void Line_MultipleExactMatches_OrderedByLocation()
+    {
+        var w1 = Word("abc", new BoundingRect(0, 0, 30, 20));
+        var w2 = Word("xx", new BoundingRect(35, 0, 20, 20));
+        var w3 = Word("abc", new BoundingRect(60, 0, 30, 20));
+        var line = Line("abc xx abc", null, w1, w2, w3);
+        var matches = line.FindAllByEdits("abc");
+        Assert.That(matches, Has.Count.EqualTo(2));
+        Assert.That(matches[0].Distance, Is.EqualTo(0));
+        Assert.That(matches[1].Distance, Is.EqualTo(0));
+        Assert.That(matches[0].BoundingRect.X, Is.LessThan(matches[1].BoundingRect.X));
+    }
+
+    [Test]
+    public void Line_FuzzyMatches_BestDistanceWinsOverlap()
+    {
+        var w1 = Word("xabxabcx", RectA);
+        var line = Line("xabxabcx", null, w1);
+        var matches = line.FindAllByEdits("abc", 2);
+        // "abc" at index 4 (dist=0) should win; "abx" at index 1 (dist=1) may or may not survive depending on overlap
+        Assert.That(matches, Has.Some.Matches<WcElementOcrMatch>(m => m.Distance == 0));
+        // All matches ordered by location
+        for (int i = 1; i < matches.Count; i++)
+            Assert.That(matches[i].BoundingRect.X, Is.GreaterThanOrEqualTo(matches[i - 1].BoundingRect.X));
+    }
+
+    [Test]
+    public void Line_NonOverlapping_AllKept()
+    {
+        var w1 = Word("abc", new BoundingRect(0, 0, 30, 20));
+        var w2 = Word("abc", new BoundingRect(35, 0, 30, 20));
+        var w3 = Word("abc", new BoundingRect(70, 0, 30, 20));
+        var line = Line("abc abc abc", null, w1, w2, w3);
+        var matches = line.FindAllByEdits("abc", 0);
+        Assert.That(matches, Has.Count.EqualTo(3));
+        Assert.That(matches.All(m => m.Distance == 0), Is.True);
     }
 }

@@ -23,16 +23,37 @@ public abstract record WcElementOcrText(WcElement Element, BoundingRect Bounding
 
     /// <summary>Finds the best fuzzy substring match within this OCR text (case-insensitive).</summary>
     /// <returns>The match, or <c>null</c> if no match exists within <paramref name="maxEdits"/>.</returns>
-    public WcElementOcrMatch? FindBestByEdits(string text, int maxEdits = 0)
+    public WcElementOcrMatch? FindBestByEdits(string substring, int maxEdits = 0)
     {
-        if (string.IsNullOrEmpty(Text) || string.IsNullOrEmpty(text))
+        if (string.IsNullOrEmpty(Text) || string.IsNullOrEmpty(substring))
             return null;
-        var (distance, start, end) = FindBestSubstring(Text, text);
+        var (distance, start, end) = FindBestSubstring(Text, substring);
         if (distance > maxEdits) return null;
         var (fragments, effStart, effEnd) = BuildMatchFragments(start, end, maxEdits - distance);
         var matchText = effStart < effEnd ? Text[effStart..effEnd] : "";
         var matchRect = fragments.Count > 0 ? UnionRect(fragments) : BoundingRect;
-        return new WcElementOcrMatch(Element, matchRect, matchText, Angle, fragments, distance);
+        return new WcElementOcrMatch(Element, matchRect, matchText, Angle, this, effStart, effEnd, fragments, distance);
+    }
+
+    /// <summary>
+    /// Finds all non-overlapping fuzzy substring matches within this OCR text (case-insensitive),
+    /// ordered by location. When matches overlap, the one with the lowest edit distance is kept;
+    /// ties are broken by leftmost position.
+    /// </summary>
+    public IReadOnlyList<WcElementOcrMatch> FindAllByEdits(string substring, int maxEdits = 0)
+    {
+        if (string.IsNullOrEmpty(Text) || string.IsNullOrEmpty(substring))
+            return [];
+        var substrings = FindAllSubstrings(Text, substring, maxEdits);
+        var matches = new List<WcElementOcrMatch>(capacity: substrings.Count);
+        foreach (var (distance, start, end) in substrings)
+        {
+            var (fragments, effStart, effEnd) = BuildMatchFragments(start, end, maxEdits - distance);
+            var matchText = effStart < effEnd ? Text[effStart..effEnd] : "";
+            var matchRect = fragments.Count > 0 ? UnionRect(fragments) : BoundingRect;
+            matches.Add(new WcElementOcrMatch(Element, matchRect, matchText, Angle, this, effStart, effEnd, fragments, distance));
+        }
+        return matches;
     }
 
     internal virtual (IReadOnlyList<WcElementOcrText> Fragments, int Start, int End) BuildMatchFragments(
@@ -70,6 +91,62 @@ public abstract record WcElementOcrText(WcElement Element, BoundingRect Bounding
         }
 
         return (bestDist, bj, bestEnd);
+    }
+
+    internal static List<(int Distance, int Start, int End)> FindAllSubstrings(
+        string haystack, string needle, int maxEdits)
+    {
+        int n = haystack.Length, m = needle.Length;
+        if (m == 0) return [(0, 0, 0)];
+        if (n == 0) return maxEdits >= m ? [(m, 0, 0)] : [];
+
+        var dp = new int[m + 1, n + 1];
+        for (int i = 1; i <= m; i++) dp[i, 0] = i;
+
+        for (int j = 1; j <= n; j++)
+            for (int i = 1; i <= m; i++)
+            {
+                int cost = char.ToLowerInvariant(haystack[j - 1]) == char.ToLowerInvariant(needle[i - 1]) ? 0 : 1;
+                dp[i, j] = Math.Min(Math.Min(dp[i - 1, j] + 1, dp[i, j - 1] + 1), dp[i - 1, j - 1] + cost);
+            }
+
+        // Collect all candidate endpoints and backtrace each to find start.
+        var candidates = new List<(int Distance, int Start, int End)>();
+        for (int j = 1; j <= n; j++)
+        {
+            if (dp[m, j] > maxEdits) continue;
+            int bi = m, bj = j;
+            while (bi > 0 && bj > 0)
+            {
+                int cost = char.ToLowerInvariant(haystack[bj - 1]) == char.ToLowerInvariant(needle[bi - 1]) ? 0 : 1;
+                if (dp[bi, bj] == dp[bi - 1, bj - 1] + cost) { bi--; bj--; }
+                else if (dp[bi, bj] == dp[bi - 1, bj] + 1) bi--;
+                else bj--;
+            }
+            candidates.Add((dp[m, j], bj, j));
+        }
+
+        if (candidates.Count == 0) return [];
+
+        // Sort by distance ascending, then start ascending (best match first, leftmost on tie).
+        candidates.Sort((a, b) => a.Distance != b.Distance
+            ? a.Distance.CompareTo(b.Distance)
+            : a.Start.CompareTo(b.Start));
+
+        // Greedily pick non-overlapping matches.
+        var picked = new List<(int Distance, int Start, int End)>();
+        foreach (var c in candidates)
+        {
+            bool overlaps = false;
+            foreach (var p in picked)
+                if (p.Start < c.End && c.Start < p.End) { overlaps = true; break; }
+            if (!overlaps)
+                picked.Add(c);
+        }
+
+        // Sort by start position for output.
+        picked.Sort((a, b) => a.Start.CompareTo(b.Start));
+        return picked;
     }
 
     // ── Fragment building helpers ────────────────────────────────────────────
@@ -257,9 +334,12 @@ public record WcElementOcrWordSlice(WcElement Element, BoundingRect BoundingRect
 }
 
 /// <summary>OCR match resulting from a search.</summary>
+/// <param name="OriginalOcr">The OCR text instance on which the search was performed.</param>
+/// <param name="FromIndex">First index (inclusive) of the match within <see cref="OriginalOcr"/>.<see cref="WcElementOcrText.Text"/>.</param>
+/// <param name="ToIndex">Last index (exclusive) of the match within <see cref="OriginalOcr"/>.<see cref="WcElementOcrText.Text"/>.</param>
 /// <param name="Fragments">OCR fragments composing this match.</param>
 /// <param name="Distance">Wagner-Fischer distance from the search text.</param>
-public record WcElementOcrMatch(WcElement Element, BoundingRect BoundingRect, string Text, double? Angle, IReadOnlyList<WcElementOcrText> Fragments, int Distance)
+public record WcElementOcrMatch(WcElement Element, BoundingRect BoundingRect, string Text, double? Angle, WcElementOcrText OriginalOcr, int FromIndex, int ToIndex, IReadOnlyList<WcElementOcrText> Fragments, int Distance)
     : WcElementOcrText(Element, BoundingRect, Angle, Text)
 {
     internal override (IReadOnlyList<WcElementOcrText> Fragments, int Start, int End) BuildMatchFragments(

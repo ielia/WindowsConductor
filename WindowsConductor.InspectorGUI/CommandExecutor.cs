@@ -236,7 +236,7 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
             case ClickCommand { OcrText: not null } clickOcr
                 when !string.IsNullOrWhiteSpace(clickOcr.OcrText):
                 RequireElement();
-                var clickMatch = await OcrMatchAsync(clickOcr.OcrText, clickOcr.MaxDistance, ct);
+                var clickMatch = await OcrMatchAsync(clickOcr.OcrText, clickOcr.MaxDistance, clickOcr.MatchIndex, ct);
                 var clickPt = clickMatch.BoundingRect.Center;
                 await session.ClickAsync(Anchor.NorthWest, clickPt, ct);
                 output.WriteInfo($"Clicked OCR match \"{clickOcr.OcrText}\" @ {clickPt} [\"{clickMatch.Text}\" ~ dist={clickMatch.Distance}].");
@@ -255,7 +255,7 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
             case DoubleClickCommand { OcrText: not null } dblOcr
                 when !string.IsNullOrWhiteSpace(dblOcr.OcrText):
                 RequireElement();
-                var dblMatch = await OcrMatchAsync(dblOcr.OcrText, dblOcr.MaxDistance, ct);
+                var dblMatch = await OcrMatchAsync(dblOcr.OcrText, dblOcr.MaxDistance, dblOcr.MatchIndex, ct);
                 var dblPt = dblMatch.BoundingRect.Center;
                 await session.DoubleClickAsync(Anchor.NorthWest, dblPt, ct);
                 output.WriteInfo($"Double-clicked OCR match \"{dblOcr.OcrText}\" @ {dblPt} [\"{dblMatch.Text}\" ~ dist={dblMatch.Distance}].");
@@ -274,7 +274,7 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
             case RightClickCommand { OcrText: not null } rclkOcr
                 when !string.IsNullOrWhiteSpace(rclkOcr.OcrText):
                 RequireElement();
-                var rclkMatch = await OcrMatchAsync(rclkOcr.OcrText, rclkOcr.MaxDistance, ct);
+                var rclkMatch = await OcrMatchAsync(rclkOcr.OcrText, rclkOcr.MaxDistance, rclkOcr.MatchIndex, ct);
                 var rclkPt = rclkMatch.BoundingRect.Center;
                 await session.RightClickAsync(Anchor.NorthWest, rclkPt, ct);
                 output.WriteInfo($"Right-clicked OCR match \"{rclkOcr.OcrText}\" @ {rclkPt} [\"{rclkMatch.Text}\" ~ dist={rclkMatch.Distance}].");
@@ -293,7 +293,7 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
             case HoverCommand { OcrText: not null } hvrOcr
                 when !string.IsNullOrWhiteSpace(hvrOcr.OcrText):
                 RequireElement();
-                var hvrMatch = await OcrMatchAsync(hvrOcr.OcrText, hvrOcr.MaxDistance, ct);
+                var hvrMatch = await OcrMatchAsync(hvrOcr.OcrText, hvrOcr.MaxDistance, hvrOcr.MatchIndex, ct);
                 var hvrPt = hvrMatch.BoundingRect.Center;
                 await session.HoverAsync(Anchor.NorthWest, hvrPt, ct);
                 output.WriteInfo($"Hovered over OCR match \"{hvrOcr.OcrText}\" @ {hvrPt} [\"{hvrMatch.Text}\" ~ dist={hvrMatch.Distance}].");
@@ -604,10 +604,21 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
             throw new InvalidOperationException("No element selected. Use 'locate' first.");
     }
 
-    private async Task<WcElementOcrMatch> OcrMatchAsync(string ocrText, int maxDistance, CancellationToken ct)
+    private async Task<WcElementOcrMatch> OcrMatchAsync(string ocrText, int maxDistance, int? matchIndex, CancellationToken ct)
     {
         await session.SetForegroundAsync(ct);
         var ocrResult = await session.GetOcrTextAsync(ct);
+        if (matchIndex is not null)
+        {
+            var allMatches = ocrResult.FindAllByEdits(ocrText, maxDistance);
+            if (allMatches.Count == 0)
+                throw new InvalidOperationException(
+                    $"OCR match not found for \"{ocrText}\" (maxDistance={maxDistance}).");
+            if (matchIndex.Value >= allMatches.Count)
+                throw new InvalidOperationException(
+                    $"Match index #{matchIndex.Value} out of range — only {allMatches.Count} match(es) found for \"{ocrText}\" (maxDistance={maxDistance}).");
+            return allMatches[matchIndex.Value];
+        }
         return ocrResult.FindBestByEdits(ocrText, maxDistance)
             ?? throw new InvalidOperationException(
                 $"OCR match not found for \"{ocrText}\" (maxDistance={maxDistance}).");

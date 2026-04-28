@@ -176,39 +176,52 @@ internal static class CommandParser
         return new ResolveCommand(selector);
     }
 
-    private static (string? OcrText, int MaxDistance) ParseOcrMouseActionArgs(string[] parts)
+    private static (string? OcrText, int MaxDistance, int? MatchIndex) ParseOcrMouseActionArgs(string[] parts)
     {
-        if (parts.Length < 2) return (null, 0);
+        if (parts.Length < 2) return (null, 0, null);
         var ocrText = parts[1];
-        if (string.IsNullOrWhiteSpace(ocrText)) return (null, 0);
+        if (string.IsNullOrWhiteSpace(ocrText)) return (null, 0, null);
         int maxDist = 0;
-        if (parts.Length >= 3 && !int.TryParse(parts[2], out maxDist))
-            throw new ArgumentException("maxDistance must be an integer.");
-        return (ocrText, maxDist);
+        int? matchIndex = null;
+        for (int i = 2; i < parts.Length; i++)
+        {
+            if (parts[i].StartsWith('#'))
+            {
+                if (!int.TryParse(parts[i][1..], out var idx) || idx < 0)
+                    throw new ArgumentException("matchIndex must be a non-negative integer (e.g. #0, #1).");
+                matchIndex = idx;
+            }
+            else
+            {
+                if (!int.TryParse(parts[i], out maxDist))
+                    throw new ArgumentException("maxDistance must be an integer.");
+            }
+        }
+        return (ocrText, maxDist, matchIndex);
     }
 
     private static ClickCommand ParseClick(string[] parts)
     {
-        var (ocrText, maxDist) = ParseOcrMouseActionArgs(parts);
-        return new ClickCommand(ocrText, maxDist);
+        var (ocrText, maxDist, matchIndex) = ParseOcrMouseActionArgs(parts);
+        return new ClickCommand(ocrText, maxDist, matchIndex);
     }
 
     private static DoubleClickCommand ParseDoubleClick(string[] parts)
     {
-        var (ocrText, maxDist) = ParseOcrMouseActionArgs(parts);
-        return new DoubleClickCommand(ocrText, maxDist);
+        var (ocrText, maxDist, matchIndex) = ParseOcrMouseActionArgs(parts);
+        return new DoubleClickCommand(ocrText, maxDist, matchIndex);
     }
 
     private static RightClickCommand ParseRightClick(string[] parts)
     {
-        var (ocrText, maxDist) = ParseOcrMouseActionArgs(parts);
-        return new RightClickCommand(ocrText, maxDist);
+        var (ocrText, maxDist, matchIndex) = ParseOcrMouseActionArgs(parts);
+        return new RightClickCommand(ocrText, maxDist, matchIndex);
     }
 
     private static HoverCommand ParseHover(string[] parts)
     {
-        var (ocrText, maxDist) = ParseOcrMouseActionArgs(parts);
-        return new HoverCommand(ocrText, maxDist);
+        var (ocrText, maxDist, matchIndex) = ParseOcrMouseActionArgs(parts);
+        return new HoverCommand(ocrText, maxDist, matchIndex);
     }
 
     private static AttributeCommand ParseAttribute(string[] parts)
