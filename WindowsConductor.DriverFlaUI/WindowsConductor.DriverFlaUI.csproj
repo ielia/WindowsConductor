@@ -10,7 +10,7 @@
     <Platforms>AnyCPU;x64</Platforms>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>DriverFlaUI.ico</ApplicationIcon>
-    <Version>0.7.0</Version>
+    <Version>0.8.0</Version>
     <Authors>Ignacio Elia</Authors>
   </PropertyGroup>
 
