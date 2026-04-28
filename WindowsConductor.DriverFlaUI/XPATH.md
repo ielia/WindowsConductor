@@ -19,7 +19,11 @@ Step           ::= AxisSpecifier? NodeTest Filter*
                  | '..'                         (* parent *)
 
 AxisSpecifier  ::= AxisName '::'
-AxisName       ::= 'ancestor' | 'ancestor-or-self' | 'frontmost'
+AxisName       ::= 'ancestor' | 'ancestor-or-self'
+                 | 'child' | 'descendant' | 'descendant-or-self'
+                 | 'following-sibling' | 'preceding-sibling' | 'sibling'
+                 | 'frontmost' | 'parent' | 'self'
+                 | 'attribute'
 
 NodeTest       ::= Identifier                  (* ControlType name *)
                  | '*'                         (* any element *)
@@ -29,16 +33,19 @@ NodeTest       ::= Identifier                  (* ControlType name *)
 Filter         ::= '[' Expression ']'
                  | '[' Integer ']'             (* positional, 1-based *)
 
+GroupedPath    ::= '(' Path ')' Filter+        (* apply filters to an entire path result set *)
+
 Expression     ::= OrExpr
 OrExpr         ::= AndExpr ('or' AndExpr)*
 AndExpr        ::= Comparison ('and' Comparison)*
 Comparison     ::= Additive (CompOp Additive)*
 CompOp         ::= '=' | '!=' | '<' | '>' | '<=' | '>='
 Additive       ::= Multiplicative (('+' | '-') Multiplicative)*
-Multiplicative ::= Unary (('*' | 'div' | 'mod') Unary)*
+Multiplicative ::= Unary (('*' | 'div' | 'idiv' | 'mod') Unary)*
 Unary          ::= '-' Unary | '+' Unary | Primary
 Primary        ::= FunctionCall | Number | String | '@' Identifier
                  | SubPath | Sequence | '(' Expression ')' | '.'
+
 Sequence       ::= '(' ')'                    (* empty sequence *)
                  | '(' Expression (',' Expression)+ ')'
 
@@ -98,7 +105,7 @@ an abbreviated absolute path.
 | `/` or `child::` | child | Direct children of the context node. |
 | `//` or `descendant::` | descendant | All descendants (children, grandchildren, ...). |
 | `descendant-or-self::` | descendant-or-self | The context node plus all its descendants. |
-| `..` | parent | Parent of the context node. |
+| `..` or `parent::` | parent | Parent of the context node. |
 | `.` or `self::` | self | The context node itself (with optional type filter). |
 | `sibling::` | sibling | All siblings (parent's children excluding self). |
 | `preceding-sibling::` | preceding-sibling | Siblings that come before the context node. |
@@ -110,6 +117,27 @@ an abbreviated absolute path.
 
 `self::Type` is particularly useful in predicates to filter by type:
 `./*[self::Button]` selects all child Buttons (equivalent to `./Button`).
+
+Where applicable, translatable predicates are pushed down into UIA
+`ConditionBase` filters for the `child`, `descendant`, `descendant-or-self`,
+and `sibling` axes to reduce cross-process COM marshalling.
+
+---
+
+## Grouped Paths
+
+A path can be wrapped in parentheses and followed by one or more filters.
+The filters apply to the **entire result set** of the inner path, enabling
+positional or expression-based filtering across all matched elements.
+
+```xpath
+(//Button)[1]                             First Button in the entire tree
+(//Button[@IsEnabled='True'])[last()]     Last enabled Button
+(//Edit)[position() > 2]                  All Edit elements after the second
+```
+
+Without the parentheses, `//Button[1]` selects the first Button in each
+sibling group, whereas `(//Button)[1]` selects the first Button overall.
 
 ---
 
@@ -139,6 +167,39 @@ Common properties:
 **Special property:** `text` resolves to the TextBox `Text` value (or null if
 the element is not a TextBox). Accessible via `text()` in expressions or
 `@text` in attribute references.
+
+---
+
+## Operators
+
+### Arithmetic
+
+| Operator | Description |
+|---|---|
+| `+` | Addition. |
+| `-` | Subtraction (binary) or negation (unary). |
+| `*` | Multiplication. |
+| `div` | Division (floating-point). |
+| `idiv` | Integer division (truncates toward zero). |
+| `mod` | Modulus (integer remainder). |
+
+### Comparison
+
+| Operator | Description |
+|---|---|
+| `=` | Equal. |
+| `!=` | Not equal. |
+| `<` | Less than. |
+| `>` | Greater than. |
+| `<=` | Less than or equal. |
+| `>=` | Greater than or equal. |
+
+### Logical
+
+| Operator | Description |
+|---|---|
+| `and` | Logical AND (short-circuit). |
+| `or` | Logical OR (short-circuit). |
 
 ---
 
@@ -243,6 +304,10 @@ When two values are compared (`=`, `!=`, `<`, etc.):
 4. One number &rarr; the other is coerced to number (only if parseable).
 5. Otherwise &rarr; case-insensitive string comparison (`InvariantCultureIgnoreCase`).
 
+When either side of a comparison is a sequence, general comparison semantics
+apply: the comparison is true if **any** pair of items (one from each side)
+satisfies the operator.
+
 ---
 
 ## Top-level Function Expressions
@@ -288,7 +353,7 @@ instead of XPath. Multiple clauses can be combined with `&&`.
 /Window/Button                        Buttons that are direct children of a Window
 ./Button                              Child Button relative to context node
 .//Button                             Descendant Button relative to context node
-../Button                             Sibling Buttons (parent &rarr; child)
+../Button                             Sibling Buttons (parent → child)
 ```
 
 ### Wildcards
@@ -317,6 +382,14 @@ instead of XPath. Multiple clauses can be combined with `&&`.
 //Button[position() mod 2 = 1]       Odd-positioned Buttons
 ```
 
+### Grouped path: positional over full result set
+
+```xpath
+(//Button)[1]                         First Button in the entire tree
+(//Button)[last()]                    Last Button in the entire tree
+(//Button[@Name!='Close'])[3]         Third non-Close Button overall
+```
+
 ### Predicates: string functions
 
 ```xpath
@@ -343,12 +416,26 @@ instead of XPath. Multiple clauses can be combined with `&&`.
 //frontmost::Button[at(10, 50)]                     Front-most (leaf) Button at point
 ```
 
+### Sibling navigation
+
+```xpath
+//Button/sibling::Edit                All Edit siblings of any Button
+//Button/following-sibling::Edit      Edit elements after a Button
+//Button/preceding-sibling::Edit      Edit elements before a Button
+```
+
 ### Ancestor navigation
 
 ```xpath
 //Button/ancestor::Group              All Group ancestors of any Button
 //Button/ancestor-or-self::Group      Ancestors-or-self that are Groups
 //Button/ancestor::*[@Name='numbers'] Ancestor with a specific Name
+```
+
+### Descendant-or-self axis
+
+```xpath
+//Group/descendant-or-self::Button    The Group itself (if it's a Button) plus all descendant Buttons
 ```
 
 ### Attribute axis
@@ -373,8 +460,8 @@ instead of XPath. Multiple clauses can be combined with `&&`.
 ### String escaping
 
 ```xpath
-//Button[@Name='it''s']               Escaped single quote &rarr; it's
-//Button[@Name="say ""hello"""]       Escaped double quote &rarr; say "hello"
+//Button[@Name='it''s']               Escaped single quote → it's
+//Button[@Name="say ""hello"""]       Escaped double quote → say "hello"
 ```
 
 ### Combining axes
@@ -383,4 +470,13 @@ instead of XPath. Multiple clauses can be combined with `&&`.
 //Button/..                           Parents of all Buttons
 //Button/@class/ancestor::Group       Navigate from attribute back to elements
 //Window//frontmost::Button[at(10, 50)]
+```
+
+### Arithmetic
+
+```xpath
+//Button[position() * 2 = 4]         Button at position 2
+//Edit[string-length(text()) div 2 > 5]
+//Button[position() idiv 3 = 1]      Integer division
+//Button[position() mod 2 = 0]       Even-positioned Buttons
 ```
