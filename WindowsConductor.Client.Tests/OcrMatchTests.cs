@@ -673,3 +673,174 @@ public class OcrFindAllByEditsTests
         Assert.That(matches.All(m => m.Distance == 0), Is.True);
     }
 }
+
+[TestFixture]
+[Category("Unit")]
+public class OcrMatchOverlapsTests
+{
+    private static readonly FakeTransport Transport = new();
+    private static readonly WcElement FakeElement = new("el1", Transport);
+    private static readonly BoundingRect Rect = new(0, 0, 100, 20);
+
+    private static WcElementOcrMatch MakeMatch(string ocrText, int from, int to)
+    {
+        var ocr = new WcElementOcrWord(FakeElement, Rect, null, ocrText);
+        var matchText = ocrText[from..to];
+        return new WcElementOcrMatch(FakeElement, Rect, matchText, null, ocr, from, to, [], 0);
+    }
+
+    [Test]
+    public void Overlaps_ExactOverlap_ReturnsTrue()
+    {
+        // "abcdef", match "de" at 3-5, check "cd" — overlaps at 2-4
+        var match = MakeMatch("abcdef", 3, 5);
+        Assert.That(match.Overlaps("cd"), Is.True);
+    }
+
+    [Test]
+    public void Overlaps_ExactEndingOverlap_ReturnsTrue()
+    {
+        // "abcdef", match "de" at 3-5, check "ef" — overlaps at 4-6
+        var match = MakeMatch("abcdef", 3, 5);
+        Assert.That(match.Overlaps("ef"), Is.True);
+    }
+
+    [Test]
+    public void Overlaps_FuzzyOverlap_ReturnsTrue()
+    {
+        // "abcdef", match "de" at 3-5, check "da" with maxDistance 1 — "de" at 3-5 overlaps
+        var match = MakeMatch("abcdef", 3, 5);
+        Assert.That(match.Overlaps("da", 1), Is.True);
+    }
+
+    [Test]
+    public void Overlaps_FuzzyExtendedOverlap_ReturnsTrue()
+    {
+        // "abcdef", match "de" at 3-5, check "bc" with maxDistance 1 — "bcd" at 1-4 overlaps
+        var match = MakeMatch("abcdef", 3, 5);
+        Assert.That(match.Overlaps("bc", 1), Is.True);
+    }
+
+    [Test]
+    public void Overlaps_FuzzyEndingOverlap_ReturnsTrue()
+    {
+        // "abcdef", match "de" at 3-5, check "af" with maxDistance 1 — "de" at 4-6 overlaps
+        var match = MakeMatch("abcdef", 3, 5);
+        Assert.That(match.Overlaps("af", 1), Is.True);
+    }
+
+    [Test]
+    public void Overlaps_FuzzyEndingExtendedOverlap_ReturnsTrue()
+    {
+        // "abcdef", match "cd" at 2-4, check "ef" with maxDistance 1 — "def" at 3-6 overlaps
+        var match = MakeMatch("abcdef", 2, 4);
+        Assert.That(match.Overlaps("ef", 1), Is.True);
+    }
+
+    [Test]
+    public void Overlaps_NoOverlap_Exact_ReturnsFalse()
+    {
+        // "abcdef", match "de" at 3-5, check "bc" — exact match at 1-3, no overlap with 3-5
+        var match = MakeMatch("abcdef", 3, 5);
+        Assert.That(match.Overlaps("bc"), Is.False);
+    }
+
+    [Test]
+    public void Overlaps_NoOverlap_BecomesFuzzyOverlap_ReturnsTrue()
+    {
+        // "abcdef", match "de" at 3-5, check "bc" with maxDistance 1 — can match "cd" at 2-4 which overlaps
+        var match = MakeMatch("abcdef", 3, 5);
+        Assert.That(match.Overlaps("bc", 1), Is.True);
+    }
+
+    [Test]
+    public void Overlaps_CompletelyBefore_ReturnsFalse()
+    {
+        // "abcdef", match "ef" at 4-6, check "ab" — at 0-2, no overlap
+        var match = MakeMatch("abcdef", 4, 6);
+        Assert.That(match.Overlaps("ab"), Is.False);
+    }
+
+    [Test]
+    public void Overlaps_CompletelyAfter_ReturnsFalse()
+    {
+        // "abcdef", match "ab" at 0-2, check "ef" — at 4-6, no overlap
+        var match = MakeMatch("abcdef", 0, 2);
+        Assert.That(match.Overlaps("ef"), Is.False);
+    }
+
+    [Test]
+    public void Overlaps_NoMatchAtAll_ReturnsFalse()
+    {
+        var match = MakeMatch("abcdef", 3, 5);
+        Assert.That(match.Overlaps("zzz"), Is.False);
+    }
+
+    [Test]
+    public void Overlaps_CaseInsensitive()
+    {
+        var match = MakeMatch("abcdef", 3, 5);
+        Assert.That(match.Overlaps("CD"), Is.True);
+    }
+
+    [Test]
+    public void OverlapsAny_OneOverlaps_ReturnsTrue()
+    {
+        var match = MakeMatch("abcdef", 3, 5);
+        Assert.That(match.OverlapsAny([("ab", 0), ("cd", 0)]), Is.True);
+    }
+
+    [Test]
+    public void OverlapsAny_NoneOverlap_ReturnsFalse()
+    {
+        // match "ab" at 0-2; "de" at 3-5 and "ef" at 4-6 don't overlap [0,2)
+        var match = MakeMatch("abcdef", 0, 2);
+        Assert.That(match.OverlapsAny([("de", 0), ("ef", 0)]), Is.False);
+    }
+
+    [Test]
+    public void OverlapsAny_EmptyArray_ReturnsFalse()
+    {
+        var match = MakeMatch("abcdef", 3, 5);
+        Assert.That(match.OverlapsAny([]), Is.False);
+    }
+
+    [Test]
+    public void OverlapsAny_FuzzyEntryOverlaps_ReturnsTrue()
+    {
+        var match = MakeMatch("abcdef", 3, 5);
+        Assert.That(match.OverlapsAny([("ab", 0), ("bc", 1)]), Is.True);
+    }
+}
+
+[TestFixture]
+[Category("Unit")]
+public class AnySubstringOverlapsTests
+{
+    [Test]
+    public void EmptyNeedle_OverlapsAtStart()
+    {
+        // Empty needle matches at position 0 (range [0,0)), which doesn't overlap [3,5)
+        Assert.That(WcElementOcrMatch.AnySubstringOverlaps("abcdef", "", 0, 3, 5), Is.False);
+    }
+
+    [Test]
+    public void EmptyHaystack_ReturnsFalse()
+    {
+        Assert.That(WcElementOcrMatch.AnySubstringOverlaps("", "abc", 0, 0, 0), Is.False);
+    }
+
+    [Test]
+    public void MatchAtBoundary_Adjacent_ReturnsFalse()
+    {
+        // "abcdef", needle "cd" matches at [2,4), range is [4,6) — adjacent, no overlap
+        Assert.That(WcElementOcrMatch.AnySubstringOverlaps("abcdef", "cd", 0, 4, 6), Is.False);
+    }
+
+    [Test]
+    public void MatchAtBoundary_OneCharOverlap_ReturnsTrue()
+    {
+        // "abcdef", needle "cd" matches at [2,4), range is [3,6) — overlaps at position 3
+        Assert.That(WcElementOcrMatch.AnySubstringOverlaps("abcdef", "cd", 0, 3, 6), Is.True);
+    }
+}

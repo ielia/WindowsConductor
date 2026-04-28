@@ -345,4 +345,65 @@ public record WcElementOcrMatch(WcElement Element, BoundingRect BoundingRect, st
     internal override (IReadOnlyList<WcElementOcrText> Fragments, int Start, int End) BuildMatchFragments(
         int start, int end, int budget)
         => BuildChildFragments(Text, Fragments, start, end, budget);
+
+    /// <summary>
+    /// Checks whether any fuzzy substring match for <paramref name="text"/> within
+    /// <paramref name="maxDistance"/> edits in <see cref="OriginalOcr"/>.<see cref="WcElementOcrText.Text"/>
+    /// overlaps this match's range [<see cref="FromIndex"/>, <see cref="ToIndex"/>).
+    /// </summary>
+    public bool Overlaps(string text, int maxDistance = 0) =>
+        AnySubstringOverlaps(OriginalOcr.Text, text, maxDistance, FromIndex, ToIndex);
+
+    /// <summary>
+    /// Checks whether any of the given (text, maxDistance) pairs has a fuzzy substring match
+    /// in <see cref="OriginalOcr"/>.<see cref="WcElementOcrText.Text"/> that overlaps this match's range.
+    /// Short-circuits on the first overlap found.
+    /// </summary>
+    public bool OverlapsAny((string Text, int MaxDistance)[] potentialOverlaps)
+    {
+        foreach (var (text, maxDistance) in potentialOverlaps)
+            if (Overlaps(text, maxDistance))
+                return true;
+        return false;
+    }
+
+    internal static bool AnySubstringOverlaps(
+        string haystack, string needle, int maxEdits, int rangeStart, int rangeEnd)
+    {
+        int n = haystack.Length, m = needle.Length;
+        if (m == 0) return rangeStart < rangeEnd && 0 < rangeEnd && 0 >= rangeStart;
+        if (n == 0) return false;
+
+        var dp = new int[m + 1, n + 1];
+        for (int i = 1; i <= m; i++) dp[i, 0] = i;
+
+        for (int j = 1; j <= n; j++)
+        {
+            for (int i = 1; i <= m; i++)
+            {
+                int cost = char.ToLowerInvariant(haystack[j - 1]) == char.ToLowerInvariant(needle[i - 1]) ? 0 : 1;
+                dp[i, j] = Math.Min(Math.Min(dp[i - 1, j] + 1, dp[i, j - 1] + 1), dp[i - 1, j - 1] + cost);
+            }
+
+            if (dp[m, j] > maxEdits) continue;
+
+            // Backtrace to find start of this match.
+            int bi = m, bj = j;
+            while (bi > 0 && bj > 0)
+            {
+                int cost = char.ToLowerInvariant(haystack[bj - 1]) == char.ToLowerInvariant(needle[bi - 1]) ? 0 : 1;
+                if (dp[bi, bj] == dp[bi - 1, bj - 1] + cost) { bi--; bj--; }
+                else if (dp[bi, bj] == dp[bi - 1, bj] + 1) bi--;
+                else bj--;
+            }
+
+            // The backtrace gives the optimal start, but suboptimal alignments can
+            // start further left by spending the remaining edit budget on insertions.
+            int minStart = Math.Max(0, bj - (maxEdits - dp[m, j]));
+            if (minStart < rangeEnd && j > rangeStart)
+                return true;
+        }
+
+        return false;
+    }
 }
