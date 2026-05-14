@@ -2,7 +2,7 @@ $Config  = 'Release'
 $Runtime = 'win-x64'
 $OutDir  = 'publish'
 
-$projects = @('WindowsConductor.DriverFlaUI', 'WindowsConductor.InspectorGUI')
+$projects = @('WindowsConductor.DriverFlaUI', 'WindowsConductor.InspectorGUI', 'WindowsConductor.MCP')
 $nugetPackages = @('WindowsConductor.Client')
 
 Write-Host 'Publishing framework-dependent builds...'

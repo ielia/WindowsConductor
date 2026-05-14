@@ -17,9 +17,9 @@ public sealed class WcElement
     private readonly string? _appId;
     private readonly IWcTransport _conn;
 
-    internal string ElementId { get; }
+    public string ElementId { get; }
 
-    internal WcElement(string elementId, IWcTransport conn, string? appId = null)
+    public WcElement(string elementId, IWcTransport conn, string? appId = null)
     {
         ElementId = elementId;
         _conn = conn;

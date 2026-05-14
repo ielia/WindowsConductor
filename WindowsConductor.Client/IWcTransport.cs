@@ -6,7 +6,7 @@ namespace WindowsConductor.Client;
 /// Abstraction over the command transport to the Driver.
 /// Implemented by <see cref="WcSession"/>; also used for testing.
 /// </summary>
-internal interface IWcTransport
+public interface IWcTransport
 {
-    Task<JsonElement> SendAsync(string command, object? @params, CancellationToken ct = default);
+    Task<JsonElement> SendAsync(string command, object? parameters, CancellationToken ct = default);
 }

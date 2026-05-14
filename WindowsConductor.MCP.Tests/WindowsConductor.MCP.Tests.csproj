@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <RootNamespace>WindowsConductor.MCP.Tests</RootNamespace>
+    <AssemblyName>WindowsConductor.MCP.Tests</AssemblyName>
+    <!-- CA1001: Types that own disposable fields should be disposable (NUnit uses [TearDown]) -->
+    <!-- CA1816: Dispose methods should call SuppressFinalize -->
+    <NoWarn>$(NoWarn);CA1001;CA1816</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.4.0" />
+    <PackageReference Include="NUnit" Version="4.5.1" />
+    <PackageReference Include="NUnit3TestAdapter" Version="6.2.0" />
+    <PackageReference Include="coverlet.collector" Version="8.0.1">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\WindowsConductor.MCP\WindowsConductor.MCP.csproj" />
+    <ProjectReference Include="..\WindowsConductor.Client\WindowsConductor.Client.csproj" />
+  </ItemGroup>
+
+</Project>

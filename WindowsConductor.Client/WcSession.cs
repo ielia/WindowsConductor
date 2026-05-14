@@ -155,7 +155,7 @@ public sealed class WcSession : IWcTransport, IAsyncDisposable
     /// </summary>
     public async Task<JsonElement> SendAsync(
         string command,
-        object? @params,
+        object? parameters,
         CancellationToken ct = default)
     {
         var id = Guid.NewGuid().ToString("N");
@@ -165,7 +165,7 @@ public sealed class WcSession : IWcTransport, IAsyncDisposable
         lock (_pendingLock)
             _pending[id] = tcs;
 
-        var req = new WcRequest { Id = id, Command = command, Params = @params };
+        var req = new WcRequest { Id = id, Command = command, Params = parameters };
         byte[] bytes = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(req, _opts));
 
         await _writeLock.WaitAsync(ct);

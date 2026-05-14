@@ -5,7 +5,7 @@ CONFIG=Release
 RUNTIME=win-x64
 OUTDIR=publish
 
-PROJECTS=(WindowsConductor.DriverFlaUI WindowsConductor.InspectorGUI)
+PROJECTS=(WindowsConductor.DriverFlaUI WindowsConductor.InspectorGUI WindowsConductor.MCP)
 NUGET_PACKAGES=(WindowsConductor.Client)
 
 echo "Publishing framework-dependent builds..."

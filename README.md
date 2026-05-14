@@ -13,8 +13,11 @@ A **Driver** runs on the Windows machine and exposes a WebSocket endpoint. One o
 | [WindowsConductor.Client](WindowsConductor.Client/README.md) | .NET client library. Async API for connecting to the Driver and automating applications. |
 | [WindowsConductor.DriverFlaUI](WindowsConductor.DriverFlaUI/README.md) | Server-side driver. WebSocket endpoint backed by FlaUI.UIA3. |
 | [WindowsConductor.InspectorGUI](WindowsConductor.InspectorGUI/README.md) | WPF inspector for interactively exploring the UI element tree. |
+| [WindowsConductor.MCP](WindowsConductor.MCP/README.md) | MCP server exposing the full API as tools for AI assistants (stdio transport). |
 
 Test projects (`*.Tests`) accompany each of the above.
+
+See also the [XPath reference](WindowsConductor.DriverFlaUI/XPATH.md) for the full selector syntax supported by the Driver and exposed through the Client and MCP.
 
 ## Quick start
 

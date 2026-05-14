@@ -8,10 +8,12 @@ set OUTDIR=publish
 echo Publishing framework-dependent builds...
 dotnet publish WindowsConductor.DriverFlaUI -c %CONFIG% -o %OUTDIR%\DriverFlaUI\framework-dependent
 dotnet publish WindowsConductor.InspectorGUI -c %CONFIG% -o %OUTDIR%\InspectorGUI\framework-dependent
+dotnet publish WindowsConductor.MCP -c %CONFIG% -o %OUTDIR%\MCP\framework-dependent
 
 echo Publishing self-contained builds...
 dotnet publish WindowsConductor.DriverFlaUI -c %CONFIG% --self-contained -r %RUNTIME% -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o %OUTDIR%\DriverFlaUI\self-contained
 dotnet publish WindowsConductor.InspectorGUI -c %CONFIG% --self-contained -r %RUNTIME% -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o %OUTDIR%\InspectorGUI\self-contained
+dotnet publish WindowsConductor.MCP -c %CONFIG% --self-contained -r %RUNTIME% -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o %OUTDIR%\MCP\self-contained
 
 echo Packing NuGet package...
 dotnet pack WindowsConductor.Client -c %CONFIG% -o %OUTDIR%\Client\NuGet

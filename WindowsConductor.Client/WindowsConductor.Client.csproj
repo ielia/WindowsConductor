@@ -20,8 +20,6 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="WindowsConductor.Client.Tests" />
-    <InternalsVisibleTo Include="WindowsConductor.InspectorGUI" />
-    <InternalsVisibleTo Include="WindowsConductor.InspectorGUI.Tests" />
   </ItemGroup>
 
 </Project>

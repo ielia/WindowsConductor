@@ -1,11 +1,8 @@
 using System.Text.Json;
+using WindowsConductor.Client;
 
-namespace WindowsConductor.Client.Tests;
+namespace WindowsConductor.MCP.Tests;
 
-/// <summary>
-/// Test double for <see cref="IWcTransport"/>.
-/// Records every command sent and returns preconfigured responses.
-/// </summary>
 internal sealed class FakeTransport : IWcTransport
 {
     public sealed record Call(string Command, string ParamsJson);
