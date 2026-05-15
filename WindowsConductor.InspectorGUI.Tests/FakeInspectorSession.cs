@@ -275,11 +275,11 @@ internal sealed class FakeInspectorSession : IInspectorSession
         return Task.FromResult(GetDescendantsResult!);
     }
 
-    public byte[] DesktopScreenshotResult { get; set; } = [0x89, 0x50, 0x4E, 0x47];
-    public Task<byte[]> DesktopScreenshotAsync(CancellationToken ct = default)
+    public DesktopScreenshotResult DesktopScreenshotWithOriginResult { get; set; } = new([0x89, 0x50, 0x4E, 0x47], 0, 0);
+    public Task<DesktopScreenshotResult> DesktopScreenshotWithOriginAsync(CancellationToken ct = default)
     {
-        Record("DesktopScreenshot");
-        return Task.FromResult(DesktopScreenshotResult);
+        Record("DesktopScreenshotWithOrigin");
+        return Task.FromResult(DesktopScreenshotWithOriginResult);
     }
 
     public Task DisconnectAsync()

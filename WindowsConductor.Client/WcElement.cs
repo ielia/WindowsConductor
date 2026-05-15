@@ -275,3 +275,9 @@ public sealed record BoundingRect(double X, double Y, double Width, double Heigh
         return new BoundingRect(newX, newY, newWidth, newHeight);
     }
 }
+
+/// <summary>Desktop screenshot with the virtual screen origin.</summary>
+/// <param name="Png">PNG image bytes.</param>
+/// <param name="OriginX">Virtual screen left edge (X origin).</param>
+/// <param name="OriginY">Virtual screen top edge (Y origin).</param>
+public sealed record DesktopScreenshotResult(byte[] Png, double OriginX, double OriginY);

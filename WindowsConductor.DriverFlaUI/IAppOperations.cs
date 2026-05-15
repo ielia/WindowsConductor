@@ -45,7 +45,7 @@ internal interface IAppOperations
     byte[] ScreenshotApp(string appId);
     string[] GetChildren(string elementId);
     object GetDescendants(string elementId);
-    byte[] DesktopScreenshot();
+    object DesktopScreenshot();
     void StartRecording(string appId);
     byte[] StopRecording(string appId);
 }

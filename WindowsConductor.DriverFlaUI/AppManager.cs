@@ -735,12 +735,13 @@ public sealed class AppManager : IAppOperations, IDisposable
 
     // ── Desktop screenshot ──────────────────────────────────────────────────
 
-    public byte[] DesktopScreenshot()
+    public object DesktopScreenshot()
     {
+        var vs = System.Windows.Forms.SystemInformation.VirtualScreen;
         using var capture = FlaUI.Core.Capturing.Capture.Screen();
         using var ms = new MemoryStream();
         capture.Bitmap.Save(ms, System.Drawing.Imaging.ImageFormat.Png);
-        return ms.ToArray();
+        return new { png = ms.ToArray(), originX = vs.X, originY = vs.Y };
     }
 
     // ── Video recording ──────────────────────────────────────────────────────

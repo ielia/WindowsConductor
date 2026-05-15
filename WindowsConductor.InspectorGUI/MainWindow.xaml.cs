@@ -796,23 +796,30 @@ public partial class MainWindow : Window, ICommandOutput
             var rootNode = await BuildSnapshotTreeAsync(session, elementsById, ct);
             ct.ThrowIfCancellationRequested();
 
-            var screenshotBytes = await session.DesktopScreenshotAsync(ct);
+            var desktopResult = await session.DesktopScreenshotWithOriginAsync(ct);
             ct.ThrowIfCancellationRequested();
 
             var unionRect = ComputeUnionRect(rootNode);
             byte[] croppedBytes;
             if (unionRect is not null)
-                croppedBytes = CropScreenshot(screenshotBytes, unionRect);
+                croppedBytes = CropScreenshot(desktopResult.Png, unionRect, desktopResult.OriginX, desktopResult.OriginY);
             else
-                croppedBytes = screenshotBytes;
+                croppedBytes = desktopResult.Png;
+
+            var actualRect = unionRect ?? new BoundingRect(0, 0, 0, 0);
+            if (unionRect is not null)
+            {
+                using var tmp = SkiaSharp.SKBitmap.Decode(croppedBytes);
+                actualRect = new BoundingRect(unionRect.X, unionRect.Y, tmp.Width, tmp.Height);
+            }
 
             _snapshotCapture = new SnapshotCapture(
                 croppedBytes,
-                unionRect ?? new BoundingRect(0, 0, 0, 0),
+                actualRect,
                 rootNode,
                 elementsById);
 
-            ShowSnapshotScreenshot(croppedBytes, unionRect);
+            ShowSnapshotScreenshot(croppedBytes, actualRect);
             SnapshotTree.IsEnabled = true;
             if (SnapshotTree.Items[0] is TreeViewItem rootItem)
                 rootItem.IsSelected = true;
@@ -971,11 +978,12 @@ public partial class MainWindow : Window, ICommandOutput
             AccumulateRects(child, ref minX, ref minY, ref maxX, ref maxY, ref found);
     }
 
-    private static byte[] CropScreenshot(byte[] screenshotBytes, BoundingRect unionRect)
+    private static byte[] CropScreenshot(byte[] screenshotBytes, BoundingRect unionRect,
+        double screenOriginX = 0, double screenOriginY = 0)
     {
         using var bitmap = SkiaSharp.SKBitmap.Decode(screenshotBytes);
-        var cropX = Math.Max(0, (int)unionRect.X);
-        var cropY = Math.Max(0, (int)unionRect.Y);
+        var cropX = Math.Max(0, (int)(unionRect.X - screenOriginX));
+        var cropY = Math.Max(0, (int)(unionRect.Y - screenOriginY));
         var cropW = Math.Min((int)unionRect.Width, bitmap.Width - cropX);
         var cropH = Math.Min((int)unionRect.Height, bitmap.Height - cropY);
         if (cropW <= 0 || cropH <= 0) return screenshotBytes;

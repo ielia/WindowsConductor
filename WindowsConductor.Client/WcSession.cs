@@ -134,10 +134,19 @@ public sealed class WcSession : IWcTransport, IAsyncDisposable
 
     // ── Desktop screenshots ─────────────────────────────────────────────────
 
-    public async Task<byte[]> DesktopScreenshotBytesAsync(CancellationToken ct = default)
+    public async Task<DesktopScreenshotResult> DesktopScreenshotWithOriginAsync(CancellationToken ct = default)
     {
         var r = await SendAsync("desktopScreenshot", null, ct);
-        return r.GetBytesFromBase64();
+        var png = r.GetProperty("png").GetBytesFromBase64();
+        var originX = r.GetProperty("originX").GetDouble();
+        var originY = r.GetProperty("originY").GetDouble();
+        return new DesktopScreenshotResult(png, originX, originY);
+    }
+
+    public async Task<byte[]> DesktopScreenshotBytesAsync(CancellationToken ct = default)
+    {
+        var result = await DesktopScreenshotWithOriginAsync(ct);
+        return result.Png;
     }
 
     public async Task<SKBitmap> DesktopScreenshotAsync(CancellationToken ct = default)

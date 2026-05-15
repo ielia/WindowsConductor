@@ -134,8 +134,8 @@ internal sealed class FakeAppOperations : IAppOperations
     public object GetDescendants(string elementId)
     { Record("GetDescendants", elementId); return GetDescendantsResult; }
 
-    public byte[] DesktopScreenshotResult { get; set; } = [0x89, 0x50, 0x4E, 0x47];
-    public byte[] DesktopScreenshot()
+    public object DesktopScreenshotResult { get; set; } = new { png = new byte[] { 0x89, 0x50, 0x4E, 0x47 }, originX = 0, originY = 0 };
+    public object DesktopScreenshot()
     { Record("DesktopScreenshot"); return DesktopScreenshotResult; }
 }
 

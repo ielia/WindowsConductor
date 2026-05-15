@@ -240,8 +240,8 @@ internal sealed class WcInspectorSession : IInspectorSession, IAsyncDisposable
     public async Task<IReadOnlyTreeNode<WcElement>> GetDescendantsAsync(CancellationToken ct = default) =>
         await _selectedElement!.DescendantsAsync(ct);
 
-    public async Task<byte[]> DesktopScreenshotAsync(CancellationToken ct = default) =>
-        await _session!.DesktopScreenshotBytesAsync(ct);
+    public async Task<DesktopScreenshotResult> DesktopScreenshotWithOriginAsync(CancellationToken ct = default) =>
+        await _session!.DesktopScreenshotWithOriginAsync(ct);
 
     public async Task DisconnectAsync()
     {
