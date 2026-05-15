@@ -309,6 +309,16 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
                 await ShowAttributesAsync(ct);
                 break;
 
+            case ScrollCommand scrollCmd:
+                RequireElement();
+                await session.ScrollAsync(scrollCmd.Lines, scrollCmd.Horizontal, ct);
+                output.WriteInfo(scrollCmd.Horizontal
+                    ? $"Scrolled horizontally {scrollCmd.Lines} lines."
+                    : $"Scrolled {scrollCmd.Lines} lines.");
+                await ShowWindowScreenshotWithHighlightAsync(ct);
+                await ShowAttributesAsync(ct);
+                break;
+
             case HitKeysCommand cmd:
                 RequireElement();
                 await session.HitKeysAsync(cmd.Keys, ct);
@@ -325,6 +335,20 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
                     : $"Typed: {cmd.Text}");
                 await ShowWindowScreenshotWithHighlightAsync(ct);
                 await ShowAttributesAsync(ct);
+                break;
+
+            case GlobalHitKeysCommand gHitCmd:
+                RequireConnected();
+                await session.GlobalHitKeysAsync(gHitCmd.Keys, ct);
+                output.WriteInfo($"Global hit keys: {string.Join('+', gHitCmd.Keys)}.");
+                break;
+
+            case GlobalTypeCommand gTypeCmd:
+                RequireConnected();
+                await session.GlobalTypeAsync(gTypeCmd.Text, gTypeCmd.Modifiers, ct);
+                output.WriteInfo(gTypeCmd.Modifiers != KeyModifiers.None
+                    ? $"Global typed: {gTypeCmd.Text} (modifiers: {gTypeCmd.Modifiers})"
+                    : $"Global typed: {gTypeCmd.Text}");
                 break;
 
             case ParentCommand:

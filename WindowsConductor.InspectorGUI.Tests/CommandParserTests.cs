@@ -297,6 +297,37 @@ public class CommandParserTests
         Assert.That(CommandParser.Parse("hover"), Is.InstanceOf<HoverCommand>());
     }
 
+    // ── scroll ──────────────────────────────────────────────────────────────
+
+    [Test]
+    public void Parse_Scroll_ReturnsScrollCommand()
+    {
+        var cmd = (ScrollCommand)CommandParser.Parse("scroll 3");
+        Assert.That(cmd.Lines, Is.EqualTo(3));
+        Assert.That(cmd.Horizontal, Is.False);
+    }
+
+    [Test]
+    public void Parse_Scroll_Negative_ReturnsScrollCommand()
+    {
+        var cmd = (ScrollCommand)CommandParser.Parse("scroll -5");
+        Assert.That(cmd.Lines, Is.EqualTo(-5));
+    }
+
+    [Test]
+    public void Parse_Scroll_Horizontal_ReturnsScrollCommand()
+    {
+        var cmd = (ScrollCommand)CommandParser.Parse("scroll 2 horizontal");
+        Assert.That(cmd.Lines, Is.EqualTo(2));
+        Assert.That(cmd.Horizontal, Is.True);
+    }
+
+    [Test]
+    public void Parse_Scroll_MissingLines_Throws()
+    {
+        Assert.Throws<ArgumentException>(() => CommandParser.Parse("scroll"));
+    }
+
     // ── hitkeys ─────────────────────────────────────────────────────────────
 
     [Test]
@@ -394,6 +425,65 @@ public class CommandParserTests
     public void Parse_Type_EmptyModifiers_Throws()
     {
         Assert.Throws<ArgumentException>(() => CommandParser.Parse("type \"a\" []"));
+    }
+
+    // ── ghitkeys ────────────────────────────────────────────────────────────
+
+    [Test]
+    public void Parse_GHitKeys_SingleKey_ReturnsGlobalHitKeysCommand()
+    {
+        var cmd = (GlobalHitKeysCommand)CommandParser.Parse("ghitkeys escape");
+        Assert.That(cmd.Keys, Is.EqualTo(new[] { Key.ESCAPE }));
+    }
+
+    [Test]
+    public void Parse_GHitKeys_MultipleKeys_ReturnsAllKeys()
+    {
+        var cmd = (GlobalHitKeysCommand)CommandParser.Parse("ghitkeys control key_a");
+        Assert.That(cmd.Keys, Is.EqualTo(new[] { Key.CONTROL, Key.KEY_A }));
+    }
+
+    [Test]
+    public void Parse_GHitKeys_NoKeys_Throws()
+    {
+        Assert.Throws<ArgumentException>(() => CommandParser.Parse("ghitkeys"));
+    }
+
+    [Test]
+    public void Parse_GHitKeys_InvalidKey_Throws()
+    {
+        var ex = Assert.Throws<ArgumentException>(() => CommandParser.Parse("ghitkeys boguskey"));
+        Assert.That(ex!.Message, Does.Contain("Usage: ghitkeys"));
+    }
+
+    // ── gtype ──────────────────────────────────────────────────────────────
+
+    [Test]
+    public void Parse_GType_ReturnsGlobalTypeCommand()
+    {
+        var cmd = (GlobalTypeCommand)CommandParser.Parse("gtype Hello World");
+        Assert.That(cmd.Text, Is.EqualTo("Hello World"));
+    }
+
+    [Test]
+    public void Parse_GType_MissingText_Throws()
+    {
+        Assert.Throws<ArgumentException>(() => CommandParser.Parse("gtype"));
+    }
+
+    [Test]
+    public void Parse_GType_NoModifiers_DefaultsToNone()
+    {
+        var cmd = (GlobalTypeCommand)CommandParser.Parse("gtype hello");
+        Assert.That(cmd.Modifiers, Is.EqualTo(KeyModifiers.None));
+    }
+
+    [Test]
+    public void Parse_GType_WithModifiers_ParsesBitmask()
+    {
+        var cmd = (GlobalTypeCommand)CommandParser.Parse("gtype \"a\" [ctrl alt]");
+        Assert.That(cmd.Text, Is.EqualTo("a"));
+        Assert.That(cmd.Modifiers, Is.EqualTo(KeyModifiers.Ctrl | KeyModifiers.Alt));
     }
 
     // ── focus ───────────────────────────────────────────────────────────────

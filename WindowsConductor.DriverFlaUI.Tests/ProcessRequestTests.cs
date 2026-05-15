@@ -51,11 +51,14 @@ internal sealed class FakeAppOperations : IAppOperations
     { Record("ResolveValue", appId, selector, rootElementId); return ResolveValueResult; }
 
     public void Click(string elementId, string? anchor = null, int x = 0, int y = 0) => Record("Click", elementId, anchor, x, y);
+    public void Scroll(string elementId, double lines, bool horizontal = false) => Record("Scroll", elementId, lines, horizontal);
     public void DoubleClick(string elementId, string? anchor = null, int x = 0, int y = 0) => Record("DoubleClick", elementId, anchor, x, y);
     public void RightClick(string elementId, string? anchor = null, int x = 0, int y = 0) => Record("RightClick", elementId, anchor, x, y);
     public void Hover(string elementId, string? anchor = null, int x = 0, int y = 0) => Record("Hover", elementId, anchor, x, y);
     public void HitKeys(string elementId, string[] keys) => Record("HitKeys", elementId, keys);
     public void TypeText(string elementId, string text, int modifiers = 0) => Record("TypeText", elementId, text, modifiers);
+    public void GlobalHitKeys(string[] keys) => Record("GlobalHitKeys", keys);
+    public void GlobalTypeText(string text, int modifiers = 0) => Record("GlobalTypeText", text, modifiers);
     public string GetText(string elementId) { Record("GetText", elementId); return GetTextResult; }
 
     public string GetAttribute(string elementId, string attribute)
@@ -386,6 +389,24 @@ public class ProcessRequestTests
         Assert.That(_fake.Calls[0].Method, Is.EqualTo("Click"));
     }
 
+    // ── scroll ───────────────────────────────────────────────────────────────
+
+    [Test]
+    public void Scroll_CallsScroll()
+    {
+        var resp = WsServer.ProcessRequest(_fake, MakeRequest("scroll", new() { ["elementId"] = "e1", ["lines"] = 3.0 }));
+        Assert.That(resp.Success, Is.True);
+        Assert.That(_fake.Calls[0].Method, Is.EqualTo("Scroll"));
+    }
+
+    [Test]
+    public void Scroll_Horizontal_CallsScroll()
+    {
+        var resp = WsServer.ProcessRequest(_fake, MakeRequest("scroll", new() { ["elementId"] = "e1", ["lines"] = -2.0, ["horizontal"] = true }));
+        Assert.That(resp.Success, Is.True);
+        Assert.That(_fake.Calls[0].Method, Is.EqualTo("Scroll"));
+    }
+
     // ── doubleClick ──────────────────────────────────────────────────────────
 
     [Test]
@@ -477,6 +498,32 @@ public class ProcessRequestTests
             ["modifiers"] = 3
         }));
         Assert.That(_fake.Calls[0].Args[2], Is.EqualTo(3));
+    }
+
+    // ── globalHitKeys ────────────────────────────────────────────────────────
+
+    [Test]
+    public void GlobalHitKeys_CallsGlobalHitKeys()
+    {
+        var resp = WsServer.ProcessRequest(_fake, MakeRequest("globalHitKeys", new()
+        {
+            ["keys"] = new[] { "CONTROL", "KEY_A" }
+        }));
+        Assert.That(resp.Success, Is.True);
+        Assert.That(_fake.Calls[0].Method, Is.EqualTo("GlobalHitKeys"));
+    }
+
+    // ── globalTypeText ──────────────────────────────────────────────────────
+
+    [Test]
+    public void GlobalTypeText_CallsGlobalTypeText()
+    {
+        var resp = WsServer.ProcessRequest(_fake, MakeRequest("globalTypeText", new()
+        {
+            ["text"] = "hello"
+        }));
+        Assert.That(resp.Success, Is.True);
+        Assert.That(_fake.Calls[0].Method, Is.EqualTo("GlobalTypeText"));
     }
 
     // ── getText ──────────────────────────────────────────────────────────────

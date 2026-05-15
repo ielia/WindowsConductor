@@ -35,7 +35,7 @@ internal static class ElementProperties
     internal static bool IsSupported(string key)
     {
         var normalized = Normalize(key);
-        return normalized == "text" || PropertyMap.ContainsKey(normalized);
+        return normalized == "text" || ScrollKeys.Contains(normalized) || PropertyMap.ContainsKey(normalized);
     }
 
     internal static string Normalize(string key)
@@ -64,11 +64,19 @@ internal static class ElementProperties
         if (text is not null)
             result["text"] = text;
 
+        ResolveScrollProperties(el, result);
+
         return result;
     }
 
     internal static string? Resolve(AutomationElement el, string key) =>
         ResolveRaw(el, key)?.ToString();
+
+    private static readonly HashSet<string> ScrollKeys = new(StringComparer.InvariantCultureIgnoreCase)
+    {
+        "vscrollpercent", "hscrollpercent", "vviewpercent", "hviewpercent",
+        "scrolltop", "scrollleft", "vscrolltotal", "hscrolltotal"
+    };
 
     internal static object? ResolveRaw(AutomationElement el, string key)
     {
@@ -76,6 +84,13 @@ internal static class ElementProperties
 
         if (normalized == "text")
             return ResolveText(el);
+
+        if (ScrollKeys.Contains(normalized))
+        {
+            var dict = new Dictionary<string, object?>(StringComparer.InvariantCultureIgnoreCase);
+            ResolveScrollProperties(el, dict);
+            return dict.GetValueOrDefault(normalized);
+        }
 
         if (!PropertyMap.TryGetValue(normalized, out var propInfo))
             return null;
@@ -101,6 +116,42 @@ internal static class ElementProperties
         Rectangle r => new { x = r.X, y = r.Y, width = r.Width, height = r.Height },
         _ => value.ToString() ?? ""
     };
+
+    private static void ResolveScrollProperties(AutomationElement el, Dictionary<string, object?> result)
+    {
+        try
+        {
+            var scroll = el.Patterns.Scroll.PatternOrDefault;
+            if (scroll is null) return;
+
+            var vPercent = scroll.VerticalScrollPercent.ValueOrDefault;
+            var hPercent = scroll.HorizontalScrollPercent.ValueOrDefault;
+            var vView = scroll.VerticalViewSize.ValueOrDefault;
+            var hView = scroll.HorizontalViewSize.ValueOrDefault;
+
+            if (vPercent >= 0) result["vscrollpercent"] = vPercent;
+            if (hPercent >= 0) result["hscrollpercent"] = hPercent;
+            if (vView > 0) result["vviewpercent"] = vView;
+            if (hView > 0) result["hviewpercent"] = hView;
+
+            var rect = el.BoundingRectangle;
+            if (vView > 0 && vView < 100)
+            {
+                var totalHeight = rect.Height / (vView / 100.0);
+                result["vscrolltotal"] = Math.Round(totalHeight, 1);
+                if (vPercent >= 0)
+                    result["scrolltop"] = Math.Round(totalHeight * (vPercent / 100.0), 1);
+            }
+            if (hView > 0 && hView < 100)
+            {
+                var totalWidth = rect.Width / (hView / 100.0);
+                result["hscrolltotal"] = Math.Round(totalWidth, 1);
+                if (hPercent >= 0)
+                    result["scrollleft"] = Math.Round(totalWidth * (hPercent / 100.0), 1);
+            }
+        }
+        catch { /* skip if scroll pattern not available */ }
+    }
 
     private static string? ResolveText(AutomationElement el)
     {

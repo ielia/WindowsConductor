@@ -206,9 +206,27 @@ internal sealed class FakeInspectorSession : IInspectorSession
         return Task.CompletedTask;
     }
 
+    public Task ScrollAsync(double lines, bool horizontal = false, CancellationToken ct = default)
+    {
+        Record("Scroll", lines, horizontal);
+        return Task.CompletedTask;
+    }
+
     public Task HitKeysAsync(Key[] keys, CancellationToken ct = default)
     {
         Record("HitKeys", keys);
+        return Task.CompletedTask;
+    }
+
+    public Task GlobalHitKeysAsync(Key[] keys, CancellationToken ct = default)
+    {
+        Record("GlobalHitKeys", keys);
+        return Task.CompletedTask;
+    }
+
+    public Task GlobalTypeAsync(string text, KeyModifiers modifiers = KeyModifiers.None, CancellationToken ct = default)
+    {
+        Record("GlobalType", text, modifiers);
         return Task.CompletedTask;
     }
 

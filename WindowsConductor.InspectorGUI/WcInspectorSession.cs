@@ -202,11 +202,20 @@ internal sealed class WcInspectorSession : IInspectorSession, IAsyncDisposable
     public async Task HoverAsync(Anchor anchor, System.Drawing.Point offset, CancellationToken ct = default) =>
         await _selectedElement!.HoverAsync(anchor, offset, ct);
 
+    public async Task ScrollAsync(double lines, bool horizontal = false, CancellationToken ct = default) =>
+        await _selectedElement!.ScrollAsync(lines, horizontal, ct);
+
     public async Task HitKeysAsync(Key[] keys, CancellationToken ct = default) =>
         await _selectedElement!.HitKeysAsync(keys, ct);
 
     public async Task TypeAsync(string text, KeyModifiers modifiers = KeyModifiers.None, CancellationToken ct = default) =>
         await _selectedElement!.TypeAsync(text, modifiers, ct);
+
+    public async Task GlobalHitKeysAsync(Key[] keys, CancellationToken ct = default) =>
+        await _session!.GlobalHitKeysAsync(keys, ct);
+
+    public async Task GlobalTypeAsync(string text, KeyModifiers modifiers = KeyModifiers.None, CancellationToken ct = default) =>
+        await _session!.GlobalTypeAsync(text, modifiers, ct);
 
     public async Task FocusAsync(CancellationToken ct = default) =>
         await _selectedElement!.FocusAsync(ct);

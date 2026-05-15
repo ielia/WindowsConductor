@@ -131,11 +131,12 @@ public class CommandCompleterTests
     }
 
     [Test]
-    public void Complete_Screenshot_UniqueMatch()
+    public void Complete_Sc_ExtendsToScr()
     {
         var result = CommandCompleter.Complete("sc");
-        Assert.That(result.Text, Is.EqualTo("screenshot "));
+        Assert.That(result.Text, Is.EqualTo("scr"));
         Assert.That(result.Applied, Is.True);
+        Assert.That(result.Matches, Is.EqualTo(new[] { "screenshot", "scroll" }));
     }
 
     // ── TabResult record ────────────────────────────────────────────────────
@@ -161,6 +162,6 @@ public class CommandCompleterTests
     [Test]
     public void Commands_ContainsAll32Commands()
     {
-        Assert.That(CommandCompleter.Commands, Has.Length.EqualTo(34));
+        Assert.That(CommandCompleter.Commands, Has.Length.EqualTo(37));
     }
 }

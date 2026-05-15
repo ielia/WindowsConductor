@@ -88,6 +88,35 @@ public sealed class AppTools(ConductorState state)
     }
 
     [McpServerTool, Description(
+        "Send keyboard keys globally without targeting a specific element. " +
+        "Key names match the Key enum: ENTER, TAB, ESCAPE, BACK, DELETE, " +
+        "KEY_A through KEY_Z, F1-F12, CONTROL, SHIFT, ALT, etc.")]
+    public async Task<string> GlobalHitKeys(
+        [Description("Array of key names to press simultaneously (e.g. [\"CONTROL\", \"KEY_A\"])")] string[] keys)
+    {
+        var session = state.RequireSession();
+        var parsed = keys.Select(k => Enum.Parse<Key>(k, ignoreCase: true)).ToArray();
+        await session.GlobalHitKeysAsync(parsed);
+        return $"Pressed keys: {string.Join("+", keys)}.";
+    }
+
+    [McpServerTool, Description(
+        "Type text globally without targeting a specific element. " +
+        "Optionally hold modifier keys (Ctrl, Alt, Shift, Meta) while typing.")]
+    public async Task<string> GlobalTypeText(
+        [Description("Text to type")] string text,
+        [Description("Modifier keys to hold (e.g. [\"Ctrl\", \"Shift\"])")] string[]? modifiers = null)
+    {
+        var session = state.RequireSession();
+        var parsed = KeyModifiers.None;
+        if (modifiers is not null)
+            foreach (var m in modifiers)
+                parsed |= Enum.Parse<KeyModifiers>(m, ignoreCase: true);
+        await session.GlobalTypeAsync(text, parsed);
+        return $"Typed '{text}'.";
+    }
+
+    [McpServerTool, Description(
         "Find UI elements using a selector (CSS-like attributes, XPath, text, or control type). " +
         "Returns a JSON array of element IDs. " +
         "Selector examples: " +

@@ -132,6 +132,14 @@ public sealed class WcSession : IWcTransport, IAsyncDisposable
         return new WcApp(appId, this, ownsApp: false);
     }
 
+    // ── Global keyboard input ─────────────────────────────────────────────────
+
+    public Task GlobalHitKeysAsync(Key[] keys, CancellationToken ct = default) =>
+        SendAsync("globalHitKeys", new { keys = keys.Select(k => k.ToString()) }, ct);
+
+    public Task GlobalTypeAsync(string text, KeyModifiers modifiers = KeyModifiers.None, CancellationToken ct = default) =>
+        SendAsync("globalTypeText", new { text, modifiers = (int)modifiers }, ct);
+
     // ── Desktop screenshots ─────────────────────────────────────────────────
 
     public async Task<DesktopScreenshotResult> DesktopScreenshotWithOriginAsync(CancellationToken ct = default)

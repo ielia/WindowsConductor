@@ -510,6 +510,22 @@ public class AppToolsTests
         Assert.That(path, Is.EqualTo(expected));
     }
 
+    // ── Global keyboard ─────────────────────────────────────────────────────
+
+    [Test]
+    public void GlobalHitKeys_WhenNotConnected_Throws()
+    {
+        Assert.ThrowsAsync<InvalidOperationException>(
+            () => _tools.GlobalHitKeys(new[] { "ENTER" }));
+    }
+
+    [Test]
+    public void GlobalTypeText_WhenNotConnected_Throws()
+    {
+        Assert.ThrowsAsync<InvalidOperationException>(
+            () => _tools.GlobalTypeText("hello"));
+    }
+
     // ── Wait operations ─────────────────────────────────────────────────────
 
     [Test]

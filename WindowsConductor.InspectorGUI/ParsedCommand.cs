@@ -135,6 +135,14 @@ internal sealed record HoverCommand(string? OcrText = null, int MaxDistance = 0,
     internal override string[] Examples => ["hover", "hover \"Submit\"", "hover \"Submit\" 2", "hover \"Submit\" #1", "hover \"Submit\" 2 #1"];
 }
 
+internal sealed record ScrollCommand(double Lines, bool Horizontal = false) : ParsedCommand
+{
+    internal override string Name => "scroll";
+    internal override string Usage => "scroll <lines> [horizontal]";
+    internal override string Description => "Scrolls the mouse wheel over the currently selected element.\nPositive lines scroll down (or right), negative scroll up (or left).\nAdd 'horizontal' for horizontal scrolling.";
+    internal override string[] Examples => ["scroll 3", "scroll -5", "scroll 2 horizontal"];
+}
+
 internal sealed record LaunchCommand(
     string Path,
     string[] Args,
@@ -258,6 +266,25 @@ internal sealed record TypeCommand(string Text, KeyModifiers Modifiers = KeyModi
     internal override string Usage => "type <text> [[{ctrl,alt,shift,meta}+]]";
     internal override string Description => "Types text into the currently selected element.\nOptional modifiers: ctrl, alt, shift, meta (in any order).";
     internal override string[] Examples => ["type \"Hello World\"", "type \"a\" [ctrl]", "type \"v\" [ctrl shift]"];
+}
+
+internal sealed record GlobalHitKeysCommand(Key[] Keys) : ParsedCommand
+{
+    private static readonly string KeyNames = string.Join(", ",
+        Enum.GetNames<Key>().Select(s => s.ToString().ToLowerInvariant()));
+
+    internal override string Name => "ghitkeys";
+    internal override string Usage => $"ghitkeys {{{KeyNames}}}+";
+    internal override string Description => "Sends keyboard keys globally without targeting an element.";
+    internal override string[] Examples => ["ghitkeys escape", "ghitkeys lcontrol key_a"];
+}
+
+internal sealed record GlobalTypeCommand(string Text, KeyModifiers Modifiers = KeyModifiers.None) : ParsedCommand
+{
+    internal override string Name => "gtype";
+    internal override string Usage => "gtype <text> [[{ctrl,alt,shift,meta}+]]";
+    internal override string Description => "Types text globally without targeting an element.\nOptional modifiers: ctrl, alt, shift, meta (in any order).";
+    internal override string[] Examples => ["gtype \"Hello World\"", "gtype \"a\" [ctrl]", "gtype \"v\" [ctrl shift]"];
 }
 
 internal sealed record WindowStateCommand(WcWindowState? State = null) : ParsedCommand

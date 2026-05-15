@@ -60,6 +60,9 @@ public sealed class WcElement
     public Task HoverAsync(Anchor anchor, Point offset, CancellationToken ct = default) =>
         _conn.SendAsync("hover", new { elementId = ElementId, anchor = anchor.ToString(), x = offset.X, y = offset.Y }, ct);
 
+    public Task ScrollAsync(double lines, bool horizontal = false, CancellationToken ct = default) =>
+        _conn.SendAsync("scroll", new { elementId = ElementId, lines, horizontal }, ct);
+
     public Task HitKeysAsync(Key[] keys, CancellationToken ct = default) =>
         _conn.SendAsync("hitKeys", new { elementId = ElementId, keys = keys.Select(k => k.ToString()) }, ct);
 

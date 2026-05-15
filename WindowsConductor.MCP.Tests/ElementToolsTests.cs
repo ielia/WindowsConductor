@@ -183,6 +183,28 @@ public class ElementToolsTests
     }
 
     [Test]
+    public async Task ScrollElement_SendsScrollCommand()
+    {
+        ConnectFakeTransport();
+        var result = await _tools.ScrollElement("el-1", 3);
+
+        Assert.That(result, Does.Contain("3"));
+        Assert.That(_transport.Calls[0].Command, Is.EqualTo("scroll"));
+        Assert.That(_transport.Calls[0].ParamsJson, Does.Contain("\"lines\":3"));
+    }
+
+    [Test]
+    public async Task ScrollElement_Horizontal_SendsScrollCommand()
+    {
+        ConnectFakeTransport();
+        var result = await _tools.ScrollElement("el-1", -2, horizontal: true);
+
+        Assert.That(result, Does.Contain("horizontally"));
+        Assert.That(_transport.Calls[0].Command, Is.EqualTo("scroll"));
+        Assert.That(_transport.Calls[0].ParamsJson, Does.Contain("\"horizontal\":true"));
+    }
+
+    [Test]
     public async Task TypeText_SendsTypeTextCommand()
     {
         ConnectFakeTransport();

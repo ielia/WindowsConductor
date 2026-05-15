@@ -46,6 +46,21 @@ public sealed class ElementTools(ConductorState state)
     }
 
     [McpServerTool, Description(
+        "Scroll the mouse wheel over a UI element. " +
+        "Positive lines scroll down (or right for horizontal), negative scroll up (or left).")]
+    public async Task<string> ScrollElement(
+        [Description("Element ID returned by FindElement/FindElements")] string elementId,
+        [Description("Number of lines to scroll (positive = down/right, negative = up/left)")] double lines,
+        [Description("If true, scroll horizontally instead of vertically")] bool horizontal = false)
+    {
+        var element = ResolveElement(elementId);
+        await element.ScrollAsync(lines, horizontal);
+        return horizontal
+            ? $"Scrolled horizontally {lines} lines."
+            : $"Scrolled {lines} lines.";
+    }
+
+    [McpServerTool, Description(
         "Click a UI element at a specific position relative to an anchor point. " +
         "Anchors: Center, North, NorthEast, East, SouthEast, South, SouthWest, West, NorthWest.")]
     public async Task<string> ClickElementAt(

@@ -52,6 +52,23 @@ public class WcElementAsyncTests
     }
 
     [Test]
+    public async Task ScrollAsync_SendsCorrectCommand()
+    {
+        await _element.ScrollAsync(3);
+        Assert.That(_transport.Calls[0].Command, Is.EqualTo("scroll"));
+        Assert.That(_transport.Calls[0].ParamsJson, Does.Contain("\"elementId\":\"el-123\""));
+        Assert.That(_transport.Calls[0].ParamsJson, Does.Contain("\"lines\":3"));
+    }
+
+    [Test]
+    public async Task ScrollAsync_Horizontal_SendsCorrectCommand()
+    {
+        await _element.ScrollAsync(-2, horizontal: true);
+        Assert.That(_transport.Calls[0].Command, Is.EqualTo("scroll"));
+        Assert.That(_transport.Calls[0].ParamsJson, Does.Contain("\"horizontal\":true"));
+    }
+
+    [Test]
     public async Task TypeAsync_SendsTextAndElementId()
     {
         await _element.TypeAsync("hello world");

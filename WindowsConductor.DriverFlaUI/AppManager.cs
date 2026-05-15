@@ -328,6 +328,19 @@ public sealed class AppManager : IAppOperations, IDisposable
         // ClickSafe(el, () => Mouse.MoveTo(point));
     }
 
+    public void Scroll(string elementId, double lines, bool horizontal = false)
+    {
+        var el = GetElement(elementId);
+        ClickSafe(el, () =>
+        {
+            Mouse.Position = el.GetClickablePoint();
+            if (horizontal)
+                Mouse.HorizontalScroll(lines);
+            else
+                Mouse.Scroll(-lines);
+        });
+    }
+
     private static void ClickSafe(AutomationElement el, Action click)
     {
         try { click(); }
@@ -365,26 +378,23 @@ public sealed class AppManager : IAppOperations, IDisposable
         return pt;
     }
 
-    /// <summary>
-    /// Focuses the element and sends keys <paramref name="keys"/> all together using keyboard simulation.
-    /// </summary>
     public void HitKeys(string elementId, string[] keys)
     {
-        var el = GetElement(elementId);
-        el.Focus();
-        Keyboard.TypeSimultaneously(KeyTranslator.GetAll(keys));
+        GetElement(elementId).Focus();
+        GlobalHitKeys(keys);
     }
 
-    /// <summary>
-    /// Focuses the element and types <paramref name="text"/> using keyboard simulation.
-    /// For editable controls this appends to existing content; call SelectAll first
-    /// or clear the field if you need to replace text.
-    /// </summary>
     public void TypeText(string elementId, string text, int modifiers = 0)
     {
-        var el = GetElement(elementId);
-        el.Focus();
+        GetElement(elementId).Focus();
+        GlobalTypeText(text, modifiers);
+    }
 
+    public void GlobalHitKeys(string[] keys) =>
+        Keyboard.TypeSimultaneously(KeyTranslator.GetAll(keys));
+
+    public void GlobalTypeText(string text, int modifiers = 0)
+    {
         var keys = (KeyModifiers)modifiers;
         var held = new List<VirtualKeyShort>();
         if (keys.HasFlag(KeyModifiers.Ctrl)) held.Add(VirtualKeyShort.CONTROL);

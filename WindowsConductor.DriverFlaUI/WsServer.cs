@@ -329,12 +329,24 @@ public sealed class WsServer
                         return WcResponse.Ok(req.Id);
                     }
 
+                case "scroll":
+                    mgr.Scroll(req.GetString("elementId"), req.GetDouble("lines"), req.GetBool("horizontal"));
+                    return WcResponse.Ok(req.Id);
+
                 case "hitKeys":
                     mgr.HitKeys(req.GetString("elementId"), req.GetStringArray("keys"));
                     return WcResponse.Ok(req.Id);
 
                 case "typeText":
                     mgr.TypeText(req.GetString("elementId"), req.GetString("text"), req.GetInt("modifiers"));
+                    return WcResponse.Ok(req.Id);
+
+                case "globalHitKeys":
+                    mgr.GlobalHitKeys(req.GetStringArray("keys"));
+                    return WcResponse.Ok(req.Id);
+
+                case "globalTypeText":
+                    mgr.GlobalTypeText(req.GetString("text"), req.GetInt("modifiers"));
                     return WcResponse.Ok(req.Id);
 
                 case "getText":

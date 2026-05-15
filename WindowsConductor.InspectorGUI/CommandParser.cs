@@ -34,8 +34,11 @@ internal static class CommandParser
             "reset" => new ResetCommand(),
             "rightclick" => ParseRightClick(parts),
             "hover" => ParseHover(parts),
+            "scroll" => ParseScroll(parts),
             "hitkeys" => ParseHitKeys(parts),
             "type" => ParseType(parts),
+            "ghitkeys" => ParseGlobalHitKeys(parts),
+            "gtype" => ParseGlobalType(parts),
             "ocr" => new OcrCommand(),
             "focus" => new FocusCommand(),
             "foreground" => new ForegroundCommand(),
@@ -224,6 +227,16 @@ internal static class CommandParser
         return new HoverCommand(ocrText, maxDist, matchIndex);
     }
 
+    private static ScrollCommand ParseScroll(string[] parts)
+    {
+        if (parts.Length < 2)
+            throw new ArgumentException("Usage: scroll <lines> [horizontal]");
+        if (!double.TryParse(parts[1], out var lines))
+            throw new ArgumentException("lines must be a number.");
+        var horizontal = parts.Length >= 3 && parts[2].Equals("horizontal", StringComparison.OrdinalIgnoreCase);
+        return new ScrollCommand(lines, horizontal);
+    }
+
     private static AttributeCommand ParseAttribute(string[] parts)
     {
         if (parts.Length < 2)
@@ -231,28 +244,43 @@ internal static class CommandParser
         return new AttributeCommand(parts[1]);
     }
 
-    private static HitKeysCommand ParseHitKeys(string[] parts)
+    private static HitKeysCommand ParseHitKeys(string[] parts) =>
+        new(ParseGenericHitKeys("hitkeys", parts));
+
+    private static GlobalHitKeysCommand ParseGlobalHitKeys(string[] parts) =>
+        new(ParseGenericHitKeys("ghitkeys", parts));
+
+    private static Key[] ParseGenericHitKeys(string commandName, string[] parts)
     {
         if (parts.Length < 2)
-            throw new ArgumentException($"No keys passed. Usage: hitkeys <space-separated-keys> [{{{string.Join(", ", Enum.GetNames<Key>().Select(k => k.ToLowerInvariant()))}}}]");
+            throw new ArgumentException($"No keys passed. Usage: {commandName} <space-separated-keys> [{{{string.Join(", ", Enum.GetNames<Key>().Select(k => k.ToLowerInvariant()))}}}]");
 
-        Key[] keys;
         try
         {
-            keys = [.. parts.Skip(1).Select(p => Enum.Parse<Key>(p.ToUpperInvariant()))];
+            return [.. parts.Skip(1).Select(p => Enum.Parse<Key>(p.ToUpperInvariant()))];
         }
         catch (ArgumentException ex)
         {
-            throw new ArgumentException($"{ex.Message} Verify all key names are valid before sending. Usage: hitkeys <space-separated-keys> [{{{string.Join(", ", Enum.GetNames<Key>().Select(k => k.ToLowerInvariant()))}}}]", ex);
+            throw new ArgumentException($"{ex.Message} Verify all key names are valid before sending. Usage: {commandName} <space-separated-keys> [{{{string.Join(", ", Enum.GetNames<Key>().Select(k => k.ToLowerInvariant()))}}}]", ex);
         }
-
-        return new HitKeysCommand(keys);
     }
 
     private static TypeCommand ParseType(string[] parts)
     {
+        var (text, modifiers) = ParseGenericType("type", parts);
+        return new TypeCommand(text, modifiers);
+    }
+
+    private static GlobalTypeCommand ParseGlobalType(string[] parts)
+    {
+        var (text, modifiers) = ParseGenericType("gtype", parts);
+        return new GlobalTypeCommand(text, modifiers);
+    }
+
+    private static (string Text, KeyModifiers Modifiers) ParseGenericType(string commandName, string[] parts)
+    {
         if (parts.Length < 2)
-            throw new ArgumentException("Usage: type <text> [ctrl alt shift meta]");
+            throw new ArgumentException($"Usage: {commandName} <text> [ctrl alt shift meta]");
 
         var modifiers = KeyModifiers.None;
         var textParts = parts.Skip(1).ToArray();
@@ -265,7 +293,7 @@ internal static class CommandParser
         }
 
         var text = string.Join(' ', textParts);
-        return new TypeCommand(text, modifiers);
+        return (text, modifiers);
     }
 
     private static KeyModifiers ParseModifiers(string token)

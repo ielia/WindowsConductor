@@ -573,6 +573,39 @@ public class CommandExecutorTests
         Assert.That(_output.InfoMessages[0], Does.Contain("Hovered"));
     }
 
+    // ── scroll ──────────────────────────────────────────────────────────────
+
+    [Test]
+    public async Task Execute_Scroll_CallsScroll()
+    {
+        _session.IsConnected = true;
+        _session.HasApp = true;
+        _session.HasSelectedElement = true;
+        await _executor.ExecuteAsync("scroll 3");
+        Assert.That(_session.Calls.Any(c => c.Method == "Scroll"), Is.True);
+        Assert.That(_output.InfoMessages[0], Does.Contain("Scrolled"));
+    }
+
+    [Test]
+    public async Task Execute_Scroll_Horizontal_CallsScroll()
+    {
+        _session.IsConnected = true;
+        _session.HasApp = true;
+        _session.HasSelectedElement = true;
+        await _executor.ExecuteAsync("scroll -2 horizontal");
+        Assert.That(_session.Calls.Any(c => c.Method == "Scroll"), Is.True);
+        Assert.That(_output.InfoMessages[0], Does.Contain("horizontally"));
+    }
+
+    [Test]
+    public async Task Execute_Scroll_NoElement_WritesError()
+    {
+        _session.IsConnected = true;
+        _session.HasApp = true;
+        await _executor.ExecuteAsync("scroll 3");
+        Assert.That(_output.ErrorMessages[0], Does.Contain("No element selected"));
+    }
+
     // ── hitkeys ─────────────────────────────────────────────────────────────
 
     [Test]
@@ -628,6 +661,44 @@ public class CommandExecutorTests
         var typeCall = _session.Calls.First(c => c.Method == "Type");
         Assert.That(typeCall.Args[0], Is.EqualTo("Hello World"));
         Assert.That(_output.InfoMessages[0], Does.Contain("Typed"));
+    }
+
+    // ── ghitkeys ────────────────────────────────────────────────────────────
+
+    [Test]
+    public async Task Execute_GHitKeys_NotConnected_WritesError()
+    {
+        await _executor.ExecuteAsync("ghitkeys escape");
+        Assert.That(_output.ErrorMessages[0], Does.Contain("Not connected"));
+    }
+
+    [Test]
+    public async Task Execute_GHitKeys_CallsGlobalHitKeys()
+    {
+        _session.IsConnected = true;
+        await _executor.ExecuteAsync("ghitkeys control key_a");
+        var call = _session.Calls.First(c => c.Method == "GlobalHitKeys");
+        Assert.That(call.Args[0], Is.EqualTo(new[] { Key.CONTROL, Key.KEY_A }));
+        Assert.That(_output.InfoMessages[0], Does.Contain("Global hit keys"));
+    }
+
+    // ── gtype ──────────────────────────────────────────────────────────────
+
+    [Test]
+    public async Task Execute_GType_NotConnected_WritesError()
+    {
+        await _executor.ExecuteAsync("gtype hello");
+        Assert.That(_output.ErrorMessages[0], Does.Contain("Not connected"));
+    }
+
+    [Test]
+    public async Task Execute_GType_CallsGlobalType()
+    {
+        _session.IsConnected = true;
+        await _executor.ExecuteAsync("gtype Hello World");
+        var call = _session.Calls.First(c => c.Method == "GlobalType");
+        Assert.That(call.Args[0], Is.EqualTo("Hello World"));
+        Assert.That(_output.InfoMessages[0], Does.Contain("Global typed"));
     }
 
     // ── focus ───────────────────────────────────────────────────────────────
