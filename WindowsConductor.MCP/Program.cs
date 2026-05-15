@@ -25,6 +25,7 @@ builder.Services
         };
     })
     .WithStdioServerTransport()
-    .WithToolsFromAssembly();
+    .WithToolsFromAssembly()
+    .WithPromptsFromAssembly();
 
 await builder.Build().RunAsync();

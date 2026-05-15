@@ -7,6 +7,8 @@
     <Nullable>enable</Nullable>
     <RootNamespace>WindowsConductor.MCP</RootNamespace>
     <AssemblyName>WindowsConductor.MCP</AssemblyName>
+    <Version>0.9.0</Version>
+    <Authors>Ignacio Elia</Authors>
   </PropertyGroup>
 
   <ItemGroup>
