@@ -96,16 +96,10 @@ public sealed class WcLocator
     /// <summary>Resolves and returns the first matching element.</summary>
     public async Task<WcElement> GetElementAsync(CancellationToken ct = default)
     {
-        string? rootElementId = _rootElementId;
-        if (rootElementId is null && _parent != null)
-        {
-            var parentElement = await _parent.GetElementAsync(ct);
-            rootElementId = parentElement.ElementId;
-        }
-
+        var (selectors, rootElementId) = CollectChain();
         var result = await _conn.SendAsync(
             "findElement",
-            new { appId = _appId, selector = _selector, rootElementId },
+            new { appId = _appId, selectors, rootElementId },
             ct);
 
         string? elementId = result.GetString();
@@ -118,16 +112,10 @@ public sealed class WcLocator
     /// <summary>Resolves and returns all matching elements.</summary>
     public async Task<IReadOnlyList<WcElement>> GetAllElementsAsync(CancellationToken ct = default)
     {
-        string? rootElementId = _rootElementId;
-        if (rootElementId is null && _parent != null)
-        {
-            var parentElement = await _parent.GetElementAsync(ct);
-            rootElementId = parentElement.ElementId;
-        }
-
+        var (selectors, rootElementId) = CollectChain();
         var result = await _conn.SendAsync(
             "findElements",
-            new { appId = _appId, selector = _selector, rootElementId },
+            new { appId = _appId, selectors, rootElementId },
             ct);
 
         return result.EnumerateArray()
@@ -142,16 +130,10 @@ public sealed class WcLocator
     /// </summary>
     public async Task<WcValue> GetResolvedValueAsync(CancellationToken ct = default)
     {
-        string? rootElementId = _rootElementId;
-        if (rootElementId is null && _parent != null)
-        {
-            var parentElement = await _parent.GetElementAsync(ct);
-            rootElementId = parentElement.ElementId;
-        }
-
+        var (selectors, rootElementId) = CollectChain();
         var result = await _conn.SendAsync(
             "resolveValue",
-            new { appId = _appId, selector = _selector, rootElementId },
+            new { appId = _appId, selectors, rootElementId },
             ct);
 
         return DeserializeValue(result);
@@ -165,16 +147,10 @@ public sealed class WcLocator
     /// </summary>
     public async Task<WcElement> WaitForElementAsync(uint timeout, CancellationToken ct = default)
     {
-        string? rootElementId = _rootElementId;
-        if (rootElementId is null && _parent != null)
-        {
-            var parentElement = await _parent.GetElementAsync(ct);
-            rootElementId = parentElement.ElementId;
-        }
-
+        var (selectors, rootElementId) = CollectChain();
         var result = await _conn.SendAsync(
             "waitForElement",
-            new { appId = _appId, selector = _selector, rootElementId, timeout },
+            new { appId = _appId, selectors, rootElementId, timeout },
             ct);
 
         string? elementId = result.GetString();
@@ -191,16 +167,10 @@ public sealed class WcLocator
     /// </summary>
     public async Task<IReadOnlyList<WcElement>> WaitForAllElementsAsync(uint timeout, CancellationToken ct = default)
     {
-        string? rootElementId = _rootElementId;
-        if (rootElementId is null && _parent != null)
-        {
-            var parentElement = await _parent.GetElementAsync(ct);
-            rootElementId = parentElement.ElementId;
-        }
-
+        var (selectors, rootElementId) = CollectChain();
         var result = await _conn.SendAsync(
             "waitForElements",
-            new { appId = _appId, selector = _selector, rootElementId, timeout },
+            new { appId = _appId, selectors, rootElementId, timeout },
             ct);
 
         return result.EnumerateArray()
@@ -215,16 +185,10 @@ public sealed class WcLocator
     /// </summary>
     public async Task<WcValue> WaitForResolvedValueAsync(uint timeout, CancellationToken ct = default)
     {
-        string? rootElementId = _rootElementId;
-        if (rootElementId is null && _parent != null)
-        {
-            var parentElement = await _parent.GetElementAsync(ct);
-            rootElementId = parentElement.ElementId;
-        }
-
+        var (selectors, rootElementId) = CollectChain();
         var result = await _conn.SendAsync(
             "waitForResolvedValue",
-            new { appId = _appId, selector = _selector, rootElementId, timeout },
+            new { appId = _appId, selectors, rootElementId, timeout },
             ct);
 
         return DeserializeValue(result);
@@ -236,16 +200,10 @@ public sealed class WcLocator
     /// </summary>
     public async Task WaitForVanishAsync(uint timeout, CancellationToken ct = default)
     {
-        string? rootElementId = _rootElementId;
-        if (rootElementId is null && _parent != null)
-        {
-            var parentElement = await _parent.GetElementAsync(ct);
-            rootElementId = parentElement.ElementId;
-        }
-
+        var (selectors, rootElementId) = CollectChain();
         await _conn.SendAsync(
             "waitForVanish",
-            new { appId = _appId, selector = _selector, rootElementId, timeout },
+            new { appId = _appId, selectors, rootElementId, timeout },
             ct);
     }
 
@@ -422,6 +380,23 @@ public sealed class WcLocator
     public override string ToString() => _parent != null
         ? $"{_parent} > WcLocator({_selector})"
         : $"WcLocator({_selector})";
+
+    // ── Chain helpers ──────────────────────────────────────────────────────
+
+    private (string[] Selectors, string? RootElementId) CollectChain()
+    {
+        var selectors = new List<string>();
+        string? rootElementId = null;
+        var current = this;
+        while (current != null)
+        {
+            selectors.Add(current._selector);
+            rootElementId = current._rootElementId;
+            current = current._parent;
+        }
+        selectors.Reverse();
+        return (selectors.ToArray(), rootElementId);
+    }
 
     // ── Value deserialization ────────────────────────────────────────────────
 

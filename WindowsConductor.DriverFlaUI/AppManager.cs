@@ -110,29 +110,30 @@ public sealed class AppManager : IAppOperations, IDisposable
 
     // ── Element discovery ───────────────────────────────────────────────────
 
-    /// <summary>Returns the element ID of the first element matching <paramref name="selector"/>.</summary>
-    public string FindElement(string appId, string selector, string? rootElementId = null, CancellationToken ct = default)
+    /// <summary>Returns the element ID of the first element matching the selector chain.</summary>
+    public string FindElement(string appId, string[] selectors, string? rootElementId = null, CancellationToken ct = default)
     {
-        var root = rootElementId != null ? GetElement(rootElementId) : GetAppRoot(appId);
-        var element = SelectorEngine.FindElement(root, selector, GetDesktopRoot(), GetConfineProcessId(appId), ct)
+        var (root, lastSelector) = ResolveParentChain(appId, selectors, rootElementId, ct);
+        var element = SelectorEngine.FindElement(root, lastSelector, GetDesktopRoot(), GetConfineProcessId(appId), ct)
             ?? throw new InvalidOperationException(
-                $"No element found for selector '{selector}'.");
+                $"No element found for selector '{lastSelector}'.");
 
         return CacheElement(element);
     }
 
-    /// <summary>Returns element IDs for all elements matching <paramref name="selector"/>.</summary>
-    public string[] FindElements(string appId, string selector, string? rootElementId = null, CancellationToken ct = default)
+    /// <summary>Returns element IDs for all elements matching the selector chain.</summary>
+    public string[] FindElements(string appId, string[] selectors, string? rootElementId = null, CancellationToken ct = default)
     {
-        var root = rootElementId != null ? GetElement(rootElementId) : GetAppRoot(appId);
-        return SelectorEngine.FindElements(root, selector, GetDesktopRoot(), GetConfineProcessId(appId), ct)
+        var (root, lastSelector) = ResolveParentChain(appId, selectors, rootElementId, ct);
+        return SelectorEngine.FindElements(root, lastSelector, GetDesktopRoot(), GetConfineProcessId(appId), ct)
             .Select(CacheElement)
             .ToArray();
     }
 
-    public object ResolveValue(string appId, string selector, string? rootElementId = null, CancellationToken ct = default)
+    public object ResolveValue(string appId, string[] selectors, string? rootElementId = null, CancellationToken ct = default)
     {
-        var root = rootElementId != null ? GetElement(rootElementId) : GetAppRoot(appId);
+        var (root, lastSelector) = ResolveParentChain(appId, selectors, rootElementId, ct);
+        var selector = lastSelector;
         var result = SelectorEngine.FindFull(root, selector, GetDesktopRoot(), GetConfineProcessId(appId), ct);
         return result switch
         {
@@ -213,82 +214,97 @@ public sealed class AppManager : IAppOperations, IDisposable
 
     // ── Wait operations ──────────────────────────────────────────────────────
 
-    public string WaitForElement(string appId, string selector, string? rootElementId, uint timeout, CancellationToken ct = default)
+    public string WaitForElement(string appId, string[] selectors, string? rootElementId, uint timeout, CancellationToken ct = default)
     {
         var deadline = Environment.TickCount64 + timeout;
         var desktopRoot = GetDesktopRoot();
         var processId = GetConfineProcessId(appId);
+        var lastSelector = selectors[^1];
         while (true)
         {
             ct.ThrowIfCancellationRequested();
-            var root = rootElementId != null ? GetElement(rootElementId) : GetAppRoot(appId);
-            var element = SelectorEngine.FindElement(root, selector, desktopRoot, processId, ct);
-            if (element is not null)
-                return CacheElement(element);
+            var root = TryResolveParentChain(appId, selectors, rootElementId, ct);
+            if (root is not null)
+            {
+                var element = SelectorEngine.FindElement(root, lastSelector, desktopRoot, processId, ct);
+                if (element is not null)
+                    return CacheElement(element);
+            }
             if (Environment.TickCount64 >= deadline)
                 throw new NoMatchException(
-                    $"No element found for selector '{selector}' within {timeout}ms.");
+                    $"No element found for selectors '{string.Join(" > ", selectors)}' within {timeout}ms.");
             Thread.Sleep(100);
         }
     }
 
-    public string[] WaitForElements(string appId, string selector, string? rootElementId, uint timeout, CancellationToken ct = default)
+    public string[] WaitForElements(string appId, string[] selectors, string? rootElementId, uint timeout, CancellationToken ct = default)
     {
         var deadline = Environment.TickCount64 + timeout;
         var desktopRoot = GetDesktopRoot();
         var processId = GetConfineProcessId(appId);
+        var lastSelector = selectors[^1];
         while (true)
         {
             ct.ThrowIfCancellationRequested();
-            var root = rootElementId != null ? GetElement(rootElementId) : GetAppRoot(appId);
-            var results = SelectorEngine.FindElements(root, selector, desktopRoot, processId, ct);
-            if (results.Length > 0)
-                return results.Select(CacheElement).ToArray();
+            var root = TryResolveParentChain(appId, selectors, rootElementId, ct);
+            if (root is not null)
+            {
+                var results = SelectorEngine.FindElements(root, lastSelector, desktopRoot, processId, ct);
+                if (results.Length > 0)
+                    return results.Select(CacheElement).ToArray();
+            }
             if (Environment.TickCount64 >= deadline)
                 throw new NoMatchException(
-                    $"No elements found for selector '{selector}' within {timeout}ms.");
+                    $"No elements found for selectors '{string.Join(" > ", selectors)}' within {timeout}ms.");
             Thread.Sleep(100);
         }
     }
 
-    public object WaitForResolvedValue(string appId, string selector, string? rootElementId, uint timeout, CancellationToken ct = default)
+    public object WaitForResolvedValue(string appId, string[] selectors, string? rootElementId, uint timeout, CancellationToken ct = default)
     {
         var deadline = Environment.TickCount64 + timeout;
         var desktopRoot = GetDesktopRoot();
         var processId = GetConfineProcessId(appId);
+        var lastSelector = selectors[^1];
         while (true)
         {
             ct.ThrowIfCancellationRequested();
-            var root = rootElementId != null ? GetElement(rootElementId) : GetAppRoot(appId);
-            var result = SelectorEngine.FindFull(root, selector, desktopRoot, processId, ct);
-            bool hasMatches = result is ElementsResult er ? er.Elements.Any()
-                : result is AttrsResult ar && ar.Attributes.Count > 0;
-            if (hasMatches)
-                return ResolveValue(appId, selector, rootElementId, ct);
+            var root = TryResolveParentChain(appId, selectors, rootElementId, ct);
+            if (root is not null)
+            {
+                var result = SelectorEngine.FindFull(root, lastSelector, desktopRoot, processId, ct);
+                bool hasMatches = result is ElementsResult er ? er.Elements.Any()
+                    : result is AttrsResult ar && ar.Attributes.Count > 0;
+                if (hasMatches)
+                    return ResolveValue(appId, selectors, rootElementId, ct);
+            }
             if (Environment.TickCount64 >= deadline)
                 throw new NoMatchException(
-                    $"No results found for selector '{selector}' within {timeout}ms.");
+                    $"No results found for selectors '{string.Join(" > ", selectors)}' within {timeout}ms.");
             Thread.Sleep(100);
         }
     }
 
-    public void WaitForVanish(string appId, string selector, string? rootElementId, uint timeout, CancellationToken ct = default)
+    public void WaitForVanish(string appId, string[] selectors, string? rootElementId, uint timeout, CancellationToken ct = default)
     {
         var deadline = Environment.TickCount64 + timeout;
         var desktopRoot = GetDesktopRoot();
         var processId = GetConfineProcessId(appId);
+        var lastSelector = selectors[^1];
         while (true)
         {
             ct.ThrowIfCancellationRequested();
-            var root = rootElementId != null ? GetElement(rootElementId) : GetAppRoot(appId);
-            var result = SelectorEngine.FindFull(root, selector, desktopRoot, processId, ct);
+            var root = TryResolveParentChain(appId, selectors, rootElementId, ct);
+            if (root is null)
+                return; // parent chain can't resolve → nothing matches → vanished
+            var result = SelectorEngine.FindFull(root, lastSelector, desktopRoot, processId, ct);
             var hasMatches = result is ElementsResult er ? er.Elements.Any()
                 : result is AttrsResult ar && ar.Attributes.Count > 0;
             if (!hasMatches)
                 return;
             if (Environment.TickCount64 >= deadline)
                 throw new UnwantedMatchException(
-                    $"Selector '{selector}' still has matches after {timeout}ms.");
+                    $"Selectors '{string.Join(" > ", selectors)}' still have matches after {timeout}ms.");
             Thread.Sleep(100);
         }
     }
@@ -495,10 +511,26 @@ public sealed class AppManager : IAppOperations, IDisposable
         if (GetWindowState(hwnd) is WcWindowState.Minimized or WcWindowState.MinimizedMaximized)
             ShowWindow(hwnd, SW_RESTORE);
 
-        // Simulate Alt keypress to bypass Windows' focus-stealing prevention.
-        keybd_event(VK_MENU, 0, 0, UIntPtr.Zero);
-        keybd_event(VK_MENU, 0, KEYEVENTF_KEYUP, UIntPtr.Zero);
-        SetForegroundWindow(hwnd);
+        // Attach our thread to the thread that owns the current foreground window,
+        // so we inherit the right to call SetForegroundWindow.
+        var foregroundHwnd = GetForegroundWindow();
+        var currentThreadId = GetCurrentThreadId();
+        var foregroundThreadId = foregroundHwnd != IntPtr.Zero
+            ? GetWindowThreadProcessId(foregroundHwnd, out _)
+            : 0u;
+        bool attached = foregroundThreadId != 0
+            && foregroundThreadId != currentThreadId
+            && AttachThreadInput(currentThreadId, foregroundThreadId, true);
+        try
+        {
+            BringWindowToTop(hwnd);
+            SetForegroundWindow(hwnd);
+        }
+        finally
+        {
+            if (attached)
+                AttachThreadInput(currentThreadId, foregroundThreadId, false);
+        }
     }
 
     public WcWindowState GetWindowState(string elementId) =>
@@ -551,13 +583,16 @@ public sealed class AppManager : IAppOperations, IDisposable
     private static extern bool SetForegroundWindow(IntPtr hWnd);
 
     [DllImport("user32.dll")]
+    private static extern IntPtr GetForegroundWindow();
+
+    [DllImport("user32.dll")]
+    private static extern bool BringWindowToTop(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
     private static extern IntPtr GetAncestor(IntPtr hwnd, uint gaFlags);
 
     [DllImport("user32.dll")]
     private static extern bool IsIconic(IntPtr hWnd);
-
-    [DllImport("user32.dll")]
-    private static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);
 
     [DllImport("user32.dll")]
     private static extern bool IsZoomed(IntPtr hWnd);
@@ -585,8 +620,6 @@ public sealed class AppManager : IAppOperations, IDisposable
     private const int SW_MAXIMIZE = 3;
     private const int SW_SHOWNORMAL = 1;
     private const uint GA_ROOT = 2;
-    private const byte VK_MENU = 0x12;
-    private const uint KEYEVENTF_KEYUP = 0x0002;
 
     private IntPtr GetWindowHwnd(string elementId)
     {
@@ -796,6 +829,34 @@ public sealed class AppManager : IAppOperations, IDisposable
         return bytes;
     }
 
+    // ── Selector chain resolution ─────────────────────────────────────────
+
+    private (AutomationElement Root, string LastSelector) ResolveParentChain(
+        string appId, string[] selectors, string? rootElementId, CancellationToken ct)
+    {
+        var root = TryResolveParentChain(appId, selectors, rootElementId, ct)
+            ?? throw new InvalidOperationException(
+                $"Parent chain failed to resolve for selectors '{string.Join(" > ", selectors[..^1])}'.");
+        return (root, selectors[^1]);
+    }
+
+    private AutomationElement? TryResolveParentChain(
+        string appId, string[] selectors, string? rootElementId, CancellationToken ct)
+    {
+        var desktopRoot = GetDesktopRoot();
+        var processId = GetConfineProcessId(appId);
+        AutomationElement root = rootElementId != null ? GetElement(rootElementId) : GetAppRoot(appId);
+
+        for (int i = 0; i < selectors.Length - 1; i++)
+        {
+            var element = SelectorEngine.FindElement(root, selectors[i], desktopRoot, processId, ct);
+            if (element is null) return null;
+            root = element;
+        }
+
+        return root;
+    }
+
     // ── Internal helpers ────────────────────────────────────────────────────
 
     private static Window FindWindow(UIA3Automation automation, string titleRegex, int retries = 20)
@@ -851,6 +912,12 @@ public sealed class AppManager : IAppOperations, IDisposable
 
     [DllImport("user32.dll")]
     static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
+
+    [DllImport("kernel32.dll")]
+    private static extern uint GetCurrentThreadId();
+
+    [DllImport("user32.dll")]
+    private static extern bool AttachThreadInput(uint idAttach, uint idAttachTo, bool fAttach);
 
     private AutomationElement GetDesktopRoot() => _automation.GetDesktop();
 

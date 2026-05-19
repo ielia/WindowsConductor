@@ -201,7 +201,7 @@ public sealed class WsServer
                         var rootElId = req.GetString("rootElementId");
                         var elementId = mgr.FindElement(
                             req.GetString("appId"),
-                            req.GetString("selector"),
+                            req.GetStringArray("selectors"),
                             string.IsNullOrEmpty(rootElId) ? null : rootElId,
                             ct);
                         return WcResponse.Ok(req.Id, elementId);
@@ -212,7 +212,7 @@ public sealed class WsServer
                         var rootElId = req.GetString("rootElementId");
                         var ids = mgr.FindElements(
                             req.GetString("appId"),
-                            req.GetString("selector"),
+                            req.GetStringArray("selectors"),
                             string.IsNullOrEmpty(rootElId) ? null : rootElId,
                             ct);
                         return WcResponse.Ok(req.Id, ids);
@@ -223,7 +223,7 @@ public sealed class WsServer
                         var rootElId = req.GetString("rootElementId");
                         var value = mgr.ResolveValue(
                             req.GetString("appId"),
-                            req.GetString("selector"),
+                            req.GetStringArray("selectors"),
                             string.IsNullOrEmpty(rootElId) ? null : rootElId,
                             ct);
                         return WcResponse.Ok(req.Id, value);
@@ -258,7 +258,7 @@ public sealed class WsServer
                         var rootElId = req.GetString("rootElementId");
                         var elementId = mgr.WaitForElement(
                             req.GetString("appId"),
-                            req.GetString("selector"),
+                            req.GetStringArray("selectors"),
                             string.IsNullOrEmpty(rootElId) ? null : rootElId,
                             (uint)req.GetInt("timeout"),
                             ct);
@@ -270,7 +270,7 @@ public sealed class WsServer
                         var rootElId = req.GetString("rootElementId");
                         var ids = mgr.WaitForElements(
                             req.GetString("appId"),
-                            req.GetString("selector"),
+                            req.GetStringArray("selectors"),
                             string.IsNullOrEmpty(rootElId) ? null : rootElId,
                             (uint)req.GetInt("timeout"),
                             ct);
@@ -282,7 +282,7 @@ public sealed class WsServer
                         var rootElId = req.GetString("rootElementId");
                         var value = mgr.WaitForResolvedValue(
                             req.GetString("appId"),
-                            req.GetString("selector"),
+                            req.GetStringArray("selectors"),
                             string.IsNullOrEmpty(rootElId) ? null : rootElId,
                             (uint)req.GetInt("timeout"),
                             ct);
@@ -294,7 +294,7 @@ public sealed class WsServer
                         var rootElId = req.GetString("rootElementId");
                         mgr.WaitForVanish(
                             req.GetString("appId"),
-                            req.GetString("selector"),
+                            req.GetStringArray("selectors"),
                             string.IsNullOrEmpty(rootElId) ? null : rootElId,
                             (uint)req.GetInt("timeout"),
                             ct);

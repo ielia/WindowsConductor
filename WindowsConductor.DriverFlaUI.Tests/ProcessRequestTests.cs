@@ -40,15 +40,15 @@ internal sealed class FakeAppOperations : IAppOperations
 
     public void CloseApp(string appId) => Record("CloseApp", appId);
 
-    public string FindElement(string appId, string selector, string? rootElementId = null, CancellationToken ct = default)
-    { Record("FindElement", appId, selector, rootElementId); return FindElementResult; }
+    public string FindElement(string appId, string[] selectors, string? rootElementId = null, CancellationToken ct = default)
+    { Record("FindElement", appId, selectors, rootElementId); return FindElementResult; }
 
-    public string[] FindElements(string appId, string selector, string? rootElementId = null, CancellationToken ct = default)
-    { Record("FindElements", appId, selector, rootElementId); return FindElementsResult; }
+    public string[] FindElements(string appId, string[] selectors, string? rootElementId = null, CancellationToken ct = default)
+    { Record("FindElements", appId, selectors, rootElementId); return FindElementsResult; }
 
     public object ResolveValueResult { get; set; } = new { type = "ListValue", items = new object[] { new { type = "StringValue", value = "btn", elementId = "el-1", name = "class" } } };
-    public object ResolveValue(string appId, string selector, string? rootElementId = null, CancellationToken ct = default)
-    { Record("ResolveValue", appId, selector, rootElementId); return ResolveValueResult; }
+    public object ResolveValue(string appId, string[] selectors, string? rootElementId = null, CancellationToken ct = default)
+    { Record("ResolveValue", appId, selectors, rootElementId); return ResolveValueResult; }
 
     public void Click(string elementId, string? anchor = null, int x = 0, int y = 0) => Record("Click", elementId, anchor, x, y);
     public void Scroll(string elementId, double lines, bool horizontal = false) => Record("Scroll", elementId, lines, horizontal);
@@ -117,17 +117,17 @@ internal sealed class FakeAppOperations : IAppOperations
     public string WaitForElementResult { get; set; } = "el-wait-1";
     public string[] WaitForElementsResult { get; set; } = { "el-w1", "el-w2" };
 
-    public string WaitForElement(string appId, string selector, string? rootElementId, uint timeout, CancellationToken ct = default)
-    { Record("WaitForElement", appId, selector, rootElementId, timeout); return WaitForElementResult; }
+    public string WaitForElement(string appId, string[] selectors, string? rootElementId, uint timeout, CancellationToken ct = default)
+    { Record("WaitForElement", appId, selectors, rootElementId, timeout); return WaitForElementResult; }
 
-    public string[] WaitForElements(string appId, string selector, string? rootElementId, uint timeout, CancellationToken ct = default)
-    { Record("WaitForElements", appId, selector, rootElementId, timeout); return WaitForElementsResult; }
+    public string[] WaitForElements(string appId, string[] selectors, string? rootElementId, uint timeout, CancellationToken ct = default)
+    { Record("WaitForElements", appId, selectors, rootElementId, timeout); return WaitForElementsResult; }
 
-    public object WaitForResolvedValue(string appId, string selector, string? rootElementId, uint timeout, CancellationToken ct = default)
-    { Record("WaitForResolvedValue", appId, selector, rootElementId, timeout); return ResolveValueResult; }
+    public object WaitForResolvedValue(string appId, string[] selectors, string? rootElementId, uint timeout, CancellationToken ct = default)
+    { Record("WaitForResolvedValue", appId, selectors, rootElementId, timeout); return ResolveValueResult; }
 
-    public void WaitForVanish(string appId, string selector, string? rootElementId, uint timeout, CancellationToken ct = default)
-    { Record("WaitForVanish", appId, selector, rootElementId, timeout); }
+    public void WaitForVanish(string appId, string[] selectors, string? rootElementId, uint timeout, CancellationToken ct = default)
+    { Record("WaitForVanish", appId, selectors, rootElementId, timeout); }
 
     public string[] GetChildrenResult { get; set; } = ["child-1", "child-2"];
     public string[] GetChildren(string elementId)
@@ -254,7 +254,7 @@ public class ProcessRequestTests
         var resp = WsServer.ProcessRequest(_fake, MakeRequest("findElement", new()
         {
             ["appId"] = "a1",
-            ["selector"] = "[name=OK]",
+            ["selectors"] = new[] { "[name=OK]" },
             ["rootElementId"] = ""
         }));
 
@@ -269,7 +269,7 @@ public class ProcessRequestTests
         WsServer.ProcessRequest(_fake, MakeRequest("findElement", new()
         {
             ["appId"] = "a1",
-            ["selector"] = "[name=OK]",
+            ["selectors"] = new[] { "[name=OK]" },
             ["rootElementId"] = "root-el"
         }));
         Assert.That(_fake.Calls[0].Args[2], Is.EqualTo("root-el"));
@@ -283,7 +283,7 @@ public class ProcessRequestTests
         var resp = WsServer.ProcessRequest(_fake, MakeRequest("findElements", new()
         {
             ["appId"] = "a1",
-            ["selector"] = "type=Button",
+            ["selectors"] = new[] { "type=Button" },
             ["rootElementId"] = ""
         }));
 
@@ -299,7 +299,7 @@ public class ProcessRequestTests
         var resp = WsServer.ProcessRequest(_fake, MakeRequest("resolveValue", new()
         {
             ["appId"] = "a1",
-            ["selector"] = "//button/@class",
+            ["selectors"] = new[] { "//button/@class" },
             ["rootElementId"] = ""
         }));
 
@@ -313,7 +313,7 @@ public class ProcessRequestTests
         WsServer.ProcessRequest(_fake, MakeRequest("resolveValue", new()
         {
             ["appId"] = "a1",
-            ["selector"] = "//button/@class",
+            ["selectors"] = new[] { "//button/@class" },
             ["rootElementId"] = "root-el"
         }));
         Assert.That(_fake.Calls[0].Args[2], Is.EqualTo("root-el"));
@@ -758,7 +758,7 @@ public class ProcessRequestTests
         var resp = WsServer.ProcessRequest(_fake, MakeRequest("waitForElement", new()
         {
             ["appId"] = "a1",
-            ["selector"] = "[name=OK]",
+            ["selectors"] = new[] { "[name=OK]" },
             ["rootElementId"] = "",
             ["timeout"] = 5000
         }));
@@ -776,7 +776,7 @@ public class ProcessRequestTests
         var resp = WsServer.ProcessRequest(_fake, MakeRequest("waitForElements", new()
         {
             ["appId"] = "a1",
-            ["selector"] = "type=Button",
+            ["selectors"] = new[] { "type=Button" },
             ["rootElementId"] = "",
             ["timeout"] = 3000
         }));
@@ -793,7 +793,7 @@ public class ProcessRequestTests
         var resp = WsServer.ProcessRequest(_fake, MakeRequest("waitForResolvedValue", new()
         {
             ["appId"] = "a1",
-            ["selector"] = "//button/@class",
+            ["selectors"] = new[] { "//button/@class" },
             ["rootElementId"] = "",
             ["timeout"] = 3000
         }));
@@ -811,7 +811,7 @@ public class ProcessRequestTests
         var resp = WsServer.ProcessRequest(_fake, MakeRequest("waitForVanish", new()
         {
             ["appId"] = "a1",
-            ["selector"] = "[name=Spinner]",
+            ["selectors"] = new[] { "[name=Spinner]" },
             ["rootElementId"] = "",
             ["timeout"] = 2000
         }));
@@ -828,7 +828,7 @@ public class ProcessRequestTests
         var resp = WsServer.ProcessRequest(_fake, MakeRequest("waitForElement", new()
         {
             ["appId"] = "a1",
-            ["selector"] = "[name=X]",
+            ["selectors"] = new[] { "[name=X]" },
             ["rootElementId"] = "",
             ["timeout"] = 5000
         }));
@@ -843,7 +843,7 @@ public class ProcessRequestTests
         var resp = WsServer.ProcessRequest(_fake, MakeRequest("waitForVanish", new()
         {
             ["appId"] = "a1",
-            ["selector"] = "[name=X]",
+            ["selectors"] = new[] { "[name=X]" },
             ["rootElementId"] = "",
             ["timeout"] = 2000
         }));
@@ -858,7 +858,7 @@ public class ProcessRequestTests
         var resp = WsServer.ProcessRequest(_fake, MakeRequest("findElement", new()
         {
             ["appId"] = "a1",
-            ["selector"] = "/Desktop",
+            ["selectors"] = new[] { "/Desktop" },
             ["rootElementId"] = ""
         }));
         Assert.That(resp.Success, Is.False);

@@ -68,7 +68,10 @@ public sealed class CalculatorTests
     [SetUp]
     public async Task ClearState()
     {
+        await _calc.GetByAutomationId("CalculatorResults").SetForegroundAsync();
+        await Task.Delay(200);
         await _calc.GetByXPath("//Button[@AutomationId=('clearButton','clearEntryButton')]").ClickAsync();
+        await _calc.GetByAutomationId("CalculatorResults").SetForegroundAsync();
         await Task.Delay(150);
     }
 
@@ -82,7 +85,7 @@ public sealed class CalculatorTests
         await _calc.GetByAutomationId("num3Button").ClickAsync();
         await _calc.GetByAutomationId("equalButton").ClickAsync();
 
-        var result = await _calc.GetByAutomationId("CalculatorResults").GetTextAsync();
+        var result = await _calc.GetByAutomationId("CalculatorResults").GetAttributeAsync("Name");
         Assert.That(result, Does.Contain("5"),
             $"2 + 3 should equal 5.  Display shows: '{result}'");
     }
@@ -95,7 +98,7 @@ public sealed class CalculatorTests
         await _calc.GetByAutomationId("num3Button").ClickAsync();
         await _calc.GetByAutomationId("equalButton").ClickAsync();
 
-        var result = await _calc.GetByAutomationId("CalculatorResults").GetTextAsync();
+        var result = await _calc.GetByAutomationId("CalculatorResults").GetAttributeAsync("Name");
         Assert.That(result, Does.Contain("6"),
             $"9 − 3 should equal 6.  Display shows: '{result}'");
     }
@@ -108,7 +111,7 @@ public sealed class CalculatorTests
         await _calc.GetByAutomationId("num7Button").ClickAsync();
         await _calc.GetByAutomationId("equalButton").ClickAsync();
 
-        var result = await _calc.GetByAutomationId("CalculatorResults").GetTextAsync();
+        var result = await _calc.GetByAutomationId("CalculatorResults").GetAttributeAsync("Name");
         Assert.That(result, Does.Contain("28"),
             $"4 × 7 should equal 28.  Display shows: '{result}'");
     }
@@ -121,7 +124,7 @@ public sealed class CalculatorTests
         await _calc.GetByAutomationId("num2Button").ClickAsync();
         await _calc.GetByAutomationId("equalButton").ClickAsync();
 
-        var result = await _calc.GetByAutomationId("CalculatorResults").GetTextAsync();
+        var result = await _calc.GetByAutomationId("CalculatorResults").GetAttributeAsync("Name");
         Assert.That(result, Does.Contain("4"),
             $"8 ÷ 2 should equal 4.  Display shows: '{result}'");
     }
@@ -140,22 +143,22 @@ public sealed class CalculatorTests
     // ── Tests using Name / Text ───────────────────────────────────────────────
 
     [Test]
-    public async Task Addition_ByText()
+    public async Task Addition_ByName()
     {
-        await _calc.GetByText("Five").ClickAsync();
-        await _calc.GetByText("Plus").ClickAsync();
-        await _calc.GetByText("Six").ClickAsync();
-        await _calc.GetByText("Equals").ClickAsync();
+        await _calc.GetByName("Five").ClickAsync();
+        await _calc.GetByName("Plus").ClickAsync();
+        await _calc.GetByName("Six").ClickAsync();
+        await _calc.GetByName("Equals").ClickAsync();
 
-        var result = await _calc.GetByAutomationId("CalculatorResults").GetTextAsync();
+        var result = await _calc.GetByAutomationId("CalculatorResults").GetAttributeAsync("Name");
         Assert.That(result, Does.Contain("11"),
             $"5 + 6 should equal 11.  Display shows: '{result}'");
     }
 
     [Test]
-    public async Task ButtonIsVisible_ByText()
+    public async Task ButtonIsVisible_ByName()
     {
-        bool visible = await _calc.GetByText("One").IsVisibleAsync();
+        bool visible = await _calc.GetByName("One").IsVisibleAsync();
         Assert.That(visible, Is.True, "Button 'One' should be visible.");
     }
 
@@ -169,7 +172,7 @@ public sealed class CalculatorTests
         await _calc.GetByXPath("//Button[@AutomationId='num2Button']").ClickAsync();
         await _calc.GetByXPath("//Button[@AutomationId='equalButton']").ClickAsync();
 
-        var result = await _calc.GetByXPath("//*[@AutomationId='CalculatorResults']").GetTextAsync();
+        var result = await _calc.GetByXPath("//*[@AutomationId='CalculatorResults']").GetAttributeAsync("Name");
         Assert.That(result, Does.Contain("3"),
             $"1 + 2 should equal 3.  Display shows: '{result}'");
     }
@@ -216,5 +219,68 @@ public sealed class CalculatorTests
             .IsEnabledAsync();
         Assert.That(enabled, Is.True,
             "Compound selector [automationid=num5Button]&&type=Button should resolve.");
+    }
+
+    // ── Wait operations ──────────────────────────────────────────────────────
+
+    [Test]
+    public async Task WaitForElement_FindsExistingElement()
+    {
+        var el = await _calc.Locator("[automationid=num7Button]").WaitForElementAsync(5000);
+        Assert.That(el.ElementId, Is.Not.Null.And.Not.Empty);
+    }
+
+    [Test]
+    public async Task WaitForElements_FindsExistingElements()
+    {
+        var elements = await _calc.Locator("type=Button").WaitForAllElementsAsync(5000);
+        Assert.That(elements.Count, Is.GreaterThan(5));
+    }
+
+    [Test]
+    public async Task WaitForResolvedValue_ReturnsValue()
+    {
+        var value = await _calc.Locator("//*[@AutomationId='num7Button']/@Name").WaitForResolvedValueAsync(5000);
+        Assert.That(value.Type, Is.Not.EqualTo(WcAttrType.NullValue));
+    }
+
+    [Test]
+    public void WaitForElement_NonExistent_ThrowsNoMatch()
+    {
+        Assert.ThrowsAsync<NoMatchException>(async () =>
+            await _calc.Locator("[automationid=doesNotExist]").WaitForElementAsync(500));
+    }
+
+    [Test]
+    public async Task WaitForVanish_ElementNotPresent_ReturnsImmediately()
+    {
+        await _calc.Locator("[automationid=doesNotExist]").WaitForVanishAsync(5000);
+    }
+
+    [Test]
+    public async Task WaitForResolvedValue_IsOffScreenFalse_ReturnsForVisibleElement()
+    {
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        var value = await _calc
+            .Locator("//*[@AutomationId='num7Button']").Locator("./@isoffscreen[.=false()]")
+            .WaitForResolvedValueAsync(5000);
+        sw.Stop();
+        Assert.That(value.Type, Is.Not.EqualTo(WcAttrType.NullValue),
+            "Visible element should match isoffscreen=false predicate");
+        Assert.That(sw.ElapsedMilliseconds, Is.LessThan(3000),
+            "Should resolve quickly for a visible element, not wait until timeout");
+    }
+
+    [Test]
+    public void WaitForResolvedValue_IsOffScreenFalse_TimesOutForNonExistent()
+    {
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        Assert.ThrowsAsync<NoMatchException>(async () =>
+            await _calc
+                .Locator("//*[@AutomationId='doesNotExist']").Locator("./@isoffscreen[.=false()]")
+                .WaitForResolvedValueAsync(500));
+        sw.Stop();
+        Assert.That(sw.ElapsedMilliseconds, Is.GreaterThanOrEqualTo(400),
+            "Should wait close to the full timeout before throwing");
     }
 }

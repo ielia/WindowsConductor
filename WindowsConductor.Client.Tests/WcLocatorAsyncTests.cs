@@ -26,7 +26,7 @@ public class WcLocatorAsyncTests
         var el = await MakeLocator("[name=OK]").GetElementAsync();
         Assert.That(el.ElementId, Is.EqualTo("elem-id-1"));
         Assert.That(_transport.Calls[0].Command, Is.EqualTo("findElement"));
-        Assert.That(_transport.Calls[0].ParamsJson, Does.Contain("\"selector\":\"[name=OK]\""));
+        Assert.That(_transport.Calls[0].ParamsJson, Does.Contain("\"selectors\":[\"[name=OK]\"]"));
         Assert.That(_transport.Calls[0].ParamsJson, Does.Contain("\"appId\":\"app1\""));
     }
 
@@ -49,27 +49,22 @@ public class WcLocatorAsyncTests
     // ── GetElementAsync with parent chaining ─────────────────────────────────
 
     [Test]
-    public async Task GetElementAsync_WithParent_ResolvesParentFirst()
+    public async Task GetElementAsync_WithParent_SendsSelectorsArray()
     {
-        _transport.Enqueue("parent-el");   // parent's findElement
-        _transport.Enqueue("child-el");    // child's findElement
+        _transport.Enqueue("child-el");
         var parent = MakeLocator("type=Window");
         var child = MakeLocator("[name=OK]", parent);
         var el = await child.GetElementAsync();
 
-        Assert.That(_transport.Calls, Has.Count.EqualTo(2));
+        Assert.That(_transport.Calls, Has.Count.EqualTo(1));
         Assert.That(_transport.Calls[0].Command, Is.EqualTo("findElement"));
-        Assert.That(_transport.Calls[0].ParamsJson, Does.Contain("\"selector\":\"type=Window\""));
-        Assert.That(_transport.Calls[1].Command, Is.EqualTo("findElement"));
-        Assert.That(_transport.Calls[1].ParamsJson, Does.Contain("\"rootElementId\":\"parent-el\""));
+        Assert.That(_transport.Calls[0].ParamsJson, Does.Contain("\"selectors\":[\"type=Window\",\"[name=OK]\"]"));
         Assert.That(el.ElementId, Is.EqualTo("child-el"));
     }
 
     [Test]
-    public async Task GetElementAsync_ThreeLevelChain_ResolvesInOrder()
+    public async Task GetElementAsync_ThreeLevelChain_SendsSingleCallWithAllSelectors()
     {
-        _transport.Enqueue("gp-el");
-        _transport.Enqueue("p-el");
         _transport.Enqueue("c-el");
 
         var chain = MakeLocator("type=Window")
@@ -77,25 +72,25 @@ public class WcLocatorAsyncTests
             .GetByName("OK");
 
         var el = await chain.GetElementAsync();
-        Assert.That(_transport.Calls, Has.Count.EqualTo(3));
+        Assert.That(_transport.Calls, Has.Count.EqualTo(1));
+        Assert.That(_transport.Calls[0].ParamsJson,
+            Does.Contain("\"selectors\":[\"type=Window\",\"type=Panel\",\"[name=OK]\"]"));
         Assert.That(el.ElementId, Is.EqualTo("c-el"));
     }
 
     // ── Parent chaining ──────────────────────────────────────────────────────
 
     [Test]
-    public async Task Parent_ResolvesElementThenNavigatesUp()
+    public async Task Parent_SendsBothSelectorsInOneCall()
     {
-        _transport.Enqueue("btn-el");    // findElement for Button
-        _transport.Enqueue("parent-el"); // findElement for /..
+        _transport.Enqueue("parent-el");
 
         var locator = MakeLocator("type=Button").Parent();
         var el = await locator.GetElementAsync();
 
-        Assert.That(_transport.Calls, Has.Count.EqualTo(2));
-        Assert.That(_transport.Calls[0].ParamsJson, Does.Contain("\"selector\":\"type=Button\""));
-        Assert.That(_transport.Calls[1].ParamsJson, Does.Contain("\"selector\":\"/..\""));
-        Assert.That(_transport.Calls[1].ParamsJson, Does.Contain("\"rootElementId\":\"btn-el\""));
+        Assert.That(_transport.Calls, Has.Count.EqualTo(1));
+        Assert.That(_transport.Calls[0].ParamsJson,
+            Does.Contain("\"selectors\":[\"type=Button\",\"/..\""));
         Assert.That(el.ElementId, Is.EqualTo("parent-el"));
     }
 
@@ -121,18 +116,17 @@ public class WcLocatorAsyncTests
     }
 
     [Test]
-    public async Task GetAllElementsAsync_WithParent_ResolvesParentFirst()
+    public async Task GetAllElementsAsync_WithParent_SendsSingleCallWithSelectors()
     {
-        _transport.Enqueue("parent-el");
         _transport.Enqueue(new[] { "c1", "c2" });
 
         var chain = MakeLocator("type=Window").GetByControlType("Button");
         var elements = await chain.GetAllElementsAsync();
 
-        Assert.That(_transport.Calls, Has.Count.EqualTo(2));
-        Assert.That(_transport.Calls[0].Command, Is.EqualTo("findElement"));
-        Assert.That(_transport.Calls[1].Command, Is.EqualTo("findElements"));
-        Assert.That(_transport.Calls[1].ParamsJson, Does.Contain("\"rootElementId\":\"parent-el\""));
+        Assert.That(_transport.Calls, Has.Count.EqualTo(1));
+        Assert.That(_transport.Calls[0].Command, Is.EqualTo("findElements"));
+        Assert.That(_transport.Calls[0].ParamsJson,
+            Does.Contain("\"selectors\":[\"type=Window\",\"type=Button\"]"));
         Assert.That(elements, Has.Count.EqualTo(2));
     }
 
@@ -273,10 +267,8 @@ public class WcLocatorAsyncTests
     // ── Chained actions resolve full hierarchy ───────────────────────────────
 
     [Test]
-    public async Task ChainedClick_ResolvesEntireHierarchyThenClicks()
+    public async Task ChainedClick_SendsSingleFindThenClicks()
     {
-        _transport.Enqueue("window-el");
-        _transport.Enqueue("panel-el");
         _transport.Enqueue("btn-el");
         // click
 
@@ -285,19 +277,19 @@ public class WcLocatorAsyncTests
             .GetByName("OK")
             .ClickAsync();
 
-        Assert.That(_transport.Calls, Has.Count.EqualTo(4));
-        Assert.That(_transport.Calls[0].ParamsJson, Does.Contain("\"selector\":\"type=Window\""));
-        Assert.That(_transport.Calls[1].ParamsJson, Does.Contain("\"rootElementId\":\"window-el\""));
-        Assert.That(_transport.Calls[2].ParamsJson, Does.Contain("\"rootElementId\":\"panel-el\""));
-        Assert.That(_transport.Calls[3].Command, Is.EqualTo("click"));
+        Assert.That(_transport.Calls, Has.Count.EqualTo(2));
+        Assert.That(_transport.Calls[0].Command, Is.EqualTo("findElement"));
+        Assert.That(_transport.Calls[0].ParamsJson,
+            Does.Contain("\"selectors\":[\"type=Window\",\"type=Panel\",\"[name=OK]\"]"));
+        Assert.That(_transport.Calls[1].Command, Is.EqualTo("click"));
     }
 
     // ── GetAtAsync ──────────────────────────────────────────────────────────
 
     [Test]
-    public async Task GetAtAsync_ResolvesParentThenFindsAtPoint()
+    public async Task GetAtAsync_ResolvesLocatorThenFindsAtPoint()
     {
-        _transport.Enqueue("parent-el");          // parent locator resolves
+        _transport.Enqueue("parent-el");          // locator resolves via findElement
         _transport.Enqueue(new[] { "el-a", "el-b" }); // findElementsAtPoint result
         var parent = MakeLocator("type=Panel");
         var elements = await parent.GetAtAsync(75.0, 150.0);
@@ -314,7 +306,7 @@ public class WcLocatorAsyncTests
     // ── GetFrontAtAsync ──────────────────────────────────────────────────────
 
     [Test]
-    public async Task GetFrontAtAsync_ResolvesParentThenFindsFront()
+    public async Task GetFrontAtAsync_ResolvesLocatorThenFindsFront()
     {
         _transport.Enqueue("parent-el");
         _transport.Enqueue("el-front");
@@ -327,10 +319,10 @@ public class WcLocatorAsyncTests
         Assert.That(_transport.Calls[1].ParamsJson, Does.Contain("\"rootElementId\":\"parent-el\""));
     }
 
-    // ── WaitForVisible ──────────────────────────────────────────────────────
+    // ── WaitForElement ──────────────────────────────────────────────────────
 
     [Test]
-    public async Task WaitForVisible_ReturnsElement()
+    public async Task WaitForElement_ReturnsElement()
     {
         _transport.Enqueue("el-wait-1");
         var el = await MakeLocator("[name=OK]").WaitForElementAsync(5000);
@@ -340,31 +332,30 @@ public class WcLocatorAsyncTests
     }
 
     [Test]
-    public async Task WaitForVisible_WithParent_ResolvesParentFirst()
+    public async Task WaitForElement_WithParent_SendsSingleCallWithSelectors()
     {
-        _transport.Enqueue("parent-el");
         _transport.Enqueue("child-el");
         var parent = MakeLocator("type=Window");
         var el = await MakeLocator("[name=OK]", parent).WaitForElementAsync(3000);
-        Assert.That(_transport.Calls, Has.Count.EqualTo(2));
-        Assert.That(_transport.Calls[0].Command, Is.EqualTo("findElement"));
-        Assert.That(_transport.Calls[1].Command, Is.EqualTo("waitForElement"));
-        Assert.That(_transport.Calls[1].ParamsJson, Does.Contain("\"rootElementId\":\"parent-el\""));
+        Assert.That(_transport.Calls, Has.Count.EqualTo(1));
+        Assert.That(_transport.Calls[0].Command, Is.EqualTo("waitForElement"));
+        Assert.That(_transport.Calls[0].ParamsJson,
+            Does.Contain("\"selectors\":[\"type=Window\",\"[name=OK]\"]"));
         Assert.That(el.ElementId, Is.EqualTo("child-el"));
     }
 
     [Test]
-    public void WaitForVisible_NullResult_ThrowsElementNotFoundException()
+    public void WaitForElement_NullResult_ThrowsNoMatchException()
     {
         _transport.Enqueue(null);
         Assert.ThrowsAsync<NoMatchException>(async () =>
             await MakeLocator("[name=OK]").WaitForElementAsync(1000));
     }
 
-    // ── WaitForAllVisible ───────────────────────────────────────────────────
+    // ── WaitForAllElements ───────────────────────────────────────────────────
 
     [Test]
-    public async Task WaitForAllVisible_ReturnsElements()
+    public async Task WaitForAllElements_ReturnsElements()
     {
         _transport.Enqueue(new[] { "el-1", "el-2" });
         var elements = await MakeLocator("type=Button").WaitForAllElementsAsync(5000);
@@ -375,14 +366,14 @@ public class WcLocatorAsyncTests
     }
 
     [Test]
-    public async Task WaitForAllVisible_WithParent_ResolvesParentFirst()
+    public async Task WaitForAllElements_WithParent_SendsSingleCallWithSelectors()
     {
-        _transport.Enqueue("parent-el");
         _transport.Enqueue(new[] { "c1", "c2" });
         var elements = await MakeLocator("type=Button", MakeLocator("type=Window")).WaitForAllElementsAsync(3000);
-        Assert.That(_transport.Calls, Has.Count.EqualTo(2));
-        Assert.That(_transport.Calls[0].Command, Is.EqualTo("findElement"));
-        Assert.That(_transport.Calls[1].Command, Is.EqualTo("waitForElements"));
+        Assert.That(_transport.Calls, Has.Count.EqualTo(1));
+        Assert.That(_transport.Calls[0].Command, Is.EqualTo("waitForElements"));
+        Assert.That(_transport.Calls[0].ParamsJson,
+            Does.Contain("\"selectors\":[\"type=Window\",\"type=Button\"]"));
         Assert.That(elements, Has.Count.EqualTo(2));
     }
 
@@ -397,13 +388,12 @@ public class WcLocatorAsyncTests
     }
 
     [Test]
-    public async Task WaitForVanish_WithParent_ResolvesParentFirst()
+    public async Task WaitForVanish_WithParent_SendsSingleCallWithSelectors()
     {
-        _transport.Enqueue("parent-el");
         await MakeLocator("[name=Loading]", MakeLocator("type=Window")).WaitForVanishAsync(5000);
-        Assert.That(_transport.Calls, Has.Count.EqualTo(2));
-        Assert.That(_transport.Calls[0].Command, Is.EqualTo("findElement"));
-        Assert.That(_transport.Calls[1].Command, Is.EqualTo("waitForVanish"));
-        Assert.That(_transport.Calls[1].ParamsJson, Does.Contain("\"rootElementId\":\"parent-el\""));
+        Assert.That(_transport.Calls, Has.Count.EqualTo(1));
+        Assert.That(_transport.Calls[0].Command, Is.EqualTo("waitForVanish"));
+        Assert.That(_transport.Calls[0].ParamsJson,
+            Does.Contain("\"selectors\":[\"type=Window\",\"[name=Loading]\"]"));
     }
 }
