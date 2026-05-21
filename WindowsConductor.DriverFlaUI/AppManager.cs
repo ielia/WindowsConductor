@@ -929,12 +929,17 @@ public sealed class AppManager : IAppOperations, IDisposable
         if (!_apps.TryGetValue(appId, out var app))
             throw new KeyNotFoundException($"App session '{appId}' not found.");
 
-        // First attempt: standard GetMainWindow (works for classic Win32 apps)
-        var window = app.GetMainWindow(_automation, TimeSpan.FromSeconds(10));
-        if (window != null) return window;
+        // First attempt: standard GetMainWindow (works for classic Win32 apps).
+        // Short timeout — if the cached handle is stale (e.g. UWP window recycled),
+        // FromHandle will hang until timeout; fall through to the enumeration fallback.
+        try
+        {
+            var window = app.GetMainWindow(_automation, TimeSpan.FromSeconds(1));
+            if (window != null) return window;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException) { }
 
-        // Fallback: UWP/packaged apps spawn in a different process, so the stub's
-        // main window is null. Search all top-level windows owned by related processes.
+        // Fallback: enumerate actual live top-level windows for the process.
         var allWindows = app.GetAllTopLevelWindows(_automation);
         return allWindows.FirstOrDefault()
             ?? throw new InvalidOperationException(
