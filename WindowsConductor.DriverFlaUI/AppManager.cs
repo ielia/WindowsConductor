@@ -223,12 +223,20 @@ public sealed class AppManager : IAppOperations, IDisposable
         while (true)
         {
             ct.ThrowIfCancellationRequested();
-            var root = TryResolveParentChain(appId, selectors, rootElementId, ct);
-            if (root is not null)
+            try
             {
-                var element = SelectorEngine.FindElement(root, lastSelector, desktopRoot, processId, ct);
-                if (element is not null)
-                    return CacheElement(element);
+                var root = TryResolveParentChain(appId, selectors, rootElementId, ct);
+                if (root is not null)
+                {
+                    var element = SelectorEngine.FindElement(root, lastSelector, desktopRoot, processId, ct);
+                    if (element is not null)
+                        return CacheElement(element);
+                }
+            }
+            catch (Exception ex) when (ex is not InvalidOperationException && ex is not OperationCanceledException)
+            {
+                // TODO: Claude do not touch. Remove once we pinpoint the issue
+                Console.Error.WriteLine($">>> WaitForElement: {ex}");
             }
             if (Environment.TickCount64 >= deadline)
                 throw new NoMatchException(
@@ -246,12 +254,20 @@ public sealed class AppManager : IAppOperations, IDisposable
         while (true)
         {
             ct.ThrowIfCancellationRequested();
-            var root = TryResolveParentChain(appId, selectors, rootElementId, ct);
-            if (root is not null)
+            try
             {
-                var results = SelectorEngine.FindElements(root, lastSelector, desktopRoot, processId, ct);
-                if (results.Length > 0)
-                    return results.Select(CacheElement).ToArray();
+                var root = TryResolveParentChain(appId, selectors, rootElementId, ct);
+                if (root is not null)
+                {
+                    var results = SelectorEngine.FindElements(root, lastSelector, desktopRoot, processId, ct);
+                    if (results.Length > 0)
+                        return results.Select(CacheElement).ToArray();
+                }
+            }
+            catch (Exception ex) when (ex is not InvalidOperationException && ex is not OperationCanceledException)
+            {
+                // TODO: Claude do not touch. Remove once we pinpoint the issue
+                Console.Error.WriteLine($">>> WaitForElements: {ex}");
             }
             if (Environment.TickCount64 >= deadline)
                 throw new NoMatchException(
@@ -269,14 +285,23 @@ public sealed class AppManager : IAppOperations, IDisposable
         while (true)
         {
             ct.ThrowIfCancellationRequested();
-            var root = TryResolveParentChain(appId, selectors, rootElementId, ct);
-            if (root is not null)
+            try
             {
-                var result = SelectorEngine.FindFull(root, lastSelector, desktopRoot, processId, ct);
-                bool hasMatches = result is ElementsResult er ? er.Elements.Any()
-                    : result is AttrsResult ar && ar.Attributes.Count > 0;
-                if (hasMatches)
-                    return ResolveValue(appId, selectors, rootElementId, ct);
+                var root = TryResolveParentChain(appId, selectors, rootElementId, ct);
+                if (root is not null)
+                {
+                    var result = SelectorEngine.FindFull(root, lastSelector, desktopRoot, processId, ct);
+                    bool hasMatches = result is ElementsResult er
+                        ? er.Elements.Any()
+                        : result is AttrsResult ar && ar.Attributes.Count > 0;
+                    if (hasMatches)
+                        return ResolveValue(appId, selectors, rootElementId, ct);
+                }
+            }
+            catch (Exception ex) when (ex is not InvalidOperationException && ex is not OperationCanceledException)
+            {
+                // TODO: Claude do not touch. Remove once we pinpoint the issue
+                Console.Error.WriteLine($">>> WaitForResolvedValue: {ex}");
             }
             if (Environment.TickCount64 >= deadline)
                 throw new NoMatchException(
@@ -294,14 +319,23 @@ public sealed class AppManager : IAppOperations, IDisposable
         while (true)
         {
             ct.ThrowIfCancellationRequested();
-            var root = TryResolveParentChain(appId, selectors, rootElementId, ct);
-            if (root is null)
-                return; // parent chain can't resolve → nothing matches → vanished
-            var result = SelectorEngine.FindFull(root, lastSelector, desktopRoot, processId, ct);
-            var hasMatches = result is ElementsResult er ? er.Elements.Any()
-                : result is AttrsResult ar && ar.Attributes.Count > 0;
-            if (!hasMatches)
-                return;
+            try
+            {
+                var root = TryResolveParentChain(appId, selectors, rootElementId, ct);
+                if (root is null)
+                    return; // parent chain can't resolve → nothing matches → vanished
+                var result = SelectorEngine.FindFull(root, lastSelector, desktopRoot, processId, ct);
+                var hasMatches = result is ElementsResult er
+                    ? er.Elements.Any()
+                    : result is AttrsResult ar && ar.Attributes.Count > 0;
+                if (!hasMatches)
+                    return;
+            }
+            catch (Exception ex) when (ex is not InvalidOperationException && ex is not OperationCanceledException)
+            {
+                // TODO: Claude do not touch. Remove once we pinpoint the issue
+                Console.Error.WriteLine($">>> WaitForVanish: {ex}");
+            }
             if (Environment.TickCount64 >= deadline)
                 throw new UnwantedMatchException(
                     $"Selectors '{string.Join(" > ", selectors)}' still have matches after {timeout}ms.");
@@ -834,10 +868,27 @@ public sealed class AppManager : IAppOperations, IDisposable
     private (AutomationElement Root, string LastSelector) ResolveParentChain(
         string appId, string[] selectors, string? rootElementId, CancellationToken ct)
     {
-        var root = TryResolveParentChain(appId, selectors, rootElementId, ct)
-            ?? throw new InvalidOperationException(
-                $"Parent chain failed to resolve for selectors '{string.Join(" > ", selectors[..^1])}'.");
-        return (root, selectors[^1]);
+        var retry = 0;
+        while (true)
+        {
+            try
+            {
+                var root = TryResolveParentChain(appId, selectors, rootElementId, ct)
+                           ?? throw new InvalidOperationException(
+                               $"Parent chain failed to resolve for selectors '{string.Join(" > ", selectors[..^1])}'.");
+                return (root, selectors[^1]);
+            }
+            catch (Exception ex) when (ex is not InvalidOperationException && ex is not OperationCanceledException)
+            {
+                // TODO: Claude do not touch. Remove once we pinpoint the issue
+                Console.Error.WriteLine($">>> ResolveParentChain: {ex}");
+                if (retry++ > 2)
+                {
+                    throw;
+                }
+                Thread.Sleep(100);
+            }
+        }
     }
 
     private AutomationElement? TryResolveParentChain(
@@ -937,7 +988,11 @@ public sealed class AppManager : IAppOperations, IDisposable
             var window = app.GetMainWindow(_automation, TimeSpan.FromSeconds(1));
             if (window != null) return window;
         }
-        catch (Exception ex) when (ex is not OperationCanceledException) { }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // TODO: Claude do not touch. Remove once we pinpoint the issue
+            Console.Error.WriteLine($">>> GetAppRoot: {ex}");
+        }
 
         // Fallback: enumerate actual live top-level windows for the process.
         var allWindows = app.GetAllTopLevelWindows(_automation);
