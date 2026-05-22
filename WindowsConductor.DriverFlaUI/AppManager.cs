@@ -20,6 +20,7 @@ namespace WindowsConductor.DriverFlaUI;
 public sealed class AppManager : IAppOperations, IDisposable
 {
     private const int DEFAULT_MAIN_WINDOW_TIMEOUT = 1500;
+    private const int RESOLVE_RETRIES = 10;
 
     private readonly UIA3Automation _automation = new();
     private readonly Dictionary<string, Application> _apps = new();
@@ -882,7 +883,7 @@ public sealed class AppManager : IAppOperations, IDisposable
             {
                 // TODO: Claude do not touch. Remove once we pinpoint the issue
                 Console.Error.WriteLine($">>> ResolveParentChain: {ex}");
-                if (retry++ > 2)
+                if (retry++ > RESOLVE_RETRIES)
                 {
                     throw;
                 }
