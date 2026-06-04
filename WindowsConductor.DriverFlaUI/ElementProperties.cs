@@ -2,6 +2,7 @@ using System.Collections.Frozen;
 using System.Drawing;
 using System.Reflection;
 using FlaUI.Core.AutomationElements;
+using FlaUI.Core.Definitions;
 
 namespace WindowsConductor.DriverFlaUI;
 
@@ -288,5 +289,171 @@ internal static class ElementProperties
         {
             return null;
         }
+    }
+
+    // ── SetAttribute ────────────────────────────────────────────────────────
+
+    internal static void SetAttribute(AutomationElement el, string key, string value)
+    {
+        var normalized = Normalize(key);
+
+        if (normalized == "ischecked")
+        {
+            SetIsChecked(el, bool.Parse(value));
+            return;
+        }
+
+        if (DerivedKeys.Contains(normalized))
+            throw new NotSupportedException($"Attribute '{key}' is read-only.");
+
+        if (SetPatternAttribute(el, normalized, value))
+            return;
+
+        throw new NotSupportedException($"Attribute '{key}' is not settable.");
+    }
+
+    private static void SetIsChecked(AutomationElement el, bool desired)
+    {
+        var toggle = el.Patterns.Toggle.PatternOrDefault
+            ?? throw new NotSupportedException("Element does not support the Toggle pattern.");
+        var targetState = desired ? ToggleState.On : ToggleState.Off;
+        for (int i = 0; i < 3; i++)
+        {
+            if (toggle.ToggleState.ValueOrDefault == targetState) return;
+            toggle.Toggle();
+        }
+        if (toggle.ToggleState.ValueOrDefault != targetState)
+            throw new InvalidOperationException(
+                $"Could not set ischecked to {desired}. Current state: {toggle.ToggleState.ValueOrDefault}.");
+    }
+
+    private static bool SetPatternAttribute(AutomationElement el, string normalized, string value)
+    {
+        if (!PatternPropertyMap.TryGetValue(normalized, out var accessor))
+            return false;
+
+        var patternName = normalized[..normalized.IndexOf('_')];
+        var propName = normalized[(normalized.IndexOf('_') + 1)..];
+
+        switch (patternName)
+        {
+            case "toggle":
+                SetToggle(el, propName, value);
+                return true;
+            case "expandcollapse":
+                SetExpandCollapse(el, propName, value);
+                return true;
+            case "selectionitem":
+                SetSelectionItem(el, propName, value);
+                return true;
+            case "value":
+                SetValue(el, propName, value);
+                return true;
+            case "rangevalue":
+                SetRangeValue(el, propName, value);
+                return true;
+            case "window":
+                SetWindow(el, propName, value);
+                return true;
+            case "transform":
+            case "transform2":
+                SetTransform(el, patternName, propName, value);
+                return true;
+            default:
+                throw new NotSupportedException($"Attribute '{normalized}' is read-only.");
+        }
+    }
+
+    private static void SetToggle(AutomationElement el, string propName, string value)
+    {
+        if (propName != "togglestate")
+            throw new NotSupportedException($"toggle_{propName} is read-only.");
+        var toggle = el.Patterns.Toggle.PatternOrDefault
+            ?? throw new NotSupportedException("Element does not support the Toggle pattern.");
+        var target = Enum.Parse<ToggleState>(value, ignoreCase: true);
+        for (int i = 0; i < 3; i++)
+        {
+            if (toggle.ToggleState.ValueOrDefault == target) return;
+            toggle.Toggle();
+        }
+        if (toggle.ToggleState.ValueOrDefault != target)
+            throw new InvalidOperationException(
+                $"Could not set toggle state to {target}. Current state: {toggle.ToggleState.ValueOrDefault}.");
+    }
+
+    private static void SetExpandCollapse(AutomationElement el, string propName, string value)
+    {
+        if (propName != "expandcollapsestate")
+            throw new NotSupportedException($"expandcollapse_{propName} is read-only.");
+        var ec = el.Patterns.ExpandCollapse.PatternOrDefault
+            ?? throw new NotSupportedException("Element does not support the ExpandCollapse pattern.");
+        var target = Enum.Parse<ExpandCollapseState>(value, ignoreCase: true);
+        switch (target)
+        {
+            case ExpandCollapseState.Expanded:
+                ec.Expand();
+                break;
+            case ExpandCollapseState.Collapsed:
+                ec.Collapse();
+                break;
+            default:
+                throw new NotSupportedException(
+                    $"Cannot set ExpandCollapseState to {target}. Only Expanded and Collapsed are supported.");
+        }
+    }
+
+    private static void SetSelectionItem(AutomationElement el, string propName, string value)
+    {
+        if (propName != "isselected")
+            throw new NotSupportedException($"selectionitem_{propName} is read-only.");
+        var si = el.Patterns.SelectionItem.PatternOrDefault
+            ?? throw new NotSupportedException("Element does not support the SelectionItem pattern.");
+        var desired = bool.Parse(value);
+        if (desired)
+            si.Select();
+        else
+            si.RemoveFromSelection();
+    }
+
+    private static void SetValue(AutomationElement el, string propName, string value)
+    {
+        if (propName == "isreadonly")
+            throw new NotSupportedException("value_isreadonly is read-only.");
+        if (propName != "value")
+            throw new NotSupportedException($"value_{propName} is read-only.");
+        var vp = el.Patterns.Value.PatternOrDefault
+            ?? throw new NotSupportedException("Element does not support the Value pattern.");
+        vp.SetValue(value);
+    }
+
+    private static void SetRangeValue(AutomationElement el, string propName, string value)
+    {
+        if (propName != "value")
+            throw new NotSupportedException($"rangevalue_{propName} is read-only.");
+        var rv = el.Patterns.RangeValue.PatternOrDefault
+            ?? throw new NotSupportedException("Element does not support the RangeValue pattern.");
+        rv.SetValue(double.Parse(value, System.Globalization.CultureInfo.InvariantCulture));
+    }
+
+    private static void SetWindow(AutomationElement el, string propName, string value)
+    {
+        if (propName != "windowvisualstate")
+            throw new NotSupportedException($"window_{propName} is read-only.");
+        var wp = el.Patterns.Window.PatternOrDefault
+            ?? throw new NotSupportedException("Element does not support the Window pattern.");
+        var target = Enum.Parse<WindowVisualState>(value, ignoreCase: true);
+        wp.SetWindowVisualState(target);
+    }
+
+    private static void SetTransform(AutomationElement el, string patternName, string propName, string value)
+    {
+        if (patternName == "transform2" && propName == "zoomlevel")
+        {
+            var t2 = el.Patterns.Transform2.PatternOrDefault
+                ?? throw new NotSupportedException("Element does not support the Transform2 pattern.");
+            t2.Zoom(double.Parse(value, System.Globalization.CultureInfo.InvariantCulture));
+            return;
+        }
+        throw new NotSupportedException($"{patternName}_{propName} is read-only.");
     }
 }

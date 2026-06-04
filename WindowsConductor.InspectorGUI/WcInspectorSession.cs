@@ -178,6 +178,9 @@ internal sealed class WcInspectorSession : IInspectorSession, IAsyncDisposable
     public async Task<Dictionary<string, object?>> GetAttributesAsync(CancellationToken ct = default) =>
         await _selectedElement!.GetAttributesAsync(ct);
 
+    public async Task SetAttributeAsync(string attributeName, string value, CancellationToken ct = default) =>
+        await _selectedElement!.SetAttributeAsync(attributeName, value, ct);
+
     public async Task ClickAsync(CancellationToken ct = default) =>
         await _selectedElement!.ClickAsync(ct);
 
@@ -201,6 +204,15 @@ internal sealed class WcInspectorSession : IInspectorSession, IAsyncDisposable
 
     public async Task HoverAsync(Anchor anchor, System.Drawing.Point offset, CancellationToken ct = default) =>
         await _selectedElement!.HoverAsync(anchor, offset, ct);
+
+    public async Task DragToAsync(string[] targetSelectors, Anchor fromAnchor, System.Drawing.Point fromOffset, Anchor toAnchor, System.Drawing.Point toOffset, CancellationToken ct = default)
+    {
+        WcLocator locator = _app!.Locator(targetSelectors[0]);
+        for (int i = 1; i < targetSelectors.Length; i++)
+            locator = locator.Locator(targetSelectors[i]);
+        var target = await locator.GetElementAsync(ct);
+        await _selectedElement!.DragToAsync(fromAnchor, fromOffset, target, toAnchor, toOffset, ct);
+    }
 
     public async Task ScrollAsync(double lines, bool horizontal = false, CancellationToken ct = default) =>
         await _selectedElement!.ScrollAsync(lines, horizontal, ct);

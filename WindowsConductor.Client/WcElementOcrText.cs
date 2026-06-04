@@ -1,3 +1,4 @@
+using System.Drawing;
 using static WindowsConductor.Client.Anchor;
 
 namespace WindowsConductor.Client;
@@ -12,14 +13,44 @@ public abstract record WcElementOcrText(WcElement Element, BoundingRect Bounding
     public Task ClickAsync(CancellationToken ct = default) =>
         Element.ClickAsync(NorthWest, BoundingRect.Center, ct);
 
+    public Task ClickAsync(Anchor anchor, Point offset, CancellationToken ct = default) =>
+        Element.ClickAsync(NorthWest, ResolvePoint(anchor, offset), ct);
+
     public Task DoubleClickAsync(CancellationToken ct = default) =>
         Element.DoubleClickAsync(NorthWest, BoundingRect.Center, ct);
+
+    public Task DoubleClickAsync(Anchor anchor, Point offset, CancellationToken ct = default) =>
+        Element.DoubleClickAsync(NorthWest, ResolvePoint(anchor, offset), ct);
 
     public Task RightClickAsync(CancellationToken ct = default) =>
         Element.RightClickAsync(NorthWest, BoundingRect.Center, ct);
 
+    public Task RightClickAsync(Anchor anchor, Point offset, CancellationToken ct = default) =>
+        Element.RightClickAsync(NorthWest, ResolvePoint(anchor, offset), ct);
+
     public Task HoverAsync(CancellationToken ct = default) =>
         Element.HoverAsync(NorthWest, BoundingRect.Center, ct);
+
+    public Task HoverAsync(Anchor anchor, Point offset, CancellationToken ct = default) =>
+        Element.HoverAsync(NorthWest, ResolvePoint(anchor, offset), ct);
+
+    private Point ResolvePoint(Anchor anchor, Point offset)
+    {
+        var (ax, ay) = anchor switch
+        {
+            Center => (BoundingRect.X + BoundingRect.Width / 2, BoundingRect.Y + BoundingRect.Height / 2),
+            North => (BoundingRect.X + BoundingRect.Width / 2, BoundingRect.Y),
+            NorthEast => (BoundingRect.Right, BoundingRect.Y),
+            East => (BoundingRect.Right, BoundingRect.Y + BoundingRect.Height / 2),
+            SouthEast => (BoundingRect.Right, BoundingRect.Bottom),
+            South => (BoundingRect.X + BoundingRect.Width / 2, BoundingRect.Bottom),
+            SouthWest => (BoundingRect.X, BoundingRect.Bottom),
+            West => (BoundingRect.X, BoundingRect.Y + BoundingRect.Height / 2),
+            NorthWest => (BoundingRect.X, BoundingRect.Y),
+            _ => (BoundingRect.X + BoundingRect.Width / 2, BoundingRect.Y + BoundingRect.Height / 2)
+        };
+        return new Point((int)(ax + offset.X), (int)(ay + offset.Y));
+    }
 
     /// <summary>Finds the best fuzzy substring match within this OCR text (case-insensitive).</summary>
     /// <returns>The match, or <c>null</c> if no match exists within <paramref name="maxEdits"/>.</returns>

@@ -1,6 +1,6 @@
 # WindowsConductor
 
-Client-server solution for controlling Windows 10/11 desktop applications remotely through a WebSocket connection. Targets native Windows UI elements via UIAutomation (UIA3) and provides a code-based API for launching, inspecting, and interacting with them.
+Client-server solution for controlling Windows 10/11 desktop applications remotely through a WebSocket connection. Targets native Windows UI elements via UIAutomation (UIA3) and provides a code-based API for launching, inspecting, and interacting with them. Supports TLS/WSS encryption and bearer-token authentication.
 
 ## Architecture
 

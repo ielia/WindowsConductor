@@ -24,6 +24,8 @@ internal interface IAppOperations
     void DoubleClick(string elementId, string? anchor = null, int x = 0, int y = 0);
     void RightClick(string elementId, string? anchor = null, int x = 0, int y = 0);
     void Hover(string elementId, string? anchor = null, int x = 0, int y = 0);
+    void DragTo(string sourceId, string? fromAnchor, int fromX, int fromY,
+        string targetId, string? toAnchor, int toX, int toY);
     void Scroll(string elementId, double lines, bool horizontal = false);
     void HitKeys(string elementId, string[] keys);
     void TypeText(string elementId, string text, int modifiers = 0);
@@ -32,6 +34,7 @@ internal interface IAppOperations
     string GetText(string elementId);
     string GetAttribute(string elementId, string attribute);
     Dictionary<string, object?> GetAttributes(string elementId);
+    void SetAttribute(string elementId, string attribute, string value);
     string? GetParent(string elementId);
     string? GetTopLevelWindow(string elementId);
     bool IsEnabled(string elementId);

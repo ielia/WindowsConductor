@@ -68,6 +68,9 @@ internal sealed class FakeAppOperations : IAppOperations
     public Dictionary<string, object?> GetAttributes(string elementId)
     { Record("GetAttributes", elementId); return GetAttributesResult; }
 
+    public void SetAttribute(string elementId, string attribute, string value)
+    { Record("SetAttribute", elementId, attribute, value); }
+
     public string? GetParentResult { get; set; } = "parent-el-1";
     public string? GetParent(string elementId)
     { Record("GetParent", elementId); return GetParentResult; }
@@ -140,6 +143,11 @@ internal sealed class FakeAppOperations : IAppOperations
     public object DesktopScreenshotResult { get; set; } = new { png = new byte[] { 0x89, 0x50, 0x4E, 0x47 }, originX = 0, originY = 0 };
     public object DesktopScreenshot()
     { Record("DesktopScreenshot"); return DesktopScreenshotResult; }
+
+    public void DragTo(string sourceId, string? fromAnchor, int fromX, int fromY, string targetId, string? toAnchor, int toX, int toY)
+    {
+        throw new NotImplementedException();
+    }
 }
 
 [TestFixture]
@@ -559,6 +567,24 @@ public class ProcessRequestTests
             ["elementId"] = "e1"
         }));
         Assert.That(_fake.Calls[0].Method, Is.EqualTo("GetAttributes"));
+    }
+
+    // ── setAttribute ────────────────────────────────────────────────────────
+
+    [Test]
+    public void SetAttribute_CallsSetAttribute()
+    {
+        var resp = WsServer.ProcessRequest(_fake, MakeRequest("setAttribute", new()
+        {
+            ["elementId"] = "e1",
+            ["attribute"] = "toggle_togglestate",
+            ["value"] = "On"
+        }));
+        Assert.That(resp.Error, Is.Null);
+        Assert.That(_fake.Calls[0].Method, Is.EqualTo("SetAttribute"));
+        Assert.That(_fake.Calls[0].Args[0], Is.EqualTo("e1"));
+        Assert.That(_fake.Calls[0].Args[1], Is.EqualTo("toggle_togglestate"));
+        Assert.That(_fake.Calls[0].Args[2], Is.EqualTo("On"));
     }
 
     // ── getParent ─────────────────────────────────────────────────────────────

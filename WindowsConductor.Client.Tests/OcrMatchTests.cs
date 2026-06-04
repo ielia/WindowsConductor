@@ -1,3 +1,5 @@
+using System.Drawing;
+using System.Text.Json;
 using NUnit.Framework;
 
 namespace WindowsConductor.Client.Tests;
@@ -842,5 +844,128 @@ public class AnySubstringOverlapsTests
     {
         // "abcdef", needle "cd" matches at [2,4), range is [3,6) — overlaps at position 3
         Assert.That(WcElementOcrMatch.AnySubstringOverlaps("abcdef", "cd", 0, 3, 6), Is.True);
+    }
+}
+
+[TestFixture]
+[Category("Unit")]
+public class WcElementOcrTextActionTests
+{
+    private FakeTransport _transport = null!;
+    private WcElement _element = null!;
+    private WcElementOcrWord _word = null!;
+
+    [SetUp]
+    public void SetUp()
+    {
+        _transport = new FakeTransport();
+        _element = new WcElement("el-1", _transport);
+        // BoundingRect at (100, 200) with size 60x20
+        _word = new WcElementOcrWord(_element, new BoundingRect(100, 200, 60, 20), null, "Hello");
+    }
+
+    private (string anchor, int x, int y) GetSentAnchorAndOffset()
+    {
+        var json = JsonDocument.Parse(_transport.Calls[0].ParamsJson).RootElement;
+        return (
+            json.GetProperty("anchor").GetString()!,
+            json.GetProperty("x").GetInt32(),
+            json.GetProperty("y").GetInt32()
+        );
+    }
+
+    // ── ClickAsync ──────────────────────────────────────────────────────────
+
+    [Test]
+    public async Task ClickAsync_Default_UsesBoundingRectCenter()
+    {
+        await _word.ClickAsync();
+        var (anchor, x, y) = GetSentAnchorAndOffset();
+        Assert.That(anchor, Is.EqualTo("NorthWest"));
+        Assert.That(x, Is.EqualTo(130)); // 100 + 60/2
+        Assert.That(y, Is.EqualTo(210)); // 200 + 20/2
+    }
+
+    [Test]
+    public async Task ClickAsync_CenterAnchor_WithOffset()
+    {
+        await _word.ClickAsync(Anchor.Center, new Point(5, -3));
+        var (anchor, x, y) = GetSentAnchorAndOffset();
+        Assert.That(anchor, Is.EqualTo("NorthWest"));
+        Assert.That(x, Is.EqualTo(135)); // 130 + 5
+        Assert.That(y, Is.EqualTo(207)); // 210 - 3
+    }
+
+    [Test]
+    public async Task ClickAsync_NorthWestAnchor_ResolvesToTopLeft()
+    {
+        await _word.ClickAsync(Anchor.NorthWest, new Point(0, 0));
+        var (_, x, y) = GetSentAnchorAndOffset();
+        Assert.That(x, Is.EqualTo(100));
+        Assert.That(y, Is.EqualTo(200));
+    }
+
+    [Test]
+    public async Task ClickAsync_SouthEastAnchor_ResolvesToBottomRight()
+    {
+        await _word.ClickAsync(Anchor.SouthEast, new Point(0, 0));
+        var (_, x, y) = GetSentAnchorAndOffset();
+        Assert.That(x, Is.EqualTo(160)); // 100 + 60
+        Assert.That(y, Is.EqualTo(220)); // 200 + 20
+    }
+
+    // ── DoubleClickAsync ────────────────────────────────────────────────────
+
+    [Test]
+    public async Task DoubleClickAsync_CenterAnchor_ResolvesCorrectly()
+    {
+        await _word.DoubleClickAsync(Anchor.Center, new Point(0, 0));
+        Assert.That(_transport.Calls[0].Command, Is.EqualTo("doubleClick"));
+        var (_, x, y) = GetSentAnchorAndOffset();
+        Assert.That(x, Is.EqualTo(130));
+        Assert.That(y, Is.EqualTo(210));
+    }
+
+    // ── RightClickAsync ─────────────────────────────────────────────────────
+
+    [Test]
+    public async Task RightClickAsync_NorthAnchor_ResolvesCorrectly()
+    {
+        await _word.RightClickAsync(Anchor.North, new Point(2, 0));
+        Assert.That(_transport.Calls[0].Command, Is.EqualTo("rightClick"));
+        var (_, x, y) = GetSentAnchorAndOffset();
+        Assert.That(x, Is.EqualTo(132)); // 130 + 2
+        Assert.That(y, Is.EqualTo(200)); // top edge
+    }
+
+    // ── HoverAsync ──────────────────────────────────────────────────────────
+
+    [Test]
+    public async Task HoverAsync_SouthWestAnchor_ResolvesCorrectly()
+    {
+        await _word.HoverAsync(Anchor.SouthWest, new Point(0, 0));
+        Assert.That(_transport.Calls[0].Command, Is.EqualTo("hover"));
+        var (_, x, y) = GetSentAnchorAndOffset();
+        Assert.That(x, Is.EqualTo(100)); // left edge
+        Assert.That(y, Is.EqualTo(220)); // bottom edge
+    }
+
+    // ── All anchors ─────────────────────────────────────────────────────────
+
+    [TestCase(Anchor.Center, 130, 210)]
+    [TestCase(Anchor.North, 130, 200)]
+    [TestCase(Anchor.NorthEast, 160, 200)]
+    [TestCase(Anchor.East, 160, 210)]
+    [TestCase(Anchor.SouthEast, 160, 220)]
+    [TestCase(Anchor.South, 130, 220)]
+    [TestCase(Anchor.SouthWest, 100, 220)]
+    [TestCase(Anchor.West, 100, 210)]
+    [TestCase(Anchor.NorthWest, 100, 200)]
+    public async Task ClickAsync_AllAnchors_ResolveCorrectly(Anchor anchor, int expectedX, int expectedY)
+    {
+        await _word.ClickAsync(anchor, new Point(0, 0));
+        var (_, x, y) = GetSentAnchorAndOffset();
+        Assert.That(x, Is.EqualTo(expectedX));
+        Assert.That(y, Is.EqualTo(expectedY));
     }
 }

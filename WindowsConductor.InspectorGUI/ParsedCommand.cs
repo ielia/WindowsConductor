@@ -28,12 +28,20 @@ internal sealed record AttributeCommand(string AttributeName) : ParsedCommand
     internal override string[] Examples => ["attribute classname", "attribute *"];
 }
 
-internal sealed record ClickCommand(string? OcrText = null, int MaxDistance = 0, int? MatchIndex = null) : ParsedCommand
+internal sealed record SetAttributeCommand(string AttributeName, string Value) : ParsedCommand
+{
+    internal override string Name => "setattribute";
+    internal override string Usage => "setattribute <name> <value>";
+    internal override string Description => "Sets a UIAutomation pattern property on the currently selected element.\nSupported: toggle_togglestate, expandcollapse_expandcollapsestate, selectionitem_isselected, value_value, rangevalue_value, window_windowvisualstate, transform2_zoomlevel, ischecked.";
+    internal override string[] Examples => ["setattribute ischecked true", "setattribute toggle_togglestate On", "setattribute value_value \"Hello\"", "setattribute expandcollapse_expandcollapsestate Expanded"];
+}
+
+internal sealed record ClickCommand(string? OcrText = null, int MaxDistance = 0, int? MatchIndex = null, Anchor? ClickAnchor = null, int OffsetX = 0, int OffsetY = 0) : ParsedCommand
 {
     internal override string Name => "click";
-    internal override string Usage => "click [\"ocrText\" [maxDistance] [#matchIndex]]";
-    internal override string Description => "Clicks the currently selected element.\nWith OCR text, brings the window foreground, performs OCR, and clicks the matched text.\nmaxDistance defaults to 0 (exact match). Use #N to select the Nth match (0-based) when multiple matches exist.";
-    internal override string[] Examples => ["click", "click \"Submit\"", "click \"Submit\" 2", "click \"Submit\" #1", "click \"Submit\" 2 #1"];
+    internal override string Usage => "click [\"ocrText\" [maxDistance] [#matchIndex]] [<anchor> (<x>, <y>)]";
+    internal override string Description => "Clicks the currently selected element.\nWith OCR text, brings the window foreground, performs OCR, and clicks the matched text.\nmaxDistance defaults to 0 (exact match). Use #N to select the Nth match (0-based) when multiple matches exist.\nOptional anchor and offset specify a click point relative to the element or OCR match bounding rect.";
+    internal override string[] Examples => ["click", "click \"Submit\"", "click \"Submit\" 2", "click \"Submit\" #1", "click \"Submit\" 2 #1", "click center (10, 5)", "click \"OK\" north (0, -5)"];
 }
 
 internal sealed record ClearCommand : ParsedCommand
@@ -76,12 +84,33 @@ internal sealed record DisconnectCommand : ParsedCommand
     internal override string[] Examples => [];
 }
 
-internal sealed record DoubleClickCommand(string? OcrText = null, int MaxDistance = 0, int? MatchIndex = null) : ParsedCommand
+internal sealed record DragCommand(
+    Anchor? FromAnchor,
+    int FromX,
+    int FromY,
+    string TargetLocator,
+    Anchor? ToAnchor,
+    int ToX,
+    int ToY) : ParsedCommand
+{
+    internal override string Name => "drag";
+    internal override string Usage => "drag [<anchor> (<x>, <y>)] to <locator> [<anchor> (<x>, <y>)]";
+    internal override string Description => "Drag the current element to a target element.";
+    internal override string[] Examples =>
+    [
+        "drag to //Button[@Name='target']",
+        "drag center (5, 0) to //Panel south (10, 10)",
+        "drag northwest (5, 5) to //ListItem[2]",
+        "drag to //Panel[@Name='Canvas'] center (100, 50)"
+    ];
+}
+
+internal sealed record DoubleClickCommand(string? OcrText = null, int MaxDistance = 0, int? MatchIndex = null, Anchor? ClickAnchor = null, int OffsetX = 0, int OffsetY = 0) : ParsedCommand
 {
     internal override string Name => "doubleclick";
-    internal override string Usage => "doubleclick [\"ocrText\" [maxDistance] [#matchIndex]]";
-    internal override string Description => "Double-clicks the currently selected element.\nWith OCR text, brings the window foreground, performs OCR, and double-clicks the matched text.\nmaxDistance defaults to 0 (exact match). Use #N to select the Nth match (0-based) when multiple matches exist.";
-    internal override string[] Examples => ["doubleclick", "doubleclick \"Submit\"", "doubleclick \"Submit\" 2", "doubleclick \"Submit\" #1", "doubleclick \"Submit\" 2 #1"];
+    internal override string Usage => "doubleclick [\"ocrText\" [maxDistance] [#matchIndex]] [<anchor> (<x>, <y>)]";
+    internal override string Description => "Double-clicks the currently selected element.\nWith OCR text, brings the window foreground, performs OCR, and double-clicks the matched text.\nmaxDistance defaults to 0 (exact match). Use #N to select the Nth match (0-based) when multiple matches exist.\nOptional anchor and offset specify a click point relative to the element or OCR match bounding rect.";
+    internal override string[] Examples => ["doubleclick", "doubleclick \"Submit\"", "doubleclick \"Submit\" 2", "doubleclick \"Submit\" #1", "doubleclick \"Submit\" 2 #1", "doubleclick center (10, 5)", "doubleclick \"OK\" north (0, -5)"];
 }
 
 internal sealed record ExitCommand : ParsedCommand
@@ -127,12 +156,12 @@ internal sealed record HitKeysCommand(Key[] Keys) : ParsedCommand
     internal override string[] Examples => ["hitkeys escape", "hitkeys rshift lcontrol key_a"];
 }
 
-internal sealed record HoverCommand(string? OcrText = null, int MaxDistance = 0, int? MatchIndex = null) : ParsedCommand
+internal sealed record HoverCommand(string? OcrText = null, int MaxDistance = 0, int? MatchIndex = null, Anchor? ClickAnchor = null, int OffsetX = 0, int OffsetY = 0) : ParsedCommand
 {
     internal override string Name => "hover";
-    internal override string Usage => "hover [\"ocrText\" [maxDistance] [#matchIndex]]";
-    internal override string Description => "Hovers over the currently selected element.\nWith OCR text, brings the window foreground, performs OCR, and hovers the matched text.\nmaxDistance defaults to 0 (exact match). Use #N to select the Nth match (0-based) when multiple matches exist.";
-    internal override string[] Examples => ["hover", "hover \"Submit\"", "hover \"Submit\" 2", "hover \"Submit\" #1", "hover \"Submit\" 2 #1"];
+    internal override string Usage => "hover [\"ocrText\" [maxDistance] [#matchIndex]] [<anchor> (<x>, <y>)]";
+    internal override string Description => "Hovers over the currently selected element.\nWith OCR text, brings the window foreground, performs OCR, and hovers the matched text.\nmaxDistance defaults to 0 (exact match). Use #N to select the Nth match (0-based) when multiple matches exist.\nOptional anchor and offset specify a hover point relative to the element or OCR match bounding rect.";
+    internal override string[] Examples => ["hover", "hover \"Submit\"", "hover \"Submit\" 2", "hover \"Submit\" #1", "hover \"Submit\" 2 #1", "hover center (10, 5)", "hover \"OK\" north (0, -5)"];
 }
 
 internal sealed record ScrollCommand(double Lines, bool Horizontal = false) : ParsedCommand
@@ -220,12 +249,12 @@ internal sealed record ResetCommand : ParsedCommand
     internal override string[] Examples => [];
 }
 
-internal sealed record RightClickCommand(string? OcrText = null, int MaxDistance = 0, int? MatchIndex = null) : ParsedCommand
+internal sealed record RightClickCommand(string? OcrText = null, int MaxDistance = 0, int? MatchIndex = null, Anchor? ClickAnchor = null, int OffsetX = 0, int OffsetY = 0) : ParsedCommand
 {
     internal override string Name => "rightclick";
-    internal override string Usage => "rightclick [\"ocrText\" [maxDistance] [#matchIndex]]";
-    internal override string Description => "Right-clicks the currently selected element.\nWith OCR text, brings the window foreground, performs OCR, and right-clicks the matched text.\nmaxDistance defaults to 0 (exact match). Use #N to select the Nth match (0-based) when multiple matches exist.";
-    internal override string[] Examples => ["rightclick", "rightclick \"Submit\"", "rightclick \"Submit\" 2", "rightclick \"Submit\" #1", "rightclick \"Submit\" 2 #1"];
+    internal override string Usage => "rightclick [\"ocrText\" [maxDistance] [#matchIndex]] [<anchor> (<x>, <y>)]";
+    internal override string Description => "Right-clicks the currently selected element.\nWith OCR text, brings the window foreground, performs OCR, and right-clicks the matched text.\nmaxDistance defaults to 0 (exact match). Use #N to select the Nth match (0-based) when multiple matches exist.\nOptional anchor and offset specify a click point relative to the element or OCR match bounding rect.";
+    internal override string[] Examples => ["rightclick", "rightclick \"Submit\"", "rightclick \"Submit\" 2", "rightclick \"Submit\" #1", "rightclick \"Submit\" 2 #1", "rightclick center (10, 5)", "rightclick \"OK\" north (0, -5)"];
 }
 
 internal sealed record SleepCommand(int Milliseconds) : ParsedCommand

@@ -273,6 +273,62 @@ public sealed class WcLocator
         await el.HoverAsync(anchor, offset, ct);
     }
 
+    /// <summary>Drags the first matching element to the target element center.</summary>
+    public async Task DragToAsync(WcElement target, CancellationToken ct = default)
+    {
+        var el = await GetElementAsync(ct);
+        await el.DragToAsync(target, ct);
+    }
+
+    /// <summary>Drags the first matching element to the target element at the given anchor and offset.</summary>
+    public async Task DragToAsync(WcElement target, Anchor toAnchor, Point toOffset = default, CancellationToken ct = default)
+    {
+        var el = await GetElementAsync(ct);
+        await el.DragToAsync(target, toAnchor, toOffset, ct);
+    }
+
+    /// <summary>Drags from the given anchor and offset on the first matching element to the target element center.</summary>
+    public async Task DragToAsync(Anchor fromAnchor, Point fromOffset, WcElement target, CancellationToken ct = default)
+    {
+        var el = await GetElementAsync(ct);
+        await el.DragToAsync(fromAnchor, fromOffset, target, ct);
+    }
+
+    /// <summary>Drags from the given anchor and offset on the first matching element to the target element at the given anchor and offset.</summary>
+    public async Task DragToAsync(Anchor fromAnchor, Point fromOffset, WcElement target, Anchor toAnchor, Point toOffset = default, CancellationToken ct = default)
+    {
+        var el = await GetElementAsync(ct);
+        await el.DragToAsync(fromAnchor, fromOffset, target, toAnchor, toOffset, ct);
+    }
+
+    /// <summary>Drags the first matching element to the target locator's element center.</summary>
+    public async Task DragToAsync(WcLocator target, CancellationToken ct = default)
+    {
+        var el = await GetElementAsync(ct);
+        await el.DragToAsync(target, ct);
+    }
+
+    /// <summary>Drags the first matching element to the target locator's element at the given anchor and offset.</summary>
+    public async Task DragToAsync(WcLocator target, Anchor toAnchor, Point toOffset = default, CancellationToken ct = default)
+    {
+        var el = await GetElementAsync(ct);
+        await el.DragToAsync(target, toAnchor, toOffset, ct);
+    }
+
+    /// <summary>Drags from the given anchor and offset on the first matching element to the target locator's element center.</summary>
+    public async Task DragToAsync(Anchor fromAnchor, Point fromOffset, WcLocator target, CancellationToken ct = default)
+    {
+        var el = await GetElementAsync(ct);
+        await el.DragToAsync(fromAnchor, fromOffset, target, ct);
+    }
+
+    /// <summary>Drags from the given anchor and offset on the first matching element to the target locator's element at the given anchor and offset.</summary>
+    public async Task DragToAsync(Anchor fromAnchor, Point fromOffset, WcLocator target, Anchor toAnchor, Point toOffset = default, CancellationToken ct = default)
+    {
+        var el = await GetElementAsync(ct);
+        await el.DragToAsync(fromAnchor, fromOffset, target, toAnchor, toOffset, ct);
+    }
+
     /// <summary>
     /// Focuses the first matching element and hits keys <paramref name="keys"/>
     /// using keyboard simulation.
@@ -345,6 +401,13 @@ public sealed class WcLocator
     {
         var el = await GetElementAsync(ct);
         return await el.GetAttributesAsync(ct);
+    }
+
+    /// <summary>Sets a UIAutomation pattern property on the first matching element.</summary>
+    public async Task SetAttributeAsync(string attribute, string value, CancellationToken ct = default)
+    {
+        var el = await GetElementAsync(ct);
+        await el.SetAttributeAsync(attribute, value, ct);
     }
 
     /// <summary>Returns <c>true</c> if the first matching element is enabled.</summary>

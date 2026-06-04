@@ -176,6 +176,12 @@ internal sealed class FakeInspectorSession : IInspectorSession
         return Task.FromResult(GetAttributesResult);
     }
 
+    public Task SetAttributeAsync(string attributeName, string value, CancellationToken ct = default)
+    {
+        Record("SetAttribute", attributeName, value);
+        return Task.CompletedTask;
+    }
+
     public Task<string?> ParentAsync(CancellationToken ct = default)
     {
         Record("Parent");
@@ -316,21 +322,31 @@ internal sealed class FakeInspectorSession : IInspectorSession
 
     public Task ClickAsync(Anchor anchor, Point offset, CancellationToken ct = default)
     {
-        throw new NotImplementedException();
+        Record("Click", anchor, offset);
+        return Task.CompletedTask;
     }
 
     public Task DoubleClickAsync(Anchor anchor, Point offset, CancellationToken ct = default)
     {
-        throw new NotImplementedException();
+        Record("DoubleClick", anchor, offset);
+        return Task.CompletedTask;
     }
 
     public Task RightClickAsync(Anchor anchor, Point offset, CancellationToken ct = default)
     {
-        throw new NotImplementedException();
+        Record("RightClick", anchor, offset);
+        return Task.CompletedTask;
     }
 
     public Task HoverAsync(Anchor anchor, Point offset, CancellationToken ct = default)
     {
-        throw new NotImplementedException();
+        Record("Hover", anchor, offset);
+        return Task.CompletedTask;
+    }
+
+    public Task DragToAsync(string[] targetSelectors, Anchor fromAnchor, Point fromOffset, Anchor toAnchor, Point toOffset, CancellationToken ct = default)
+    {
+        Record("DragTo", targetSelectors, fromAnchor, fromOffset, toAnchor, toOffset);
+        return Task.CompletedTask;
     }
 }

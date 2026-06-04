@@ -105,7 +105,7 @@ Find UI elements scoped within a parent element. Returns a JSON array of element
 
 ### ResolveValue
 
-Resolve a selector and return the typed result. Element selectors return text values; attribute selectors return attribute values with element IDs.
+Resolve a selector and return the typed result. Returns JSON with `type` and `value` (or `items` for lists). Element selectors return text values; attribute selectors return attribute values with element IDs.
 
 | Parameter | Type | Required | Description |
 |---|---|---|---|
@@ -177,6 +177,16 @@ Click, double-click, right-click, or hover over an element at its center.
 |---|---|---|---|
 | `elementId` | string | Yes | Element ID |
 
+### ScrollElement
+
+Scroll the mouse wheel over an element.
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `elementId` | string | Yes | Element ID |
+| `lines` | double | Yes | Lines to scroll (positive = down/right, negative = up/left) |
+| `horizontal` | bool | No | If true, scroll horizontally instead of vertically (default: false) |
+
 ### ClickElementAt / DoubleClickElementAt / RightClickElementAt / HoverElementAt
 
 Click, double-click, right-click, or hover at a specific position relative to an anchor point.
@@ -187,6 +197,21 @@ Click, double-click, right-click, or hover at a specific position relative to an
 | `anchor` | string | Yes | Anchor point: `Center`, `North`, `NorthEast`, `East`, `SouthEast`, `South`, `SouthWest`, `West`, `NorthWest` |
 | `offsetX` | int | Yes | Horizontal offset in pixels from the anchor |
 | `offsetY` | int | Yes | Vertical offset in pixels from the anchor |
+
+### DragToElement
+
+Drag one element to another. Both source and target positions default to center if anchor/offset are not specified.
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `sourceElementId` | string | Yes | Element ID to drag from |
+| `targetElementId` | string | Yes | Element ID to drag to |
+| `fromAnchor` | string | No | Anchor on the source element (default: `Center`) |
+| `fromOffsetX` | int | No | Horizontal offset from source anchor (default: 0) |
+| `fromOffsetY` | int | No | Vertical offset from source anchor (default: 0) |
+| `toAnchor` | string | No | Anchor on the target element (default: `Center`) |
+| `toOffsetX` | int | No | Horizontal offset from target anchor (default: 0) |
+| `toOffsetY` | int | No | Vertical offset from target anchor (default: 0) |
 
 ### TypeText
 
@@ -215,6 +240,23 @@ Focus an element.
 
 Bring an element's window to the foreground.
 
+### GlobalHitKeys
+
+Press keyboard keys globally without targeting a specific element.
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `keys` | string[] | Yes | Array of key names to press (e.g. `["CONTROL", "KEY_A"]`) |
+
+### GlobalTypeText
+
+Type text globally without targeting a specific element.
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `text` | string | Yes | Text to type |
+| `modifiers` | string[] | No | Modifier keys to hold (e.g. `["Ctrl", "Shift"]`). Valid values: `Shift`, `Ctrl`, `Alt`, `Meta` |
+
 ---
 
 ## Element inspection
@@ -235,6 +277,16 @@ Get a specific UIAutomation attribute (e.g. `AutomationId`, `Name`, `ClassName`,
 ### GetAttributes
 
 Get all UIAutomation attributes of an element. Returns JSON.
+
+### SetAttribute
+
+Set a UIAutomation pattern property on an element. Supported attributes include `toggle_togglestate` (On/Off/Indeterminate), `expandcollapse_expandcollapsestate` (Expanded/Collapsed), `selectionitem_isselected` (True/False), `value_value` (string), `rangevalue_value` (number), `window_windowvisualstate` (Normal/Maximized/Minimized), `transform2_zoomlevel` (number), and `ischecked` (True/False).
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `elementId` | string | Yes | Element ID |
+| `attribute` | string | Yes | Attribute name (e.g. `toggle_togglestate`, `value_value`, `ischecked`) |
+| `value` | string | Yes | Value to set (e.g. `On`, `True`, `some text`) |
 
 ### IsEnabled
 
@@ -327,13 +379,27 @@ Read text from an element using OCR. Returns JSON with the full recognized text,
 
 Search for text within an element's OCR result using fuzzy matching. Returns a JSON array of matches, each with `matchedText`, `boundingRect`, `editDistance`, `lineText` (for disambiguation), and `lineBoundingRect`.
 
-To click a match, use `ClickElementAt` with `anchor=NorthWest` and the center of the match's `boundingRect` as offset.
+Use `ClickOcrText` / `DoubleClickOcrText` / `RightClickOcrText` / `HoverOcrText` to interact with matches directly.
 
 | Parameter | Type | Required | Description |
 |---|---|---|---|
 | `elementId` | string | Yes | Element ID |
 | `searchText` | string | Yes | Text to search for |
 | `maxEdits` | int | No | Maximum edit distance for fuzzy matching (default: 0 = exact) |
+
+### ClickOcrText / DoubleClickOcrText / RightClickOcrText / HoverOcrText
+
+Click, double-click, right-click, or hover on OCR-recognized text within an element. Combines OCR search and action in one step — finds the text using fuzzy matching, then acts at the specified anchor+offset relative to the match's bounding rectangle.
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `elementId` | string | Yes | Element ID |
+| `searchText` | string | Yes | Text to search for within the OCR result |
+| `maxEdits` | int | No | Maximum edit distance for fuzzy matching (default: 0 = exact) |
+| `matchIndex` | int | No | Zero-based index when multiple matches exist (default: 0 = first match) |
+| `anchor` | string | No | Anchor point on the OCR match bounding rect (default: `Center`). Values: `Center`, `North`, `NorthEast`, `East`, `SouthEast`, `South`, `SouthWest`, `West`, `NorthWest` |
+| `offsetX` | int | No | Horizontal offset in pixels from the anchor (default: 0) |
+| `offsetY` | int | No | Vertical offset in pixels from the anchor (default: 0) |
 
 ---
 

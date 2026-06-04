@@ -32,6 +32,7 @@ internal interface IInspectorSession
     Task<WcValue> ResolveValueFromElementAsync(string selector, CancellationToken ct = default);
     Task<string> GetAttributeAsync(string attributeName, CancellationToken ct = default);
     Task<Dictionary<string, object?>> GetAttributesAsync(CancellationToken ct = default);
+    Task SetAttributeAsync(string attributeName, string value, CancellationToken ct = default);
     Task<string?> ParentAsync(CancellationToken ct = default);
     Task<bool> IsSelectedElementRootAsync(CancellationToken ct = default);
     Task ClickAsync(CancellationToken ct = default);
@@ -42,6 +43,7 @@ internal interface IInspectorSession
     Task RightClickAsync(Anchor anchor, System.Drawing.Point offset, CancellationToken ct = default);
     Task HoverAsync(CancellationToken ct = default);
     Task HoverAsync(Anchor anchor, System.Drawing.Point offset, CancellationToken ct = default);
+    Task DragToAsync(string[] targetSelectors, Anchor fromAnchor, System.Drawing.Point fromOffset, Anchor toAnchor, System.Drawing.Point toOffset, CancellationToken ct = default);
     Task ScrollAsync(double lines, bool horizontal = false, CancellationToken ct = default);
     Task HitKeysAsync(Key[] keys, CancellationToken ct = default);
     Task TypeAsync(string text, KeyModifiers modifiers = KeyModifiers.None, CancellationToken ct = default);

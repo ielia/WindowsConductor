@@ -155,6 +155,16 @@ public class WcElementAsyncTests
     }
 
     [Test]
+    public async Task SetAttributeAsync_SendsCorrectCommand()
+    {
+        _transport.Enqueue((object?)null);
+        await _element.SetAttributeAsync("toggle_togglestate", "On");
+        Assert.That(_transport.Calls[0].Command, Is.EqualTo("setAttribute"));
+        Assert.That(_transport.Calls[0].ParamsJson, Does.Contain("\"attribute\":\"toggle_togglestate\""));
+        Assert.That(_transport.Calls[0].ParamsJson, Does.Contain("\"value\":\"On\""));
+    }
+
+    [Test]
     public async Task IsEnabledAsync_True()
     {
         _transport.Enqueue(true);

@@ -329,6 +329,16 @@ public sealed class WsServer
                         return WcResponse.Ok(req.Id);
                     }
 
+                case "dragTo":
+                    {
+                        var fa = req.GetString("fromAnchor");
+                        var ta = req.GetString("toAnchor");
+                        mgr.DragTo(
+                            req.GetString("sourceElementId"), fa.Length > 0 ? fa : null, req.GetInt("fromX"), req.GetInt("fromY"),
+                            req.GetString("targetElementId"), ta.Length > 0 ? ta : null, req.GetInt("toX"), req.GetInt("toY"));
+                        return WcResponse.Ok(req.Id);
+                    }
+
                 case "scroll":
                     mgr.Scroll(req.GetString("elementId"), req.GetDouble("lines"), req.GetBool("horizontal"));
                     return WcResponse.Ok(req.Id);
@@ -359,6 +369,10 @@ public sealed class WsServer
                 case "getAttributes":
                     return WcResponse.Ok(req.Id,
                         mgr.GetAttributes(req.GetString("elementId")));
+
+                case "setAttribute":
+                    mgr.SetAttribute(req.GetString("elementId"), req.GetString("attribute"), req.GetString("value"));
+                    return WcResponse.Ok(req.Id);
 
                 case "getParent":
                     return WcResponse.Ok(req.Id,

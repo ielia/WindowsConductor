@@ -4,85 +4,89 @@ namespace WindowsConductor.InspectorGUI;
 
 internal static class CommandParser
 {
+    internal sealed record Token(string Value, bool WasQuoted);
+
     internal static ParsedCommand Parse(string input)
     {
         if (string.IsNullOrWhiteSpace(input))
             throw new ArgumentException("Command cannot be empty.");
 
-        var parts = Tokenize(input);
-        var command = parts[0].ToLowerInvariant();
+        var tokens = TokenizeRich(input);
+        var command = tokens[0].Value.ToLowerInvariant();
 
         return command switch
         {
-            "connect" => ParseConnect(parts),
-            "launch" => ParseLaunch(parts),
-            "attach" => ParseAttach(parts),
+            "connect" => ParseConnect(tokens),
+            "launch" => ParseLaunch(tokens),
+            "attach" => ParseAttach(tokens),
             "clear" => new ClearCommand(),
             "close" => new CloseCommand(),
             "detach" => new DetachCommand(),
             "disconnect" => new DisconnectCommand(),
             "locate" => ParseLocate(input),
-            "matchindex" => ParseMatchIndex(parts),
-            "nextmatch" => ParseNextMatch(parts),
-            "prevmatch" => ParsePrevMatch(parts),
+            "matchindex" => ParseMatchIndex(tokens),
+            "nextmatch" => ParseNextMatch(tokens),
+            "prevmatch" => ParsePrevMatch(tokens),
             "unselect" => new UnselectCommand(),
-            "attribute" => ParseAttribute(parts),
-            "click" => ParseClick(parts),
-            "doubleclick" => ParseDoubleClick(parts),
+            "attribute" => ParseAttribute(tokens),
+            "setattribute" => ParseSetAttribute(tokens),
+            "click" => ParseClick(tokens),
+            "drag" => ParseDrag(tokens),
+            "doubleclick" => ParseDoubleClick(tokens),
             "resolve" => ParseResolve(input),
             "refresh" => new RefreshCommand(),
             "reset" => new ResetCommand(),
-            "rightclick" => ParseRightClick(parts),
-            "hover" => ParseHover(parts),
-            "scroll" => ParseScroll(parts),
-            "hitkeys" => ParseHitKeys(parts),
-            "type" => ParseType(parts),
-            "ghitkeys" => ParseGlobalHitKeys(parts),
-            "gtype" => ParseGlobalType(parts),
+            "rightclick" => ParseRightClick(tokens),
+            "hover" => ParseHover(tokens),
+            "scroll" => ParseScroll(tokens),
+            "hitkeys" => ParseHitKeys(tokens),
+            "type" => ParseType(tokens),
+            "ghitkeys" => ParseGlobalHitKeys(tokens),
+            "gtype" => ParseGlobalType(tokens),
             "ocr" => new OcrCommand(),
             "focus" => new FocusCommand(),
             "foreground" => new ForegroundCommand(),
             "parent" => new ParentCommand(),
             "children" => new ChildrenCommand(),
-            "sleep" => ParseSleep(parts),
+            "sleep" => ParseSleep(tokens),
             "text" => new TextCommand(),
             "screenshot" => new ScreenshotCommand(),
             "snapshot" => new SnapshotCommand(),
-            "windowstate" => ParseWindowState(parts),
+            "windowstate" => ParseWindowState(tokens),
             "exit" or "quit" => new ExitCommand(),
-            "help" => new HelpCommand(parts.Length >= 2 ? parts[1].ToLowerInvariant() : null),
-            _ => throw new ArgumentException($"Unknown command: '{parts[0]}'.")
+            "help" => new HelpCommand(tokens.Length >= 2 ? tokens[1].Value.ToLowerInvariant() : null),
+            _ => throw new ArgumentException($"Unknown command: '{tokens[0].Value}'.")
         };
     }
 
-    private static ConnectCommand ParseConnect(string[] parts)
+    private static ConnectCommand ParseConnect(Token[] tokens)
     {
-        var url = parts.Length >= 2 ? parts[1] : WcDefaults.WebSocketUrl;
-        var authToken = parts.Length >= 3 ? parts[2] : null;
+        var url = tokens.Length >= 2 ? tokens[1].Value : WcDefaults.WebSocketUrl;
+        var authToken = tokens.Length >= 3 ? tokens[2].Value : null;
         return new ConnectCommand(url, authToken);
     }
 
-    private static LaunchCommand ParseLaunch(string[] parts)
+    private static LaunchCommand ParseLaunch(Token[] tokens)
     {
-        if (parts.Length < 2)
+        if (tokens.Length < 2)
             throw new ArgumentException("Usage: launch <path> [\"arg1\", ...] [detachedTitleRegex] [mainWindowTimeout]");
 
-        var path = parts[1];
+        var path = tokens[1].Value;
         string[] args = [];
         string? detachedTitleRegex = null;
         uint? mainWindowTimeout = null;
 
         int nextIdx = 2;
 
-        if (nextIdx < parts.Length && parts[nextIdx].StartsWith('['))
+        if (nextIdx < tokens.Length && tokens[nextIdx].Value.StartsWith('['))
         {
-            args = ParseArgsArray(parts[nextIdx]);
+            args = ParseArgsArray(tokens[nextIdx].Value);
             nextIdx++;
         }
 
-        int endIdx = parts.Length;
+        int endIdx = tokens.Length;
 
-        if (endIdx > nextIdx && uint.TryParse(parts[endIdx - 1], out var timeout))
+        if (endIdx > nextIdx && uint.TryParse(tokens[endIdx - 1].Value, out var timeout))
         {
             mainWindowTimeout = timeout;
             endIdx--;
@@ -90,7 +94,7 @@ internal static class CommandParser
 
         if (endIdx > nextIdx)
         {
-            detachedTitleRegex = parts[endIdx - 1];
+            detachedTitleRegex = tokens[endIdx - 1].Value;
             endIdx--;
         }
 
@@ -138,14 +142,14 @@ internal static class CommandParser
         return args.ToArray();
     }
 
-    private static AttachCommand ParseAttach(string[] parts)
+    private static AttachCommand ParseAttach(Token[] tokens)
     {
-        if (parts.Length < 2)
+        if (tokens.Length < 2)
             throw new ArgumentException("Usage: attach <mainWindowTitleRegex> [mainWindowTimeout]");
 
-        var regex = parts[1];
+        var regex = tokens[1].Value;
         uint? timeout = null;
-        if (parts.Length >= 3 && uint.TryParse(parts[2], out var t))
+        if (tokens.Length >= 3 && uint.TryParse(tokens[2].Value, out var t))
             timeout = t;
 
         return new AttachCommand(regex, timeout);
@@ -179,85 +183,281 @@ internal static class CommandParser
         return new ResolveCommand(selector);
     }
 
-    private static (string? OcrText, int MaxDistance, int? MatchIndex) ParseOcrMouseActionArgs(string[] parts)
+    private static (string? OcrText, int MaxDistance, int? MatchIndex, Anchor? Anchor, int OffsetX, int OffsetY) ParseMouseActionArgs(string commandName, Token[] tokens)
     {
-        if (parts.Length < 2) return (null, 0, null);
-        var ocrText = parts[1];
-        if (string.IsNullOrWhiteSpace(ocrText)) return (null, 0, null);
+        Anchor? anchor = null;
+        int offsetX = 0, offsetY = 0;
+
+        // Check for trailing anchor [+ offset] at the end of the token list
+        int end = tokens.Length;
+        if (TryParseTrailingAnchorAndOffset(tokens, 1, end, out var a, out var ax, out var ay, out var anchorConsumed))
+        {
+            anchor = a;
+            offsetX = ax;
+            offsetY = ay;
+            end -= anchorConsumed;
+        }
+
+        if (end < 2) return (null, 0, null, anchor, offsetX, offsetY);
+        if (!tokens[1].WasQuoted)
+        {
+            if (anchor is not null && end == 1)
+                return (null, 0, null, anchor, offsetX, offsetY);
+            throw new ArgumentException($"OCR text must be quoted. Usage: {commandName} \"ocrText\" [maxDistance] [#matchIndex] [<anchor> (<x>, <y>)]");
+        }
+        var ocrText = tokens[1].Value;
+        if (string.IsNullOrWhiteSpace(ocrText)) return (null, 0, null, anchor, offsetX, offsetY);
         int maxDist = 0;
         int? matchIndex = null;
-        for (int i = 2; i < parts.Length; i++)
+        for (int i = 2; i < end; i++)
         {
-            if (parts[i].StartsWith('#'))
+            if (tokens[i].Value.StartsWith('#'))
             {
-                if (!int.TryParse(parts[i][1..], out var idx) || idx < 0)
+                if (!int.TryParse(tokens[i].Value[1..], out var idx) || idx < 0)
                     throw new ArgumentException("matchIndex must be a non-negative integer (e.g. #0, #1).");
                 matchIndex = idx;
             }
             else
             {
-                if (!int.TryParse(parts[i], out maxDist))
+                if (!int.TryParse(tokens[i].Value, out maxDist))
                     throw new ArgumentException("maxDistance must be an integer.");
             }
         }
-        return (ocrText, maxDist, matchIndex);
+        return (ocrText, maxDist, matchIndex, anchor, offsetX, offsetY);
     }
 
-    private static ClickCommand ParseClick(string[] parts)
+    private static bool TryParseTrailingAnchorAndOffset(Token[] tokens, int start, int end, out Anchor anchor, out int x, out int y, out int consumed)
     {
-        var (ocrText, maxDist, matchIndex) = ParseOcrMouseActionArgs(parts);
-        return new ClickCommand(ocrText, maxDist, matchIndex);
+        anchor = Anchor.Center;
+        x = 0;
+        y = 0;
+        consumed = 0;
+
+        // Try: ... <anchor> (<x>, <y>) — offset as 2 tokens
+        if (end - start >= 3
+            && AnchorNames.Contains(tokens[end - 3].Value)
+            && TryParseOffset(tokens, end - 2, out var tx3, out var ty3, out var oc3) && oc3 == 2)
+        {
+            anchor = Enum.Parse<Anchor>(tokens[end - 3].Value, ignoreCase: true);
+            x = tx3;
+            y = ty3;
+            consumed = 3;
+            return true;
+        }
+
+        // Try: ... <anchor> (<x>,<y>) — offset as 1 token
+        if (end - start >= 2
+            && AnchorNames.Contains(tokens[end - 2].Value)
+            && TryParseOffset(tokens, end - 1, out var tx2, out var ty2, out var oc2) && oc2 == 1)
+        {
+            anchor = Enum.Parse<Anchor>(tokens[end - 2].Value, ignoreCase: true);
+            x = tx2;
+            y = ty2;
+            consumed = 2;
+            return true;
+        }
+
+        // Try: ... <anchor> (no offset)
+        if (end - start >= 1 && AnchorNames.Contains(tokens[end - 1].Value))
+        {
+            anchor = Enum.Parse<Anchor>(tokens[end - 1].Value, ignoreCase: true);
+            consumed = 1;
+            return true;
+        }
+
+        return false;
     }
 
-    private static DoubleClickCommand ParseDoubleClick(string[] parts)
+    private static readonly HashSet<string> AnchorNames = new(
+        Enum.GetNames<Anchor>().Select(n => n.ToLowerInvariant()),
+        StringComparer.OrdinalIgnoreCase);
+
+    private static bool TryParseAnchorAndOffset(Token[] tokens, int start, out Anchor anchor, out int x, out int y, out int consumed)
     {
-        var (ocrText, maxDist, matchIndex) = ParseOcrMouseActionArgs(parts);
-        return new DoubleClickCommand(ocrText, maxDist, matchIndex);
+        anchor = Anchor.Center;
+        x = 0;
+        y = 0;
+        consumed = 0;
+
+        if (start >= tokens.Length || !AnchorNames.Contains(tokens[start].Value))
+            return false;
+
+        anchor = Enum.Parse<Anchor>(tokens[start].Value, ignoreCase: true);
+        consumed = 1;
+
+        if (TryParseOffset(tokens, start + 1, out x, out y, out var offsetConsumed))
+            consumed += offsetConsumed;
+
+        return true;
     }
 
-    private static RightClickCommand ParseRightClick(string[] parts)
+    private static bool TryParseOffset(Token[] tokens, int start, out int x, out int y, out int consumed)
     {
-        var (ocrText, maxDist, matchIndex) = ParseOcrMouseActionArgs(parts);
-        return new RightClickCommand(ocrText, maxDist, matchIndex);
+        x = 0;
+        y = 0;
+        consumed = 0;
+        if (start >= tokens.Length) return false;
+
+        // Single token: (x,y)
+        if (tokens[start].Value.StartsWith('(') && tokens[start].Value.EndsWith(')'))
+        {
+            var inner = tokens[start].Value[1..^1];
+            var parts = inner.Split(',', StringSplitOptions.TrimEntries);
+            if (parts.Length == 2 && int.TryParse(parts[0], out x) && int.TryParse(parts[1], out y))
+            {
+                consumed = 1;
+                return true;
+            }
+        }
+
+        // Two tokens: "(x," and "y)"
+        if (start + 1 < tokens.Length
+            && tokens[start].Value.StartsWith('(') && tokens[start].Value.EndsWith(',')
+            && tokens[start + 1].Value.EndsWith(')'))
+        {
+            var xStr = tokens[start].Value[1..^1].Trim();
+            var yStr = tokens[start + 1].Value[..^1].Trim();
+            if (int.TryParse(xStr, out x) && int.TryParse(yStr, out y))
+            {
+                consumed = 2;
+                return true;
+            }
+        }
+
+        return false;
     }
 
-    private static HoverCommand ParseHover(string[] parts)
+    private static DragCommand ParseDrag(Token[] tokens)
     {
-        var (ocrText, maxDist, matchIndex) = ParseOcrMouseActionArgs(parts);
-        return new HoverCommand(ocrText, maxDist, matchIndex);
+        // tokens[0] is "drag"
+        if (tokens.Length < 3)
+            throw new ArgumentException("Usage: drag [<anchor> (<x>, <y>)] to <locator> [<anchor> (<x>, <y>)]");
+
+        int idx = 1;
+
+        // Parse optional from-anchor/offset before "to"
+        Anchor? fromAnchor = null;
+        int fromX = 0, fromY = 0;
+
+        if (TryParseAnchorAndOffset(tokens, idx, out var fa, out var fx, out var fy, out var fromConsumed))
+        {
+            fromAnchor = fa;
+            fromX = fx;
+            fromY = fy;
+            idx += fromConsumed;
+        }
+
+        // Expect "to"
+        if (idx >= tokens.Length || !tokens[idx].Value.Equals("to", StringComparison.OrdinalIgnoreCase))
+            throw new ArgumentException("Usage: drag [<anchor> (<x>, <y>)] to <locator> [<anchor> (<x>, <y>)]");
+        idx++;
+
+        if (idx >= tokens.Length)
+            throw new ArgumentException("Usage: drag [<anchor> (<x>, <y>)] to <locator> [<anchor> (<x>, <y>)]");
+
+        // Remaining tokens: <locator> [<anchor> [(<x>, <y>)]]
+        // Parse from end: check if last tokens are anchor+offset or just anchor
+        Anchor? toAnchor = null;
+        int toX = 0, toY = 0;
+        int locatorEnd = tokens.Length;
+
+        // Try trailing: ... <anchor> (<x>, <y>) — offset may be 1 or 2 tokens
+        // Check anchor at locatorEnd-3 with 2-token offset, or locatorEnd-2 with 1-token offset
+        if (locatorEnd - idx >= 4
+            && AnchorNames.Contains(tokens[locatorEnd - 3].Value)
+            && TryParseOffset(tokens, locatorEnd - 2, out var tx3, out var ty3, out var oc3) && oc3 == 2)
+        {
+            toAnchor = Enum.Parse<Anchor>(tokens[locatorEnd - 3].Value, ignoreCase: true);
+            toX = tx3;
+            toY = ty3;
+            locatorEnd -= 3;
+        }
+        else if (locatorEnd - idx >= 3
+            && AnchorNames.Contains(tokens[locatorEnd - 2].Value)
+            && TryParseOffset(tokens, locatorEnd - 1, out var tx2, out var ty2, out var oc2) && oc2 == 1)
+        {
+            toAnchor = Enum.Parse<Anchor>(tokens[locatorEnd - 2].Value, ignoreCase: true);
+            toX = tx2;
+            toY = ty2;
+            locatorEnd -= 2;
+        }
+        // Check for trailing anchor without offset: ... <anchor>
+        else if (locatorEnd - idx >= 2 && AnchorNames.Contains(tokens[locatorEnd - 1].Value))
+        {
+            toAnchor = Enum.Parse<Anchor>(tokens[locatorEnd - 1].Value, ignoreCase: true);
+            locatorEnd -= 1;
+        }
+
+        if (locatorEnd <= idx)
+            throw new ArgumentException("Usage: drag [<anchor> (<x>, <y>)] to <locator> [<anchor> (<x>, <y>)]");
+
+        var locator = string.Join(' ', tokens[idx..locatorEnd].Select(t => t.Value));
+        return new DragCommand(fromAnchor, fromX, fromY, locator, toAnchor, toX, toY);
     }
 
-    private static ScrollCommand ParseScroll(string[] parts)
+    private static ClickCommand ParseClick(Token[] tokens)
     {
-        if (parts.Length < 2)
+        var (ocrText, maxDist, matchIndex, anchor, offsetX, offsetY) = ParseMouseActionArgs("click", tokens);
+        return new ClickCommand(ocrText, maxDist, matchIndex, anchor, offsetX, offsetY);
+    }
+
+    private static DoubleClickCommand ParseDoubleClick(Token[] tokens)
+    {
+        var (ocrText, maxDist, matchIndex, anchor, offsetX, offsetY) = ParseMouseActionArgs("doubleclick", tokens);
+        return new DoubleClickCommand(ocrText, maxDist, matchIndex, anchor, offsetX, offsetY);
+    }
+
+    private static RightClickCommand ParseRightClick(Token[] tokens)
+    {
+        var (ocrText, maxDist, matchIndex, anchor, offsetX, offsetY) = ParseMouseActionArgs("rightclick", tokens);
+        return new RightClickCommand(ocrText, maxDist, matchIndex, anchor, offsetX, offsetY);
+    }
+
+    private static HoverCommand ParseHover(Token[] tokens)
+    {
+        var (ocrText, maxDist, matchIndex, anchor, offsetX, offsetY) = ParseMouseActionArgs("hover", tokens);
+        return new HoverCommand(ocrText, maxDist, matchIndex, anchor, offsetX, offsetY);
+    }
+
+    private static ScrollCommand ParseScroll(Token[] tokens)
+    {
+        if (tokens.Length < 2)
             throw new ArgumentException("Usage: scroll <lines> [horizontal]");
-        if (!double.TryParse(parts[1], out var lines))
+        if (!double.TryParse(tokens[1].Value, out var lines))
             throw new ArgumentException("lines must be a number.");
-        var horizontal = parts.Length >= 3 && parts[2].Equals("horizontal", StringComparison.OrdinalIgnoreCase);
+        var horizontal = tokens.Length >= 3 && tokens[2].Value.Equals("horizontal", StringComparison.OrdinalIgnoreCase);
         return new ScrollCommand(lines, horizontal);
     }
 
-    private static AttributeCommand ParseAttribute(string[] parts)
+    private static AttributeCommand ParseAttribute(Token[] tokens)
     {
-        if (parts.Length < 2)
+        if (tokens.Length < 2)
             throw new ArgumentException("Usage: attribute <attributeName>");
-        return new AttributeCommand(parts[1]);
+        return new AttributeCommand(tokens[1].Value);
     }
 
-    private static HitKeysCommand ParseHitKeys(string[] parts) =>
-        new(ParseGenericHitKeys("hitkeys", parts));
-
-    private static GlobalHitKeysCommand ParseGlobalHitKeys(string[] parts) =>
-        new(ParseGenericHitKeys("ghitkeys", parts));
-
-    private static Key[] ParseGenericHitKeys(string commandName, string[] parts)
+    private static SetAttributeCommand ParseSetAttribute(Token[] tokens)
     {
-        if (parts.Length < 2)
+        if (tokens.Length < 3)
+            throw new ArgumentException("Usage: setattribute <name> <value>");
+        var value = string.Join(" ", tokens.Skip(2).Select(t => t.Value));
+        return new SetAttributeCommand(tokens[1].Value, value);
+    }
+
+    private static HitKeysCommand ParseHitKeys(Token[] tokens) =>
+        new(ParseGenericHitKeys("hitkeys", tokens));
+
+    private static GlobalHitKeysCommand ParseGlobalHitKeys(Token[] tokens) =>
+        new(ParseGenericHitKeys("ghitkeys", tokens));
+
+    private static Key[] ParseGenericHitKeys(string commandName, Token[] tokens)
+    {
+        if (tokens.Length < 2)
             throw new ArgumentException($"No keys passed. Usage: {commandName} <space-separated-keys> [{{{string.Join(", ", Enum.GetNames<Key>().Select(k => k.ToLowerInvariant()))}}}]");
 
         try
         {
-            return [.. parts.Skip(1).Select(p => Enum.Parse<Key>(p.ToUpperInvariant()))];
+            return [.. tokens.Skip(1).Select(t => Enum.Parse<Key>(t.Value.ToUpperInvariant()))];
         }
         catch (ArgumentException ex)
         {
@@ -265,34 +465,34 @@ internal static class CommandParser
         }
     }
 
-    private static TypeCommand ParseType(string[] parts)
+    private static TypeCommand ParseType(Token[] tokens)
     {
-        var (text, modifiers) = ParseGenericType("type", parts);
+        var (text, modifiers) = ParseGenericType("type", tokens);
         return new TypeCommand(text, modifiers);
     }
 
-    private static GlobalTypeCommand ParseGlobalType(string[] parts)
+    private static GlobalTypeCommand ParseGlobalType(Token[] tokens)
     {
-        var (text, modifiers) = ParseGenericType("gtype", parts);
+        var (text, modifiers) = ParseGenericType("gtype", tokens);
         return new GlobalTypeCommand(text, modifiers);
     }
 
-    private static (string Text, KeyModifiers Modifiers) ParseGenericType(string commandName, string[] parts)
+    private static (string Text, KeyModifiers Modifiers) ParseGenericType(string commandName, Token[] tokens)
     {
-        if (parts.Length < 2)
+        if (tokens.Length < 2)
             throw new ArgumentException($"Usage: {commandName} <text> [ctrl alt shift meta]");
 
         var modifiers = KeyModifiers.None;
-        var textParts = parts.Skip(1).ToArray();
+        var textTokens = tokens.Skip(1).ToArray();
 
         // If last token is a bracket group like "[ctrl alt]", parse modifiers from it
-        if (textParts.Length > 1 && textParts[^1].StartsWith('[') && textParts[^1].EndsWith(']'))
+        if (textTokens.Length > 1 && textTokens[^1].Value.StartsWith('[') && textTokens[^1].Value.EndsWith(']'))
         {
-            modifiers = ParseModifiers(textParts[^1]);
-            textParts = textParts[..^1];
+            modifiers = ParseModifiers(textTokens[^1].Value);
+            textTokens = textTokens[..^1];
         }
 
-        var text = string.Join(' ', textParts);
+        var text = string.Join(' ', textTokens.Select(t => t.Value));
         return (text, modifiers);
     }
 
@@ -317,48 +517,48 @@ internal static class CommandParser
         return modifiers;
     }
 
-    private static MatchIndexCommand ParseMatchIndex(string[] parts)
+    private static MatchIndexCommand ParseMatchIndex(Token[] tokens)
     {
-        if (parts.Length < 2 || !int.TryParse(parts[1], out var index))
+        if (tokens.Length < 2 || !int.TryParse(tokens[1].Value, out var index))
             throw new ArgumentException("Usage: matchindex <N>");
         return new MatchIndexCommand(index);
     }
 
-    private static NextMatchCommand ParseNextMatch(string[] parts)
+    private static NextMatchCommand ParseNextMatch(Token[] tokens)
     {
-        if (parts.Length >= 2)
+        if (tokens.Length >= 2)
         {
-            if (!int.TryParse(parts[1], out var steps) || steps < 1)
+            if (!int.TryParse(tokens[1].Value, out var steps) || steps < 1)
                 throw new ArgumentException("Usage: nextmatch [N] (N must be a positive integer)");
             return new NextMatchCommand(steps);
         }
         return new NextMatchCommand();
     }
 
-    private static PrevMatchCommand ParsePrevMatch(string[] parts)
+    private static PrevMatchCommand ParsePrevMatch(Token[] tokens)
     {
-        if (parts.Length >= 2)
+        if (tokens.Length >= 2)
         {
-            if (!int.TryParse(parts[1], out var steps) || steps < 1)
+            if (!int.TryParse(tokens[1].Value, out var steps) || steps < 1)
                 throw new ArgumentException("Usage: prevmatch [N] (N must be a positive integer)");
             return new PrevMatchCommand(steps);
         }
         return new PrevMatchCommand();
     }
 
-    private static WindowStateCommand ParseWindowState(string[] parts)
+    private static WindowStateCommand ParseWindowState(Token[] tokens)
     {
-        if (parts.Length < 2)
+        if (tokens.Length < 2)
             return new WindowStateCommand();
-        if (Enum.TryParse<WcWindowState>(parts[1], ignoreCase: true, out var state))
+        if (Enum.TryParse<WcWindowState>(tokens[1].Value, ignoreCase: true, out var state))
             return new WindowStateCommand(state);
         var valid = string.Join(", ", Enum.GetValues<WcWindowState>().Select(s => s.ToString().ToLowerInvariant()));
-        throw new ArgumentException($"Unknown window state: '{parts[1]}'. Valid states: {valid}.");
+        throw new ArgumentException($"Unknown window state: '{tokens[1].Value}'. Valid states: {valid}.");
     }
 
-    private static SleepCommand ParseSleep(string[] parts)
+    private static SleepCommand ParseSleep(Token[] tokens)
     {
-        if (parts.Length < 2 || !int.TryParse(parts[1], out var ms) || ms <= 0)
+        if (tokens.Length < 2 || !int.TryParse(tokens[1].Value, out var ms) || ms <= 0)
             throw new ArgumentException("Usage: sleep <milliseconds>");
         return new SleepCommand(ms);
     }
@@ -420,11 +620,15 @@ internal static class CommandParser
     /// <summary>
     /// Splits input respecting quoted strings (single or double quotes).
     /// </summary>
-    internal static string[] Tokenize(string input)
+    internal static string[] Tokenize(string input) =>
+        TokenizeRich(input).Select(t => t.Value).ToArray();
+
+    internal static Token[] TokenizeRich(string input)
     {
-        var tokens = new List<string>();
+        var tokens = new List<Token>();
         var current = new System.Text.StringBuilder();
         bool inQuote = false;
+        bool wasQuoted = false;
         char quoteChar = '\0';
 
         for (int i = 0; i < input.Length; i++)
@@ -445,6 +649,7 @@ internal static class CommandParser
             else if (c == '"' || c == '\'')
             {
                 inQuote = true;
+                wasQuoted = true;
                 quoteChar = c;
             }
             else if (c == '[')
@@ -483,8 +688,9 @@ internal static class CommandParser
             {
                 if (current.Length > 0)
                 {
-                    tokens.Add(current.ToString());
+                    tokens.Add(new Token(current.ToString(), wasQuoted));
                     current.Clear();
+                    wasQuoted = false;
                 }
             }
             else
@@ -494,7 +700,7 @@ internal static class CommandParser
         }
 
         if (current.Length > 0)
-            tokens.Add(current.ToString());
+            tokens.Add(new Token(current.ToString(), wasQuoted));
 
         return tokens.ToArray();
     }

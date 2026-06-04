@@ -262,6 +262,23 @@ become `NaN`).
 | `max(seq)` | Largest value. Returns `NaN` for an empty sequence. |
 | `min(seq)` | Smallest value. Returns `NaN` for an empty sequence. |
 
+### Sequence
+
+| Function | Description |
+|---|---|
+| `head(seq)` | First item of the sequence, or empty sequence if empty. |
+| `tail(seq)` | All items except the first, or empty sequence if 0–1 items. |
+| `subsequence(seq, start)` | Items from 1-based `start` to the end. |
+| `subsequence(seq, start, length)` | `length` items starting at 1-based `start`. |
+| `empty(seq)` | `true` if the sequence has no items. |
+| `exists(seq)` | `true` if the sequence has at least one item. |
+| `reverse(seq)` | The sequence in reverse order. |
+| `index-of(seq, value)` | Sequence of 1-based positions where `value` occurs. |
+| `distinct-values(seq)` | The sequence with duplicate values removed (first occurrence kept). |
+| `insert-before(seq, pos, items)` | Insert `items` before position `pos` (1-based). |
+| `remove(seq, pos)` | The sequence with the item at position `pos` (1-based) removed. |
+| `deep-equal(a, b)` | `true` if the two values (or sequences) are structurally equal. |
+
 ### Spatial
 
 | Function | Description |

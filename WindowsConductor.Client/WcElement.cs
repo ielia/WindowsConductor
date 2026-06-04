@@ -60,6 +60,40 @@ public sealed class WcElement
     public Task HoverAsync(Anchor anchor, Point offset, CancellationToken ct = default) =>
         _conn.SendAsync("hover", new { elementId = ElementId, anchor = anchor.ToString(), x = offset.X, y = offset.Y }, ct);
 
+    public Task DragToAsync(WcElement target, CancellationToken ct = default) =>
+        DragToAsync(Anchor.Center, default, target, Anchor.Center, default, ct);
+
+    public Task DragToAsync(WcElement target, Anchor toAnchor, Point toOffset = default, CancellationToken ct = default) =>
+        DragToAsync(Anchor.Center, default, target, toAnchor, toOffset, ct);
+
+    public Task DragToAsync(Anchor fromAnchor, Point fromOffset, WcElement target, CancellationToken ct = default) =>
+        DragToAsync(fromAnchor, fromOffset, target, Anchor.Center, default, ct);
+
+    public Task DragToAsync(Anchor fromAnchor, Point fromOffset, WcElement target, Anchor toAnchor, Point toOffset = default, CancellationToken ct = default) =>
+        _conn.SendAsync("dragTo", new
+        {
+            sourceElementId = ElementId,
+            fromAnchor = fromAnchor.ToString(),
+            fromX = fromOffset.X,
+            fromY = fromOffset.Y,
+            targetElementId = target.ElementId,
+            toAnchor = toAnchor.ToString(),
+            toX = toOffset.X,
+            toY = toOffset.Y
+        }, ct);
+
+    public async Task DragToAsync(WcLocator target, CancellationToken ct = default) =>
+        await DragToAsync(Anchor.Center, default, await target.GetElementAsync(ct), Anchor.Center, default, ct);
+
+    public async Task DragToAsync(WcLocator target, Anchor toAnchor, Point toOffset = default, CancellationToken ct = default) =>
+        await DragToAsync(Anchor.Center, default, await target.GetElementAsync(ct), toAnchor, toOffset, ct);
+
+    public async Task DragToAsync(Anchor fromAnchor, Point fromOffset, WcLocator target, CancellationToken ct = default) =>
+        await DragToAsync(fromAnchor, fromOffset, await target.GetElementAsync(ct), Anchor.Center, default, ct);
+
+    public async Task DragToAsync(Anchor fromAnchor, Point fromOffset, WcLocator target, Anchor toAnchor, Point toOffset = default, CancellationToken ct = default) =>
+        await DragToAsync(fromAnchor, fromOffset, await target.GetElementAsync(ct), toAnchor, toOffset, ct);
+
     public Task ScrollAsync(double lines, bool horizontal = false, CancellationToken ct = default) =>
         _conn.SendAsync("scroll", new { elementId = ElementId, lines, horizontal }, ct);
 
@@ -126,6 +160,10 @@ public sealed class WcElement
             dict[prop.Name] = DeserializeAttrValue(prop.Value);
         return dict;
     }
+
+    public async Task SetAttributeAsync(string attribute, string value, CancellationToken ct = default) =>
+        await _conn.SendAsync("setAttribute",
+            new { elementId = ElementId, attribute, value }, ct);
 
     public async Task<bool> IsEnabledAsync(CancellationToken ct = default)
     {

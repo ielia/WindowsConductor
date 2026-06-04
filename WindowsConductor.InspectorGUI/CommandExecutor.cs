@@ -233,13 +233,30 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
                 }
                 break;
 
+            case SetAttributeCommand setAttr:
+                RequireElement();
+                await session.SetAttributeAsync(setAttr.AttributeName, setAttr.Value, ct);
+                output.WriteInfo($"Set {setAttr.AttributeName} = {setAttr.Value}");
+                await ShowAttributesAsync(ct);
+                break;
+
             case ClickCommand { OcrText: not null } clickOcr
                 when !string.IsNullOrWhiteSpace(clickOcr.OcrText):
                 RequireElement();
                 var clickMatch = await OcrMatchAsync(clickOcr.OcrText, clickOcr.MaxDistance, clickOcr.MatchIndex, ct);
-                var clickPt = clickMatch.BoundingRect.Center;
-                await session.ClickAsync(Anchor.NorthWest, clickPt, ct);
-                output.WriteInfo($"Clicked OCR match \"{clickOcr.OcrText}\" @ {clickPt} [\"{clickMatch.Text}\" ~ dist={clickMatch.Distance}].");
+                if (clickOcr.ClickAnchor is { } clickOcrAnchor)
+                    await clickMatch.ClickAsync(clickOcrAnchor, new System.Drawing.Point(clickOcr.OffsetX, clickOcr.OffsetY), ct);
+                else
+                    await clickMatch.ClickAsync(ct);
+                output.WriteInfo($"Clicked OCR match \"{clickOcr.OcrText}\" [\"{clickMatch.Text}\" ~ dist={clickMatch.Distance}].");
+                await ShowWindowScreenshotWithHighlightAsync(ct);
+                await ShowAttributesAsync(ct);
+                break;
+
+            case ClickCommand { ClickAnchor: not null } clickAnch:
+                RequireElement();
+                await session.ClickAsync(clickAnch.ClickAnchor.Value, new System.Drawing.Point(clickAnch.OffsetX, clickAnch.OffsetY), ct);
+                output.WriteInfo($"Clicked at {clickAnch.ClickAnchor.Value} ({clickAnch.OffsetX}, {clickAnch.OffsetY}).");
                 await ShowWindowScreenshotWithHighlightAsync(ct);
                 await ShowAttributesAsync(ct);
                 break;
@@ -256,9 +273,19 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
                 when !string.IsNullOrWhiteSpace(dblOcr.OcrText):
                 RequireElement();
                 var dblMatch = await OcrMatchAsync(dblOcr.OcrText, dblOcr.MaxDistance, dblOcr.MatchIndex, ct);
-                var dblPt = dblMatch.BoundingRect.Center;
-                await session.DoubleClickAsync(Anchor.NorthWest, dblPt, ct);
-                output.WriteInfo($"Double-clicked OCR match \"{dblOcr.OcrText}\" @ {dblPt} [\"{dblMatch.Text}\" ~ dist={dblMatch.Distance}].");
+                if (dblOcr.ClickAnchor is { } dblOcrAnchor)
+                    await dblMatch.DoubleClickAsync(dblOcrAnchor, new System.Drawing.Point(dblOcr.OffsetX, dblOcr.OffsetY), ct);
+                else
+                    await dblMatch.DoubleClickAsync(ct);
+                output.WriteInfo($"Double-clicked OCR match \"{dblOcr.OcrText}\" [\"{dblMatch.Text}\" ~ dist={dblMatch.Distance}].");
+                await ShowWindowScreenshotWithHighlightAsync(ct);
+                await ShowAttributesAsync(ct);
+                break;
+
+            case DoubleClickCommand { ClickAnchor: not null } dblAnch:
+                RequireElement();
+                await session.DoubleClickAsync(dblAnch.ClickAnchor.Value, new System.Drawing.Point(dblAnch.OffsetX, dblAnch.OffsetY), ct);
+                output.WriteInfo($"Double-clicked at {dblAnch.ClickAnchor.Value} ({dblAnch.OffsetX}, {dblAnch.OffsetY}).");
                 await ShowWindowScreenshotWithHighlightAsync(ct);
                 await ShowAttributesAsync(ct);
                 break;
@@ -275,9 +302,19 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
                 when !string.IsNullOrWhiteSpace(rclkOcr.OcrText):
                 RequireElement();
                 var rclkMatch = await OcrMatchAsync(rclkOcr.OcrText, rclkOcr.MaxDistance, rclkOcr.MatchIndex, ct);
-                var rclkPt = rclkMatch.BoundingRect.Center;
-                await session.RightClickAsync(Anchor.NorthWest, rclkPt, ct);
-                output.WriteInfo($"Right-clicked OCR match \"{rclkOcr.OcrText}\" @ {rclkPt} [\"{rclkMatch.Text}\" ~ dist={rclkMatch.Distance}].");
+                if (rclkOcr.ClickAnchor is { } rclkOcrAnchor)
+                    await rclkMatch.RightClickAsync(rclkOcrAnchor, new System.Drawing.Point(rclkOcr.OffsetX, rclkOcr.OffsetY), ct);
+                else
+                    await rclkMatch.RightClickAsync(ct);
+                output.WriteInfo($"Right-clicked OCR match \"{rclkOcr.OcrText}\" [\"{rclkMatch.Text}\" ~ dist={rclkMatch.Distance}].");
+                await ShowWindowScreenshotWithHighlightAsync(ct);
+                await ShowAttributesAsync(ct);
+                break;
+
+            case RightClickCommand { ClickAnchor: not null } rclkAnch:
+                RequireElement();
+                await session.RightClickAsync(rclkAnch.ClickAnchor.Value, new System.Drawing.Point(rclkAnch.OffsetX, rclkAnch.OffsetY), ct);
+                output.WriteInfo($"Right-clicked at {rclkAnch.ClickAnchor.Value} ({rclkAnch.OffsetX}, {rclkAnch.OffsetY}).");
                 await ShowWindowScreenshotWithHighlightAsync(ct);
                 await ShowAttributesAsync(ct);
                 break;
@@ -294,9 +331,19 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
                 when !string.IsNullOrWhiteSpace(hvrOcr.OcrText):
                 RequireElement();
                 var hvrMatch = await OcrMatchAsync(hvrOcr.OcrText, hvrOcr.MaxDistance, hvrOcr.MatchIndex, ct);
-                var hvrPt = hvrMatch.BoundingRect.Center;
-                await session.HoverAsync(Anchor.NorthWest, hvrPt, ct);
-                output.WriteInfo($"Hovered over OCR match \"{hvrOcr.OcrText}\" @ {hvrPt} [\"{hvrMatch.Text}\" ~ dist={hvrMatch.Distance}].");
+                if (hvrOcr.ClickAnchor is { } hvrOcrAnchor)
+                    await hvrMatch.HoverAsync(hvrOcrAnchor, new System.Drawing.Point(hvrOcr.OffsetX, hvrOcr.OffsetY), ct);
+                else
+                    await hvrMatch.HoverAsync(ct);
+                output.WriteInfo($"Hovered over OCR match \"{hvrOcr.OcrText}\" [\"{hvrMatch.Text}\" ~ dist={hvrMatch.Distance}].");
+                await ShowWindowScreenshotWithHighlightAsync(ct);
+                await ShowAttributesAsync(ct);
+                break;
+
+            case HoverCommand { ClickAnchor: not null } hvrAnch:
+                RequireElement();
+                await session.HoverAsync(hvrAnch.ClickAnchor.Value, new System.Drawing.Point(hvrAnch.OffsetX, hvrAnch.OffsetY), ct);
+                output.WriteInfo($"Hovered at {hvrAnch.ClickAnchor.Value} ({hvrAnch.OffsetX}, {hvrAnch.OffsetY}).");
                 await ShowWindowScreenshotWithHighlightAsync(ct);
                 await ShowAttributesAsync(ct);
                 break;
@@ -305,6 +352,21 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
                 RequireElement();
                 await session.HoverAsync(ct);
                 output.WriteInfo("Hovered.");
+                await ShowWindowScreenshotWithHighlightAsync(ct);
+                await ShowAttributesAsync(ct);
+                break;
+
+            case DragCommand drag:
+                RequireElement();
+                var dragSelectors = drag.TargetLocator.Split(">>", StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+                await session.DragToAsync(
+                    dragSelectors,
+                    drag.FromAnchor ?? Anchor.Center,
+                    new System.Drawing.Point(drag.FromX, drag.FromY),
+                    drag.ToAnchor ?? Anchor.Center,
+                    new System.Drawing.Point(drag.ToX, drag.ToY),
+                    ct);
+                output.WriteInfo("Dragged.");
                 await ShowWindowScreenshotWithHighlightAsync(ct);
                 await ShowAttributesAsync(ct);
                 break;

@@ -103,6 +103,13 @@ public class ElementToolsTests
     }
 
     [Test]
+    public void SetAttribute_WhenNotConnected_Throws()
+    {
+        Assert.ThrowsAsync<InvalidOperationException>(
+            () => _tools.SetAttribute("el-1", "toggle_togglestate", "On"));
+    }
+
+    [Test]
     public void IsEnabled_WhenNotConnected_Throws()
     {
         Assert.ThrowsAsync<InvalidOperationException>(
@@ -297,6 +304,20 @@ public class ElementToolsTests
 
         Assert.That(_transport.Calls[0].Command, Is.EqualTo("getAttributes"));
         Assert.That(result, Does.Contain("Name"));
+    }
+
+    [Test]
+    public async Task SetAttribute_SendsSetAttributeCommand()
+    {
+        ConnectFakeTransport();
+        _transport.Enqueue((object?)null);
+
+        var result = await _tools.SetAttribute("el-1", "toggle_togglestate", "On");
+
+        Assert.That(_transport.Calls[0].Command, Is.EqualTo("setAttribute"));
+        Assert.That(_transport.Calls[0].ParamsJson, Does.Contain("\"attribute\":\"toggle_togglestate\""));
+        Assert.That(_transport.Calls[0].ParamsJson, Does.Contain("\"value\":\"On\""));
+        Assert.That(result, Does.Contain("Set toggle_togglestate"));
     }
 
     [Test]
@@ -759,6 +780,122 @@ public class ElementToolsTests
 
         Assert.That(doc.RootElement.GetArrayLength(), Is.EqualTo(1));
         Assert.That(doc.RootElement[0].GetProperty("editDistance").GetInt32(), Is.EqualTo(1));
+    }
+
+    // ── OCR action tools ──────────────────────────────────────────────────────
+
+    [Test]
+    public void ClickOcrText_WhenNotConnected_Throws()
+    {
+        Assert.ThrowsAsync<InvalidOperationException>(
+            () => _tools.ClickOcrText("el-1", "hello"));
+    }
+
+    [Test]
+    public async Task ClickOcrText_DefaultAnchor_ClicksAtMatchCenter()
+    {
+        ConnectFakeTransport();
+        EnqueueOcrResponse("Hello World",
+            new[] { ("Hello World", 0.0, 0.0, 100.0, 20.0, new[] { ("Hello", 0.0, 0.0, 45.0, 20.0), ("World", 50.0, 0.0, 50.0, 20.0) }) });
+
+        var result = await _tools.ClickOcrText("el-1", "Hello");
+
+        Assert.That(_transport.Calls[0].Command, Is.EqualTo("getOcrText"));
+        Assert.That(_transport.Calls[1].Command, Is.EqualTo("click"));
+        Assert.That(_transport.Calls[1].ParamsJson, Does.Contain("\"anchor\":\"NorthWest\""));
+        Assert.That(result, Does.Contain("Clicked OCR text"));
+        Assert.That(result, Does.Contain("Hello"));
+    }
+
+    [Test]
+    public async Task ClickOcrText_WithAnchorAndOffset_PassesCorrectly()
+    {
+        ConnectFakeTransport();
+        EnqueueOcrResponse("Hello",
+            new[] { ("Hello", 10.0, 20.0, 60.0, 20.0, new[] { ("Hello", 10.0, 20.0, 60.0, 20.0) }) });
+
+        var result = await _tools.ClickOcrText("el-1", "Hello", anchor: "NorthWest", offsetX: 5, offsetY: 3);
+
+        Assert.That(_transport.Calls[1].Command, Is.EqualTo("click"));
+        Assert.That(_transport.Calls[1].ParamsJson, Does.Contain("\"anchor\":\"NorthWest\""));
+        Assert.That(result, Does.Contain("NorthWest"));
+    }
+
+    [Test]
+    public void ClickOcrText_NoMatch_Throws()
+    {
+        ConnectFakeTransport();
+        EnqueueOcrResponse("Hello World",
+            new[] { ("Hello World", 0.0, 0.0, 100.0, 20.0, new[] { ("Hello", 0.0, 0.0, 45.0, 20.0), ("World", 50.0, 0.0, 50.0, 20.0) }) });
+
+        Assert.ThrowsAsync<InvalidOperationException>(
+            () => _tools.ClickOcrText("el-1", "Missing"));
+    }
+
+    [Test]
+    public void ClickOcrText_InvalidMatchIndex_Throws()
+    {
+        ConnectFakeTransport();
+        EnqueueOcrResponse("Hello",
+            new[] { ("Hello", 0.0, 0.0, 45.0, 20.0, new[] { ("Hello", 0.0, 0.0, 45.0, 20.0) }) });
+
+        Assert.ThrowsAsync<ArgumentOutOfRangeException>(
+            () => _tools.ClickOcrText("el-1", "Hello", matchIndex: 1));
+    }
+
+    [Test]
+    public async Task ClickOcrText_MatchIndex_SelectsCorrectMatch()
+    {
+        ConnectFakeTransport();
+        EnqueueOcrResponse("Claimant Spouse\nClaimant",
+            new[]
+            {
+                ("Claimant Spouse", 0.0, 0.0, 150.0, 20.0, new[] { ("Claimant", 0.0, 0.0, 80.0, 20.0), ("Spouse", 85.0, 0.0, 65.0, 20.0) }),
+                ("Claimant", 0.0, 25.0, 80.0, 20.0, new[] { ("Claimant", 0.0, 25.0, 80.0, 20.0) })
+            });
+
+        var result = await _tools.ClickOcrText("el-1", "Claimant", matchIndex: 1);
+
+        Assert.That(result, Does.Contain("Clicked OCR text"));
+    }
+
+    [Test]
+    public async Task DoubleClickOcrText_SendsDoubleClick()
+    {
+        ConnectFakeTransport();
+        EnqueueOcrResponse("Hello",
+            new[] { ("Hello", 0.0, 0.0, 45.0, 20.0, new[] { ("Hello", 0.0, 0.0, 45.0, 20.0) }) });
+
+        var result = await _tools.DoubleClickOcrText("el-1", "Hello");
+
+        Assert.That(_transport.Calls[1].Command, Is.EqualTo("doubleClick"));
+        Assert.That(result, Does.Contain("Double-clicked OCR text"));
+    }
+
+    [Test]
+    public async Task RightClickOcrText_SendsRightClick()
+    {
+        ConnectFakeTransport();
+        EnqueueOcrResponse("Hello",
+            new[] { ("Hello", 0.0, 0.0, 45.0, 20.0, new[] { ("Hello", 0.0, 0.0, 45.0, 20.0) }) });
+
+        var result = await _tools.RightClickOcrText("el-1", "Hello");
+
+        Assert.That(_transport.Calls[1].Command, Is.EqualTo("rightClick"));
+        Assert.That(result, Does.Contain("Right-clicked OCR text"));
+    }
+
+    [Test]
+    public async Task HoverOcrText_SendsHover()
+    {
+        ConnectFakeTransport();
+        EnqueueOcrResponse("Hello",
+            new[] { ("Hello", 0.0, 0.0, 45.0, 20.0, new[] { ("Hello", 0.0, 0.0, 45.0, 20.0) }) });
+
+        var result = await _tools.HoverOcrText("el-1", "Hello");
+
+        Assert.That(_transport.Calls[1].Command, Is.EqualTo("hover"));
+        Assert.That(result, Does.Contain("Hovered OCR text"));
     }
 
     private void EnqueueOcrResponse(string fullText,

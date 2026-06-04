@@ -379,6 +379,22 @@ public sealed class AppManager : IAppOperations, IDisposable
         // ClickSafe(el, () => Mouse.MoveTo(point));
     }
 
+    public void DragTo(string sourceId, string? fromAnchor, int fromX, int fromY,
+        string targetId, string? toAnchor, int toX, int toY)
+    {
+        var source = GetElement(sourceId);
+        var target = GetElement(targetId);
+        var from = ResolveAbsolutePoint(source, fromAnchor, fromX, fromY);
+        var to = ResolveAbsolutePoint(target, toAnchor, toX, toY);
+        Mouse.Position = from;
+        Thread.Sleep(50);
+        Mouse.Down(MouseButton.Left);
+        Thread.Sleep(50);
+        Mouse.MoveTo(to);
+        Thread.Sleep(50);
+        Mouse.Up(MouseButton.Left);
+    }
+
     public void Scroll(string elementId, double lines, bool horizontal = false)
     {
         var el = GetElement(elementId);
@@ -487,6 +503,9 @@ public sealed class AppManager : IAppOperations, IDisposable
 
     public Dictionary<string, object?> GetAttributes(string elementId) =>
         ElementProperties.ResolveAll(GetElement(elementId));
+
+    public void SetAttribute(string elementId, string attribute, string value) =>
+        ElementProperties.SetAttribute(GetElement(elementId), attribute, value);
 
     public string? GetParent(string elementId)
     {

@@ -117,6 +117,28 @@ public sealed class ElementTools(ConductorState state)
         return $"Hovered at {anchor} + ({offsetX}, {offsetY}).";
     }
 
+    [McpServerTool, Description(
+        "Drag a UI element to another UI element. " +
+        "Both source and target positions default to center if anchor/offset are not specified.")]
+    public async Task<string> DragToElement(
+        [Description("Source element ID to drag from")] string sourceElementId,
+        [Description("Target element ID to drag to")] string targetElementId,
+        [Description("Anchor point on the source element (e.g. Center, NorthWest). Defaults to Center")] string? fromAnchor = null,
+        [Description("Horizontal offset in pixels from the source anchor")] int fromOffsetX = 0,
+        [Description("Vertical offset in pixels from the source anchor")] int fromOffsetY = 0,
+        [Description("Anchor point on the target element (e.g. Center, NorthWest). Defaults to Center")] string? toAnchor = null,
+        [Description("Horizontal offset in pixels from the target anchor")] int toOffsetX = 0,
+        [Description("Vertical offset in pixels from the target anchor")] int toOffsetY = 0)
+    {
+        var source = ResolveElement(sourceElementId);
+        var target = ResolveElement(targetElementId);
+        var parsedFromAnchor = fromAnchor is not null ? Enum.Parse<Anchor>(fromAnchor, ignoreCase: true) : Anchor.Center;
+        var parsedToAnchor = toAnchor is not null ? Enum.Parse<Anchor>(toAnchor, ignoreCase: true) : Anchor.Center;
+        await source.DragToAsync(parsedFromAnchor, new Point(fromOffsetX, fromOffsetY),
+            target, parsedToAnchor, new Point(toOffsetX, toOffsetY));
+        return "Dragged.";
+    }
+
     [McpServerTool, Description("Type text into a UI element (focuses it first).")]
     public async Task<string> TypeText(
         [Description("Element ID returned by FindElement/FindElements")] string elementId,
@@ -189,6 +211,24 @@ public sealed class ElementTools(ConductorState state)
         var element = ResolveElement(elementId);
         var attrs = await element.GetAttributesAsync();
         return JsonSerializer.Serialize(attrs);
+    }
+
+    [McpServerTool, Description(
+        "Set a UIAutomation pattern property on a UI element. " +
+        "Supported attributes: toggle_togglestate (On/Off/Indeterminate), " +
+        "expandcollapse_expandcollapsestate (Expanded/Collapsed), " +
+        "selectionitem_isselected (True/False), " +
+        "value_value (string), rangevalue_value (number), " +
+        "window_windowvisualstate (Normal/Maximized/Minimized), " +
+        "transform2_zoomlevel (number), ischecked (True/False).")]
+    public async Task<string> SetAttribute(
+        [Description("Element ID returned by FindElement/FindElements")] string elementId,
+        [Description("Attribute name (e.g. toggle_togglestate, value_value, ischecked)")] string attribute,
+        [Description("Value to set (e.g. On, True, some text)")] string value)
+    {
+        var element = ResolveElement(elementId);
+        await element.SetAttributeAsync(attribute, value);
+        return $"Set {attribute} to '{value}'.";
     }
 
     [McpServerTool, Description("Check if a UI element is enabled.")]
@@ -318,11 +358,84 @@ public sealed class ElementTools(ConductorState state)
     }
 
     [McpServerTool, Description(
+        "Click on OCR-recognized text within a UI element. " +
+        "Finds the text using fuzzy matching, then clicks at the specified anchor+offset relative to the match's bounding rectangle. " +
+        "Anchors: Center, North, NorthEast, East, SouthEast, South, SouthWest, West, NorthWest.")]
+    public async Task<string> ClickOcrText(
+        [Description("Element ID returned by FindElement/FindElements")] string elementId,
+        [Description("Text to search for within the OCR result")] string searchText,
+        [Description("Maximum edit distance for fuzzy matching (0 = exact, default 0)")] int maxEdits = 0,
+        [Description("Zero-based index when multiple matches exist (default 0 = first match)")] int matchIndex = 0,
+        [Description("Anchor point on the OCR match bounding rect (e.g. Center, NorthWest). Defaults to Center")] string? anchor = null,
+        [Description("Horizontal offset in pixels from the anchor")] int offsetX = 0,
+        [Description("Vertical offset in pixels from the anchor")] int offsetY = 0)
+    {
+        var match = await ResolveOcrMatch(elementId, searchText, maxEdits, matchIndex);
+        var parsedAnchor = anchor is not null ? Enum.Parse<Anchor>(anchor, ignoreCase: true) : Anchor.Center;
+        await match.ClickAsync(parsedAnchor, new Point(offsetX, offsetY));
+        return $"Clicked OCR text '{match.Text}' at {parsedAnchor} + ({offsetX}, {offsetY}).";
+    }
+
+    [McpServerTool, Description(
+        "Double-click on OCR-recognized text within a UI element. " +
+        "Finds the text using fuzzy matching, then double-clicks at the specified anchor+offset relative to the match's bounding rectangle.")]
+    public async Task<string> DoubleClickOcrText(
+        [Description("Element ID returned by FindElement/FindElements")] string elementId,
+        [Description("Text to search for within the OCR result")] string searchText,
+        [Description("Maximum edit distance for fuzzy matching (0 = exact, default 0)")] int maxEdits = 0,
+        [Description("Zero-based index when multiple matches exist (default 0 = first match)")] int matchIndex = 0,
+        [Description("Anchor point on the OCR match bounding rect (e.g. Center, NorthWest). Defaults to Center")] string? anchor = null,
+        [Description("Horizontal offset in pixels from the anchor")] int offsetX = 0,
+        [Description("Vertical offset in pixels from the anchor")] int offsetY = 0)
+    {
+        var match = await ResolveOcrMatch(elementId, searchText, maxEdits, matchIndex);
+        var parsedAnchor = anchor is not null ? Enum.Parse<Anchor>(anchor, ignoreCase: true) : Anchor.Center;
+        await match.DoubleClickAsync(parsedAnchor, new Point(offsetX, offsetY));
+        return $"Double-clicked OCR text '{match.Text}' at {parsedAnchor} + ({offsetX}, {offsetY}).";
+    }
+
+    [McpServerTool, Description(
+        "Right-click on OCR-recognized text within a UI element. " +
+        "Finds the text using fuzzy matching, then right-clicks at the specified anchor+offset relative to the match's bounding rectangle.")]
+    public async Task<string> RightClickOcrText(
+        [Description("Element ID returned by FindElement/FindElements")] string elementId,
+        [Description("Text to search for within the OCR result")] string searchText,
+        [Description("Maximum edit distance for fuzzy matching (0 = exact, default 0)")] int maxEdits = 0,
+        [Description("Zero-based index when multiple matches exist (default 0 = first match)")] int matchIndex = 0,
+        [Description("Anchor point on the OCR match bounding rect (e.g. Center, NorthWest). Defaults to Center")] string? anchor = null,
+        [Description("Horizontal offset in pixels from the anchor")] int offsetX = 0,
+        [Description("Vertical offset in pixels from the anchor")] int offsetY = 0)
+    {
+        var match = await ResolveOcrMatch(elementId, searchText, maxEdits, matchIndex);
+        var parsedAnchor = anchor is not null ? Enum.Parse<Anchor>(anchor, ignoreCase: true) : Anchor.Center;
+        await match.RightClickAsync(parsedAnchor, new Point(offsetX, offsetY));
+        return $"Right-clicked OCR text '{match.Text}' at {parsedAnchor} + ({offsetX}, {offsetY}).";
+    }
+
+    [McpServerTool, Description(
+        "Hover over OCR-recognized text within a UI element. " +
+        "Finds the text using fuzzy matching, then hovers at the specified anchor+offset relative to the match's bounding rectangle.")]
+    public async Task<string> HoverOcrText(
+        [Description("Element ID returned by FindElement/FindElements")] string elementId,
+        [Description("Text to search for within the OCR result")] string searchText,
+        [Description("Maximum edit distance for fuzzy matching (0 = exact, default 0)")] int maxEdits = 0,
+        [Description("Zero-based index when multiple matches exist (default 0 = first match)")] int matchIndex = 0,
+        [Description("Anchor point on the OCR match bounding rect (e.g. Center, NorthWest). Defaults to Center")] string? anchor = null,
+        [Description("Horizontal offset in pixels from the anchor")] int offsetX = 0,
+        [Description("Vertical offset in pixels from the anchor")] int offsetY = 0)
+    {
+        var match = await ResolveOcrMatch(elementId, searchText, maxEdits, matchIndex);
+        var parsedAnchor = anchor is not null ? Enum.Parse<Anchor>(anchor, ignoreCase: true) : Anchor.Center;
+        await match.HoverAsync(parsedAnchor, new Point(offsetX, offsetY));
+        return $"Hovered OCR text '{match.Text}' at {parsedAnchor} + ({offsetX}, {offsetY}).";
+    }
+
+    [McpServerTool, Description(
         "Search for text within an element's OCR result using fuzzy matching. " +
         "Returns a JSON array of matches, each with: matchedText, boundingRect (relative to element, NorthWest-anchored), " +
         "editDistance, lineText (the full line containing the match for disambiguation), " +
         "and lineBoundingRect. " +
-        "Use ClickElementAt with anchor=NorthWest and the match boundingRect center as offset to click a match.")]
+        "Use ClickOcrText/DoubleClickOcrText/RightClickOcrText/HoverOcrText to interact with matches directly.")]
     public async Task<string> FindOcrText(
         [Description("Element ID returned by FindElement/FindElements")] string elementId,
         [Description("Text to search for within the OCR result")] string searchText,
@@ -339,6 +452,19 @@ public sealed class ElementTools(ConductorState state)
     {
         var transport = state.ResolveTransport();
         return new WcElement(elementId, transport);
+    }
+
+    private async Task<WcElementOcrMatch> ResolveOcrMatch(string elementId, string searchText, int maxEdits, int matchIndex)
+    {
+        var element = ResolveElement(elementId);
+        var ocrResult = await element.GetOcrTextAsync();
+        var matches = ocrResult.FindAllByEdits(searchText, maxEdits);
+        if (matches.Count == 0)
+            throw new InvalidOperationException($"No OCR match found for '{searchText}' with maxEdits={maxEdits}.");
+        if (matchIndex < 0 || matchIndex >= matches.Count)
+            throw new ArgumentOutOfRangeException(nameof(matchIndex),
+                $"matchIndex {matchIndex} is out of range. Found {matches.Count} match(es).");
+        return matches[matchIndex];
     }
 
     private static object SerializeTreeNode(IReadOnlyTreeNode<WcElement> node) => new

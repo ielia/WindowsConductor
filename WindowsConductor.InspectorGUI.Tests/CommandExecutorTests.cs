@@ -511,6 +511,30 @@ public class CommandExecutorTests
         Assert.That(_output.InfoMessages[0], Does.Contain("okBtn"));
     }
 
+    // ── setattribute ────────────────────────────────────────────────────────
+
+    [Test]
+    public async Task Execute_SetAttribute_NoElement_WritesError()
+    {
+        _session.IsConnected = true;
+        _session.HasApp = true;
+        await _executor.ExecuteAsync("setattribute toggle_togglestate On");
+        Assert.That(_output.ErrorMessages[0], Does.Contain("No element selected"));
+    }
+
+    [Test]
+    public async Task Execute_SetAttribute_CallsSetAttribute()
+    {
+        _session.IsConnected = true;
+        _session.HasApp = true;
+        _session.HasSelectedElement = true;
+        await _executor.ExecuteAsync("setattribute toggle_togglestate On");
+        Assert.That(_session.Calls[0].Method, Is.EqualTo("SetAttribute"));
+        Assert.That(_session.Calls[0].Args[0], Is.EqualTo("toggle_togglestate"));
+        Assert.That(_session.Calls[0].Args[1], Is.EqualTo("On"));
+        Assert.That(_output.InfoMessages[0], Does.Contain("Set toggle_togglestate"));
+    }
+
     // ── click ───────────────────────────────────────────────────────────────
 
     [Test]
@@ -532,6 +556,31 @@ public class CommandExecutorTests
         Assert.That(_session.Calls.Any(c => c.Method == "Click"), Is.True);
         Assert.That(_output.InfoMessages[0], Does.Contain("Clicked"));
         Assert.That(_output.Screenshots, Has.Count.EqualTo(1));
+    }
+
+    [Test]
+    public async Task Execute_Click_WithAnchor_CallsClickWithAnchorAndOffset()
+    {
+        _session.IsConnected = true;
+        _session.HasApp = true;
+        _session.HasSelectedElement = true;
+        await _executor.ExecuteAsync("click center (10, 5)");
+        var call = _session.Calls.First(c => c.Method == "Click");
+        Assert.That(call.Args[0], Is.EqualTo(Anchor.Center));
+        Assert.That(call.Args[1], Is.EqualTo(new System.Drawing.Point(10, 5)));
+        Assert.That(_output.InfoMessages[0], Does.Contain("Clicked at Center"));
+    }
+
+    [Test]
+    public async Task Execute_Click_WithAnchorOnly_NoOffset()
+    {
+        _session.IsConnected = true;
+        _session.HasApp = true;
+        _session.HasSelectedElement = true;
+        await _executor.ExecuteAsync("click north");
+        var call = _session.Calls.First(c => c.Method == "Click");
+        Assert.That(call.Args[0], Is.EqualTo(Anchor.North));
+        Assert.That(call.Args[1], Is.EqualTo(new System.Drawing.Point(0, 0)));
     }
 
     // ── doubleclick ─────────────────────────────────────────────────────────
@@ -571,6 +620,58 @@ public class CommandExecutorTests
         await _executor.ExecuteAsync("hover");
         Assert.That(_session.Calls.Any(c => c.Method == "Hover"), Is.True);
         Assert.That(_output.InfoMessages[0], Does.Contain("Hovered"));
+    }
+
+    // ── drag ────────────────────────────────────────────────────────────────
+
+    [Test]
+    public async Task Execute_Drag_NoElement_WritesError()
+    {
+        _session.IsConnected = true;
+        _session.HasApp = true;
+        await _executor.ExecuteAsync("drag to //Button");
+        Assert.That(_output.ErrorMessages[0], Does.Contain("No element selected"));
+    }
+
+    [Test]
+    public async Task Execute_Drag_CallsDragTo_RefreshesScreenshot()
+    {
+        _session.IsConnected = true;
+        _session.HasApp = true;
+        _session.HasSelectedElement = true;
+        await _executor.ExecuteAsync("drag to //Button[@Name='target']");
+        Assert.That(_session.Calls.Any(c => c.Method == "DragTo"), Is.True);
+        Assert.That(_output.InfoMessages[0], Does.Contain("Dragged"));
+        Assert.That(_output.Screenshots, Has.Count.EqualTo(1));
+        Assert.That(_output.AttributesSets, Has.Count.EqualTo(1));
+    }
+
+    [Test]
+    public async Task Execute_Drag_WithAnchors_PassesCorrectArgs()
+    {
+        _session.IsConnected = true;
+        _session.HasApp = true;
+        _session.HasSelectedElement = true;
+        await _executor.ExecuteAsync("drag northwest (5, 10) to //Panel south (3, 4)");
+        var call = _session.Calls.First(c => c.Method == "DragTo");
+        Assert.That(call.Args[1], Is.EqualTo(Anchor.NorthWest));
+        Assert.That(call.Args[2], Is.EqualTo(new System.Drawing.Point(5, 10)));
+        Assert.That(call.Args[3], Is.EqualTo(Anchor.South));
+        Assert.That(call.Args[4], Is.EqualTo(new System.Drawing.Point(3, 4)));
+    }
+
+    [Test]
+    public async Task Execute_Drag_DefaultsToCenter()
+    {
+        _session.IsConnected = true;
+        _session.HasApp = true;
+        _session.HasSelectedElement = true;
+        await _executor.ExecuteAsync("drag to //Button");
+        var call = _session.Calls.First(c => c.Method == "DragTo");
+        Assert.That(call.Args[1], Is.EqualTo(Anchor.Center));
+        Assert.That(call.Args[2], Is.EqualTo(new System.Drawing.Point(0, 0)));
+        Assert.That(call.Args[3], Is.EqualTo(Anchor.Center));
+        Assert.That(call.Args[4], Is.EqualTo(new System.Drawing.Point(0, 0)));
     }
 
     // ── scroll ──────────────────────────────────────────────────────────────

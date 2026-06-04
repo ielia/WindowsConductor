@@ -265,6 +265,31 @@ public class CommandParserTests
         Assert.Throws<ArgumentException>(() => CommandParser.Parse("attribute"));
     }
 
+    // ── setattribute ────────────────────────────────────────────────────────
+
+    [Test]
+    public void Parse_SetAttribute_ReturnsSetAttributeCommand()
+    {
+        var cmd = (SetAttributeCommand)CommandParser.Parse("setattribute toggle_togglestate On");
+        Assert.That(cmd.AttributeName, Is.EqualTo("toggle_togglestate"));
+        Assert.That(cmd.Value, Is.EqualTo("On"));
+    }
+
+    [Test]
+    public void Parse_SetAttribute_QuotedValue()
+    {
+        var cmd = (SetAttributeCommand)CommandParser.Parse("setattribute value_value \"Hello World\"");
+        Assert.That(cmd.AttributeName, Is.EqualTo("value_value"));
+        Assert.That(cmd.Value, Is.EqualTo("Hello World"));
+    }
+
+    [Test]
+    public void Parse_SetAttribute_MissingArgs_Throws()
+    {
+        Assert.Throws<ArgumentException>(() => CommandParser.Parse("setattribute"));
+        Assert.Throws<ArgumentException>(() => CommandParser.Parse("setattribute toggle_togglestate"));
+    }
+
     // ── click ───────────────────────────────────────────────────────────────
 
     [Test]
@@ -484,6 +509,187 @@ public class CommandParserTests
         var cmd = (GlobalTypeCommand)CommandParser.Parse("gtype \"a\" [ctrl alt]");
         Assert.That(cmd.Text, Is.EqualTo("a"));
         Assert.That(cmd.Modifiers, Is.EqualTo(KeyModifiers.Ctrl | KeyModifiers.Alt));
+    }
+
+    [Test]
+    public void Parse_Click_UnquotedOcrText_Throws()
+    {
+        var ex = Assert.Throws<ArgumentException>(() => CommandParser.Parse("click Submit"));
+        Assert.That(ex!.Message, Does.Contain("OCR text must be quoted"));
+    }
+
+    [Test]
+    public void Parse_Click_QuotedOcrText_ReturnsClickCommand()
+    {
+        var cmd = (ClickCommand)CommandParser.Parse("click \"Submit\"");
+        Assert.That(cmd.OcrText, Is.EqualTo("Submit"));
+    }
+
+    [Test]
+    public void Parse_Click_WithAnchorOnly()
+    {
+        var cmd = (ClickCommand)CommandParser.Parse("click north");
+        Assert.That(cmd.OcrText, Is.Null);
+        Assert.That(cmd.ClickAnchor, Is.EqualTo(Anchor.North));
+        Assert.That(cmd.OffsetX, Is.EqualTo(0));
+        Assert.That(cmd.OffsetY, Is.EqualTo(0));
+    }
+
+    [Test]
+    public void Parse_Click_WithAnchorAndOffset()
+    {
+        var cmd = (ClickCommand)CommandParser.Parse("click center (10, 5)");
+        Assert.That(cmd.OcrText, Is.Null);
+        Assert.That(cmd.ClickAnchor, Is.EqualTo(Anchor.Center));
+        Assert.That(cmd.OffsetX, Is.EqualTo(10));
+        Assert.That(cmd.OffsetY, Is.EqualTo(5));
+    }
+
+    [Test]
+    public void Parse_Click_OcrWithAnchorAndOffset()
+    {
+        var cmd = (ClickCommand)CommandParser.Parse("click \"OK\" north (0, -5)");
+        Assert.That(cmd.OcrText, Is.EqualTo("OK"));
+        Assert.That(cmd.ClickAnchor, Is.EqualTo(Anchor.North));
+        Assert.That(cmd.OffsetX, Is.EqualTo(0));
+        Assert.That(cmd.OffsetY, Is.EqualTo(-5));
+    }
+
+    [Test]
+    public void Parse_Click_OcrWithMaxDistAndAnchor()
+    {
+        var cmd = (ClickCommand)CommandParser.Parse("click \"OK\" 2 east");
+        Assert.That(cmd.OcrText, Is.EqualTo("OK"));
+        Assert.That(cmd.MaxDistance, Is.EqualTo(2));
+        Assert.That(cmd.ClickAnchor, Is.EqualTo(Anchor.East));
+    }
+
+    [Test]
+    public void Parse_Click_OcrWithAllArgs()
+    {
+        var cmd = (ClickCommand)CommandParser.Parse("click \"OK\" 2 #1 south (3, 7)");
+        Assert.That(cmd.OcrText, Is.EqualTo("OK"));
+        Assert.That(cmd.MaxDistance, Is.EqualTo(2));
+        Assert.That(cmd.MatchIndex, Is.EqualTo(1));
+        Assert.That(cmd.ClickAnchor, Is.EqualTo(Anchor.South));
+        Assert.That(cmd.OffsetX, Is.EqualTo(3));
+        Assert.That(cmd.OffsetY, Is.EqualTo(7));
+    }
+
+    [Test]
+    public void Parse_Hover_WithAnchorAndOffset()
+    {
+        var cmd = (HoverCommand)CommandParser.Parse("hover west (20, 0)");
+        Assert.That(cmd.OcrText, Is.Null);
+        Assert.That(cmd.ClickAnchor, Is.EqualTo(Anchor.West));
+        Assert.That(cmd.OffsetX, Is.EqualTo(20));
+        Assert.That(cmd.OffsetY, Is.EqualTo(0));
+    }
+
+    [Test]
+    public void Parse_DoubleClick_WithAnchor()
+    {
+        var cmd = (DoubleClickCommand)CommandParser.Parse("doubleclick southeast");
+        Assert.That(cmd.ClickAnchor, Is.EqualTo(Anchor.SouthEast));
+    }
+
+    [Test]
+    public void Parse_RightClick_WithAnchorAndOffset()
+    {
+        var cmd = (RightClickCommand)CommandParser.Parse("rightclick northwest (5, 10)");
+        Assert.That(cmd.ClickAnchor, Is.EqualTo(Anchor.NorthWest));
+        Assert.That(cmd.OffsetX, Is.EqualTo(5));
+        Assert.That(cmd.OffsetY, Is.EqualTo(10));
+    }
+
+    // ── drag ────────────────────────────────────────────────────────────────
+
+    [Test]
+    public void Parse_Drag_ToLocatorOnly()
+    {
+        var cmd = (DragCommand)CommandParser.Parse("drag to //Button[@Name='target']");
+        Assert.That(cmd.FromAnchor, Is.Null);
+        Assert.That(cmd.FromX, Is.EqualTo(0));
+        Assert.That(cmd.FromY, Is.EqualTo(0));
+        Assert.That(cmd.TargetLocator, Is.EqualTo("//Button[@Name='target']"));
+        Assert.That(cmd.ToAnchor, Is.Null);
+        Assert.That(cmd.ToX, Is.EqualTo(0));
+        Assert.That(cmd.ToY, Is.EqualTo(0));
+    }
+
+    [Test]
+    public void Parse_Drag_WithFromAnchorAndOffset()
+    {
+        var cmd = (DragCommand)CommandParser.Parse("drag northwest (5, 10) to //ListItem[2]");
+        Assert.That(cmd.FromAnchor, Is.EqualTo(Anchor.NorthWest));
+        Assert.That(cmd.FromX, Is.EqualTo(5));
+        Assert.That(cmd.FromY, Is.EqualTo(10));
+        Assert.That(cmd.TargetLocator, Is.EqualTo("//ListItem[2]"));
+        Assert.That(cmd.ToAnchor, Is.Null);
+    }
+
+    [Test]
+    public void Parse_Drag_WithToAnchorAndOffset()
+    {
+        var cmd = (DragCommand)CommandParser.Parse("drag to //Panel center (100, 50)");
+        Assert.That(cmd.FromAnchor, Is.Null);
+        Assert.That(cmd.TargetLocator, Is.EqualTo("//Panel"));
+        Assert.That(cmd.ToAnchor, Is.EqualTo(Anchor.Center));
+        Assert.That(cmd.ToX, Is.EqualTo(100));
+        Assert.That(cmd.ToY, Is.EqualTo(50));
+    }
+
+    [Test]
+    public void Parse_Drag_WithBothAnchorsAndOffsets()
+    {
+        var cmd = (DragCommand)CommandParser.Parse("drag center (5, 0) to //Panel south (10, 10)");
+        Assert.That(cmd.FromAnchor, Is.EqualTo(Anchor.Center));
+        Assert.That(cmd.FromX, Is.EqualTo(5));
+        Assert.That(cmd.FromY, Is.EqualTo(0));
+        Assert.That(cmd.TargetLocator, Is.EqualTo("//Panel"));
+        Assert.That(cmd.ToAnchor, Is.EqualTo(Anchor.South));
+        Assert.That(cmd.ToX, Is.EqualTo(10));
+        Assert.That(cmd.ToY, Is.EqualTo(10));
+    }
+
+    [Test]
+    public void Parse_Drag_WithToAnchorOnly_NoOffset()
+    {
+        var cmd = (DragCommand)CommandParser.Parse("drag to //Button north");
+        Assert.That(cmd.TargetLocator, Is.EqualTo("//Button"));
+        Assert.That(cmd.ToAnchor, Is.EqualTo(Anchor.North));
+        Assert.That(cmd.ToX, Is.EqualTo(0));
+        Assert.That(cmd.ToY, Is.EqualTo(0));
+    }
+
+    [Test]
+    public void Parse_Drag_WithFromAnchorOnly_NoOffset()
+    {
+        var cmd = (DragCommand)CommandParser.Parse("drag east to //Button");
+        Assert.That(cmd.FromAnchor, Is.EqualTo(Anchor.East));
+        Assert.That(cmd.FromX, Is.EqualTo(0));
+        Assert.That(cmd.FromY, Is.EqualTo(0));
+        Assert.That(cmd.TargetLocator, Is.EqualTo("//Button"));
+    }
+
+    [Test]
+    public void Parse_Drag_MissingTo_Throws()
+    {
+        Assert.Throws<ArgumentException>(() => CommandParser.Parse("drag //Button"));
+    }
+
+    [Test]
+    public void Parse_Drag_MissingLocator_Throws()
+    {
+        Assert.Throws<ArgumentException>(() => CommandParser.Parse("drag to"));
+    }
+
+    [Test]
+    public void Parse_Drag_CaseInsensitiveAnchors()
+    {
+        var cmd = (DragCommand)CommandParser.Parse("drag CENTER (1, 2) to //X SOUTH (3, 4)");
+        Assert.That(cmd.FromAnchor, Is.EqualTo(Anchor.Center));
+        Assert.That(cmd.ToAnchor, Is.EqualTo(Anchor.South));
     }
 
     // ── focus ───────────────────────────────────────────────────────────────
