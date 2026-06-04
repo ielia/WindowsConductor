@@ -148,6 +148,91 @@ internal static class XPathFunctions
                 : new XPathNumber(numbers.Min());
         });
 
+        // Sequence functions
+        Add("head", 1, 1, (args, _) =>
+        {
+            var items = AsSequenceItems(args[0]);
+            return items.Count == 0 ? new XPathSequence([]) : items[0];
+        });
+
+        Add("tail", 1, 1, (args, _) =>
+        {
+            var items = AsSequenceItems(args[0]);
+            return items.Count <= 1
+                ? new XPathSequence([])
+                : new XPathSequence(items.Skip(1).ToList());
+        });
+
+        Add("subsequence", 2, 3, (args, _) =>
+        {
+            var items = AsSequenceItems(args[0]);
+            int start = (int)Math.Floor(args[1].AsNumber());
+            int length = args.Length == 3 ? (int)Math.Floor(args[2].AsNumber()) : items.Count - start + 1;
+            int from = Math.Max(start - 1, 0);
+            int adjustedLength = Math.Min(length - Math.Max(1 - start, 0), items.Count - from);
+            if (adjustedLength <= 0) return new XPathSequence([]);
+            return new XPathSequence(items.Skip(from).Take(adjustedLength).ToList());
+        });
+
+        Add("empty", 1, 1, (args, _) =>
+            new XPathBool(AsSequenceItems(args[0]).Count == 0));
+
+        Add("exists", 1, 1, (args, _) =>
+            new XPathBool(AsSequenceItems(args[0]).Count > 0));
+
+        Add("reverse", 1, 1, (args, _) =>
+        {
+            var items = AsSequenceItems(args[0]);
+            return new XPathSequence(items.Reverse().ToList());
+        });
+
+        Add("index-of", 2, 2, (args, _) =>
+        {
+            var items = AsSequenceItems(args[0]);
+            var search = args[1];
+            var positions = new List<XPathValue>();
+            for (int i = 0; i < items.Count; i++)
+                if (CompareValuesForEquality(items[i], search))
+                    positions.Add(new XPathNumber(i + 1));
+            return new XPathSequence(positions);
+        });
+
+        Add("distinct-values", 1, 1, (args, _) =>
+        {
+            var items = AsSequenceItems(args[0]);
+            var seen = new List<XPathValue>();
+            foreach (var item in items)
+            {
+                if (!seen.Any(s => CompareValuesForEquality(s, item)))
+                    seen.Add(item);
+            }
+            return new XPathSequence(seen);
+        });
+
+        Add("insert-before", 3, 3, (args, _) =>
+        {
+            var items = AsSequenceItems(args[0]).ToList();
+            int pos = Math.Max((int)Math.Floor(args[1].AsNumber()) - 1, 0);
+            var inserts = AsSequenceItems(args[2]);
+            var result = new List<XPathValue>(items.Count + inserts.Count);
+            int insertAt = Math.Min(pos, items.Count);
+            result.AddRange(items.Take(insertAt));
+            result.AddRange(inserts);
+            result.AddRange(items.Skip(insertAt));
+            return new XPathSequence(result);
+        });
+
+        Add("remove", 2, 2, (args, _) =>
+        {
+            var items = AsSequenceItems(args[0]);
+            int pos = (int)Math.Floor(args[1].AsNumber());
+            if (pos < 1 || pos > items.Count) return new XPathSequence(items.ToList());
+            return new XPathSequence(items.Where((_, i) => i != pos - 1).ToList());
+        });
+
+        Add("deep-equal", 2, 2, (args, _) =>
+            new XPathBool(DeepEqual(args[0], args[1])));
+
         // math: namespace functions
         Add("math:pi", 0, 0, (_, _) =>
             new XPathNumber(Math.PI));
@@ -199,6 +284,31 @@ internal static class XPathFunctions
 
     private static List<double> AsNumbers(XPathValue value) =>
         AsSequenceItems(value).Select(i => i.AsNumber()).ToList();
+
+    private static bool CompareValuesForEquality(XPathValue a, XPathValue b)
+    {
+        if (a is XPathNumber an && b is XPathNumber bn) return an.Value == bn.Value;
+        if (a is XPathBool ab && b is XPathBool bb) return ab.Value == bb.Value;
+        return string.Equals(a.AsString(), b.AsString(), StringComparison.InvariantCultureIgnoreCase);
+    }
+
+    private static bool DeepEqual(XPathValue a, XPathValue b)
+    {
+        if (a is XPathSequence sa && b is XPathSequence sb)
+        {
+            if (sa.Items.Count != sb.Items.Count) return false;
+            for (int i = 0; i < sa.Items.Count; i++)
+                if (!DeepEqual(sa.Items[i], sb.Items[i])) return false;
+            return true;
+        }
+        if (a is XPathSequence || b is XPathSequence)
+        {
+            var seqSide = a is XPathSequence sa2 ? sa2 : (XPathSequence)b;
+            var other = a is XPathSequence ? b : a;
+            return seqSide.Items.Count == 1 && DeepEqual(seqSide.Items[0], other);
+        }
+        return CompareValuesForEquality(a, b);
+    }
 
     // ── Expression evaluation ───────────────────────────────────────────────
 

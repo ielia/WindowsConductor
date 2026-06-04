@@ -24,6 +24,16 @@ public class XPathExprEvaluatorTests
             XPathTokenizer.Instance.Tokenize(input).ToArray());
     }
 
+    private static XPathValue EvalValue(string predicate, int position = 1, int last = 1, Func<string, string?>? props = null)
+    {
+        var tokens = Tokenize(predicate);
+        var parseResult = XPathSyntaxParser.Expression.TryParse(tokens);
+        if (!parseResult.HasValue)
+            throw new ArgumentException($"Failed to parse: {predicate}");
+        var ctx = new EvalContext(props ?? (_ => null), position, last, null);
+        return XPathFunctions.Evaluate(parseResult.Value, ctx);
+    }
+
     private static double EvalNum(string predicate, int position = 1, int last = 1, Func<string, string?>? props = null)
     {
         var tokens = Tokenize(predicate);
@@ -777,6 +787,427 @@ public class XPathExprEvaluatorTests
             _ => new XPathSequence([new XPathString("btn1"), new XPathString("btn2")]));
         var result = XPathFunctions.Evaluate(joinExpr, ctx);
         Assert.That(result.AsString(), Is.EqualTo("btn1xbtn2"));
+    }
+
+    // ── head() ────────────────────────────────────────────────────────────────
+
+    [Test]
+    public void Evaluate_Head_Sequence_ReturnsFirstItem()
+    {
+        Assert.That(EvalNum("head((10, 20, 30))"), Is.EqualTo(10));
+    }
+
+    [Test]
+    public void Evaluate_Head_SingleValue_ReturnsThatValue()
+    {
+        Assert.That(EvalNum("head(42)"), Is.EqualTo(42));
+    }
+
+    [Test]
+    public void Evaluate_Head_EmptySequence_ReturnsFalsyEmptySequence()
+    {
+        var result = EvalValue("head(())");
+        Assert.That(result, Is.InstanceOf<XPathSequence>());
+        Assert.That(result.AsBool(), Is.False);
+    }
+
+    // ── tail() ────────────────────────────────────────────────────────────────
+
+    [Test]
+    public void Evaluate_Tail_Sequence_ReturnsAllButFirst()
+    {
+        var result = EvalValue("tail((10, 20, 30))");
+        Assert.That(result, Is.InstanceOf<XPathSequence>());
+        var seq = (XPathSequence)result;
+        Assert.That(seq.Items, Has.Count.EqualTo(2));
+        Assert.That(seq.Items[0].AsNumber(), Is.EqualTo(20));
+        Assert.That(seq.Items[1].AsNumber(), Is.EqualTo(30));
+    }
+
+    [Test]
+    public void Evaluate_Tail_SingleValue_ReturnsEmptySequence()
+    {
+        var result = EvalValue("tail(42)");
+        Assert.That(result, Is.InstanceOf<XPathSequence>());
+        Assert.That(((XPathSequence)result).Items, Has.Count.EqualTo(0));
+    }
+
+    [Test]
+    public void Evaluate_Tail_EmptySequence_ReturnsEmptySequence()
+    {
+        var result = EvalValue("tail(())");
+        Assert.That(result, Is.InstanceOf<XPathSequence>());
+        Assert.That(((XPathSequence)result).Items, Has.Count.EqualTo(0));
+    }
+
+    // ── subsequence() ─────────────────────────────────────────────────────────
+
+    [Test]
+    public void Evaluate_Subsequence_TwoArgs_FromStartToEnd()
+    {
+        var result = EvalValue("subsequence((10, 20, 30, 40, 50), 3)");
+        Assert.That(result, Is.InstanceOf<XPathSequence>());
+        var seq = (XPathSequence)result;
+        Assert.That(seq.Items, Has.Count.EqualTo(3));
+        Assert.That(seq.Items[0].AsNumber(), Is.EqualTo(30));
+        Assert.That(seq.Items[1].AsNumber(), Is.EqualTo(40));
+        Assert.That(seq.Items[2].AsNumber(), Is.EqualTo(50));
+    }
+
+    [Test]
+    public void Evaluate_Subsequence_ThreeArgs_WithLength()
+    {
+        var result = EvalValue("subsequence((10, 20, 30, 40, 50), 2, 3)");
+        Assert.That(result, Is.InstanceOf<XPathSequence>());
+        var seq = (XPathSequence)result;
+        Assert.That(seq.Items, Has.Count.EqualTo(3));
+        Assert.That(seq.Items[0].AsNumber(), Is.EqualTo(20));
+        Assert.That(seq.Items[1].AsNumber(), Is.EqualTo(30));
+        Assert.That(seq.Items[2].AsNumber(), Is.EqualTo(40));
+    }
+
+    [Test]
+    public void Evaluate_Subsequence_StartBeyondEnd_ReturnsEmpty()
+    {
+        var result = EvalValue("subsequence((10, 20, 30), 5)");
+        Assert.That(result, Is.InstanceOf<XPathSequence>());
+        Assert.That(((XPathSequence)result).Items, Has.Count.EqualTo(0));
+    }
+
+    [Test]
+    public void Evaluate_Subsequence_LengthExceedsEnd_ClipsToEnd()
+    {
+        var result = EvalValue("subsequence((10, 20, 30), 2, 10)");
+        Assert.That(result, Is.InstanceOf<XPathSequence>());
+        var seq = (XPathSequence)result;
+        Assert.That(seq.Items, Has.Count.EqualTo(2));
+        Assert.That(seq.Items[0].AsNumber(), Is.EqualTo(20));
+        Assert.That(seq.Items[1].AsNumber(), Is.EqualTo(30));
+    }
+
+    [Test]
+    public void Evaluate_Subsequence_StartLessThanOne_AdjustsLength()
+    {
+        var result = EvalValue("subsequence((10, 20, 30), 0, 2)");
+        Assert.That(result, Is.InstanceOf<XPathSequence>());
+        var seq = (XPathSequence)result;
+        Assert.That(seq.Items, Has.Count.EqualTo(1));
+        Assert.That(seq.Items[0].AsNumber(), Is.EqualTo(10));
+    }
+
+    [Test]
+    public void Evaluate_Subsequence_EmptySequence_ReturnsEmpty()
+    {
+        var result = EvalValue("subsequence((), 1)");
+        Assert.That(result, Is.InstanceOf<XPathSequence>());
+        Assert.That(((XPathSequence)result).Items, Has.Count.EqualTo(0));
+    }
+
+    [Test]
+    public void Evaluate_Subsequence_SingleValue_Position1_ReturnsThatValue()
+    {
+        var result = EvalValue("subsequence(42, 1)");
+        Assert.That(result, Is.InstanceOf<XPathSequence>());
+        var seq = (XPathSequence)result;
+        Assert.That(seq.Items, Has.Count.EqualTo(1));
+        Assert.That(seq.Items[0].AsNumber(), Is.EqualTo(42));
+    }
+
+    [Test]
+    public void Evaluate_Subsequence_ZeroLength_ReturnsEmpty()
+    {
+        var result = EvalValue("subsequence((10, 20, 30), 2, 0)");
+        Assert.That(result, Is.InstanceOf<XPathSequence>());
+        Assert.That(((XPathSequence)result).Items, Has.Count.EqualTo(0));
+    }
+
+    // ── empty() ───────────────────────────────────────────────────────────────
+
+    [Test]
+    public void Evaluate_Empty_EmptySequence_ReturnsTrue()
+    {
+        Assert.That(Eval("empty(())", 1, 1), Is.True);
+    }
+
+    [Test]
+    public void Evaluate_Empty_NonEmptySequence_ReturnsFalse()
+    {
+        Assert.That(Eval("empty((1, 2))", 1, 1), Is.False);
+    }
+
+    [Test]
+    public void Evaluate_Empty_SingleValue_ReturnsFalse()
+    {
+        Assert.That(Eval("empty(42)", 1, 1), Is.False);
+    }
+
+    // ── exists() ──────────────────────────────────────────────────────────────
+
+    [Test]
+    public void Evaluate_Exists_NonEmptySequence_ReturnsTrue()
+    {
+        Assert.That(Eval("exists((1, 2))", 1, 1), Is.True);
+    }
+
+    [Test]
+    public void Evaluate_Exists_EmptySequence_ReturnsFalse()
+    {
+        Assert.That(Eval("exists(())", 1, 1), Is.False);
+    }
+
+    [Test]
+    public void Evaluate_Exists_SingleValue_ReturnsTrue()
+    {
+        Assert.That(Eval("exists('hello')", 1, 1), Is.True);
+    }
+
+    // ── reverse() ─────────────────────────────────────────────────────────────
+
+    [Test]
+    public void Evaluate_Reverse_Sequence()
+    {
+        var result = EvalValue("reverse((10, 20, 30))");
+        Assert.That(result, Is.InstanceOf<XPathSequence>());
+        var seq = (XPathSequence)result;
+        Assert.That(seq.Items, Has.Count.EqualTo(3));
+        Assert.That(seq.Items[0].AsNumber(), Is.EqualTo(30));
+        Assert.That(seq.Items[1].AsNumber(), Is.EqualTo(20));
+        Assert.That(seq.Items[2].AsNumber(), Is.EqualTo(10));
+    }
+
+    [Test]
+    public void Evaluate_Reverse_EmptySequence()
+    {
+        var result = EvalValue("reverse(())");
+        Assert.That(result, Is.InstanceOf<XPathSequence>());
+        Assert.That(((XPathSequence)result).Items, Has.Count.EqualTo(0));
+    }
+
+    [Test]
+    public void Evaluate_Reverse_SingleValue()
+    {
+        var result = EvalValue("reverse(42)");
+        Assert.That(result, Is.InstanceOf<XPathSequence>());
+        var seq = (XPathSequence)result;
+        Assert.That(seq.Items, Has.Count.EqualTo(1));
+        Assert.That(seq.Items[0].AsNumber(), Is.EqualTo(42));
+    }
+
+    // ── index-of() ────────────────────────────────────────────────────────────
+
+    [Test]
+    public void Evaluate_IndexOf_Found()
+    {
+        var result = EvalValue("index-of(('a', 'b', 'c', 'b'), 'b')");
+        Assert.That(result, Is.InstanceOf<XPathSequence>());
+        var seq = (XPathSequence)result;
+        Assert.That(seq.Items, Has.Count.EqualTo(2));
+        Assert.That(seq.Items[0].AsNumber(), Is.EqualTo(2));
+        Assert.That(seq.Items[1].AsNumber(), Is.EqualTo(4));
+    }
+
+    [Test]
+    public void Evaluate_IndexOf_NotFound()
+    {
+        var result = EvalValue("index-of(('a', 'b', 'c'), 'z')");
+        Assert.That(result, Is.InstanceOf<XPathSequence>());
+        Assert.That(((XPathSequence)result).Items, Has.Count.EqualTo(0));
+    }
+
+    [Test]
+    public void Evaluate_IndexOf_Numbers()
+    {
+        var result = EvalValue("index-of((10, 20, 30, 20), 20)");
+        Assert.That(result, Is.InstanceOf<XPathSequence>());
+        var seq = (XPathSequence)result;
+        Assert.That(seq.Items, Has.Count.EqualTo(2));
+        Assert.That(seq.Items[0].AsNumber(), Is.EqualTo(2));
+        Assert.That(seq.Items[1].AsNumber(), Is.EqualTo(4));
+    }
+
+    [Test]
+    public void Evaluate_IndexOf_CaseInsensitive()
+    {
+        var result = EvalValue("index-of(('Hello', 'HELLO', 'hello'), 'hello')");
+        Assert.That(result, Is.InstanceOf<XPathSequence>());
+        Assert.That(((XPathSequence)result).Items, Has.Count.EqualTo(3));
+    }
+
+    // ── distinct-values() ─────────────────────────────────────────────────────
+
+    [Test]
+    public void Evaluate_DistinctValues_RemovesDuplicates()
+    {
+        var result = EvalValue("distinct-values(('a', 'b', 'a', 'c', 'b'))");
+        Assert.That(result, Is.InstanceOf<XPathSequence>());
+        var seq = (XPathSequence)result;
+        Assert.That(seq.Items, Has.Count.EqualTo(3));
+        Assert.That(seq.Items[0].AsString(), Is.EqualTo("a"));
+        Assert.That(seq.Items[1].AsString(), Is.EqualTo("b"));
+        Assert.That(seq.Items[2].AsString(), Is.EqualTo("c"));
+    }
+
+    [Test]
+    public void Evaluate_DistinctValues_Numbers()
+    {
+        var result = EvalValue("distinct-values((1, 2, 1, 3, 2))");
+        Assert.That(result, Is.InstanceOf<XPathSequence>());
+        Assert.That(((XPathSequence)result).Items, Has.Count.EqualTo(3));
+    }
+
+    [Test]
+    public void Evaluate_DistinctValues_EmptySequence()
+    {
+        var result = EvalValue("distinct-values(())");
+        Assert.That(result, Is.InstanceOf<XPathSequence>());
+        Assert.That(((XPathSequence)result).Items, Has.Count.EqualTo(0));
+    }
+
+    [Test]
+    public void Evaluate_DistinctValues_CaseInsensitive()
+    {
+        var result = EvalValue("distinct-values(('Hello', 'hello', 'HELLO'))");
+        Assert.That(result, Is.InstanceOf<XPathSequence>());
+        Assert.That(((XPathSequence)result).Items, Has.Count.EqualTo(1));
+    }
+
+    // ── insert-before() ───────────────────────────────────────────────────────
+
+    [Test]
+    public void Evaluate_InsertBefore_Middle()
+    {
+        var result = EvalValue("insert-before(('a', 'b', 'c'), 2, 'x')");
+        Assert.That(result, Is.InstanceOf<XPathSequence>());
+        var seq = (XPathSequence)result;
+        Assert.That(seq.Items, Has.Count.EqualTo(4));
+        Assert.That(seq.Items[0].AsString(), Is.EqualTo("a"));
+        Assert.That(seq.Items[1].AsString(), Is.EqualTo("x"));
+        Assert.That(seq.Items[2].AsString(), Is.EqualTo("b"));
+        Assert.That(seq.Items[3].AsString(), Is.EqualTo("c"));
+    }
+
+    [Test]
+    public void Evaluate_InsertBefore_AtStart()
+    {
+        var result = EvalValue("insert-before(('a', 'b'), 1, 'x')");
+        Assert.That(result, Is.InstanceOf<XPathSequence>());
+        var seq = (XPathSequence)result;
+        Assert.That(seq.Items, Has.Count.EqualTo(3));
+        Assert.That(seq.Items[0].AsString(), Is.EqualTo("x"));
+        Assert.That(seq.Items[1].AsString(), Is.EqualTo("a"));
+    }
+
+    [Test]
+    public void Evaluate_InsertBefore_BeyondEnd_AppendsAtEnd()
+    {
+        var result = EvalValue("insert-before(('a', 'b'), 10, 'x')");
+        Assert.That(result, Is.InstanceOf<XPathSequence>());
+        var seq = (XPathSequence)result;
+        Assert.That(seq.Items, Has.Count.EqualTo(3));
+        Assert.That(seq.Items[2].AsString(), Is.EqualTo("x"));
+    }
+
+    [Test]
+    public void Evaluate_InsertBefore_PositionZero_InsertsAtStart()
+    {
+        var result = EvalValue("insert-before(('a', 'b'), 0, 'x')");
+        Assert.That(result, Is.InstanceOf<XPathSequence>());
+        Assert.That(((XPathSequence)result).Items[0].AsString(), Is.EqualTo("x"));
+    }
+
+    [Test]
+    public void Evaluate_InsertBefore_MultipleItems()
+    {
+        var result = EvalValue("insert-before(('a', 'd'), 2, ('b', 'c'))");
+        Assert.That(result, Is.InstanceOf<XPathSequence>());
+        var seq = (XPathSequence)result;
+        Assert.That(seq.Items, Has.Count.EqualTo(4));
+        Assert.That(seq.Items[0].AsString(), Is.EqualTo("a"));
+        Assert.That(seq.Items[1].AsString(), Is.EqualTo("b"));
+        Assert.That(seq.Items[2].AsString(), Is.EqualTo("c"));
+        Assert.That(seq.Items[3].AsString(), Is.EqualTo("d"));
+    }
+
+    // ── remove() ──────────────────────────────────────────────────────────────
+
+    [Test]
+    public void Evaluate_Remove_Middle()
+    {
+        var result = EvalValue("remove(('a', 'b', 'c'), 2)");
+        Assert.That(result, Is.InstanceOf<XPathSequence>());
+        var seq = (XPathSequence)result;
+        Assert.That(seq.Items, Has.Count.EqualTo(2));
+        Assert.That(seq.Items[0].AsString(), Is.EqualTo("a"));
+        Assert.That(seq.Items[1].AsString(), Is.EqualTo("c"));
+    }
+
+    [Test]
+    public void Evaluate_Remove_First()
+    {
+        var result = EvalValue("remove(('a', 'b', 'c'), 1)");
+        Assert.That(result, Is.InstanceOf<XPathSequence>());
+        Assert.That(((XPathSequence)result).Items[0].AsString(), Is.EqualTo("b"));
+    }
+
+    [Test]
+    public void Evaluate_Remove_OutOfRange_ReturnsOriginal()
+    {
+        var result = EvalValue("remove(('a', 'b', 'c'), 5)");
+        Assert.That(result, Is.InstanceOf<XPathSequence>());
+        Assert.That(((XPathSequence)result).Items, Has.Count.EqualTo(3));
+    }
+
+    [Test]
+    public void Evaluate_Remove_ZeroPosition_ReturnsOriginal()
+    {
+        var result = EvalValue("remove(('a', 'b'), 0)");
+        Assert.That(result, Is.InstanceOf<XPathSequence>());
+        Assert.That(((XPathSequence)result).Items, Has.Count.EqualTo(2));
+    }
+
+    // ── deep-equal() ──────────────────────────────────────────────────────────
+
+    [Test]
+    public void Evaluate_DeepEqual_SameSequences_ReturnsTrue()
+    {
+        Assert.That(Eval("deep-equal((1, 2, 3), (1, 2, 3))", 1, 1), Is.True);
+    }
+
+    [Test]
+    public void Evaluate_DeepEqual_DifferentValues_ReturnsFalse()
+    {
+        Assert.That(Eval("deep-equal((1, 2, 3), (1, 2, 4))", 1, 1), Is.False);
+    }
+
+    [Test]
+    public void Evaluate_DeepEqual_DifferentLengths_ReturnsFalse()
+    {
+        Assert.That(Eval("deep-equal((1, 2), (1, 2, 3))", 1, 1), Is.False);
+    }
+
+    [Test]
+    public void Evaluate_DeepEqual_EmptySequences_ReturnsTrue()
+    {
+        Assert.That(Eval("deep-equal((), ())", 1, 1), Is.True);
+    }
+
+    [Test]
+    public void Evaluate_DeepEqual_Strings_CaseInsensitive()
+    {
+        Assert.That(Eval("deep-equal(('Hello'), ('hello'))", 1, 1), Is.True);
+    }
+
+    [Test]
+    public void Evaluate_DeepEqual_ScalarValues()
+    {
+        Assert.That(Eval("deep-equal(42, 42)", 1, 1), Is.True);
+        Assert.That(Eval("deep-equal(42, 43)", 1, 1), Is.False);
+    }
+
+    [Test]
+    public void Evaluate_DeepEqual_DifferentOrder_ReturnsFalse()
+    {
+        Assert.That(Eval("deep-equal((1, 2, 3), (3, 2, 1))", 1, 1), Is.False);
     }
 
     // ── XPathCastException ───────────────────────────────────────────────────

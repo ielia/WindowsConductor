@@ -32,10 +32,61 @@ internal static class ElementProperties
             .ToFrozenDictionary(p => p.Name.ToLowerInvariant(), p => p);
     }
 
+    // ── Pattern property map ────────────────────────────────────────────────
+
+    private sealed record PatternPropAccessor(
+        PropertyInfo ContainerProp,
+        PropertyInfo PatternOrDefaultProp,
+        PropertyInfo ValueProp,
+        string Key);
+
+    private static readonly PropertyInfo PatternsProperty =
+        typeof(AutomationElement).GetProperty("Patterns")!;
+
+    private static readonly FrozenDictionary<string, PatternPropAccessor> PatternPropertyMap =
+        BuildPatternPropertyMap();
+
+    private static FrozenDictionary<string, PatternPropAccessor> BuildPatternPropertyMap()
+    {
+        var patternsType = PatternsProperty.PropertyType;
+        var result = new Dictionary<string, PatternPropAccessor>(StringComparer.InvariantCultureIgnoreCase);
+
+        foreach (var containerProp in patternsType.GetProperties(BindingFlags.Public | BindingFlags.Instance))
+        {
+            var patternOrDefaultProp = containerProp.PropertyType.GetProperty("PatternOrDefault");
+            if (patternOrDefaultProp is null) continue;
+
+            var patternType = patternOrDefaultProp.PropertyType;
+            var patternName = containerProp.Name.ToLowerInvariant();
+
+            foreach (var valueProp in patternType.GetProperties(BindingFlags.Public | BindingFlags.Instance))
+            {
+                if (valueProp.Name is "PropertyIds" or "EventIds") continue;
+                if (!valueProp.PropertyType.IsGenericType) continue;
+                if (!valueProp.PropertyType.GetGenericTypeDefinition().Name.StartsWith("AutomationProperty", StringComparison.Ordinal)) continue;
+
+                var innerType = valueProp.PropertyType.GetGenericArguments()[0];
+                if (!IsSerializableType(innerType)) continue;
+
+                var key = $"{patternName}_{valueProp.Name.ToLowerInvariant()}";
+                result[key] = new PatternPropAccessor(containerProp, patternOrDefaultProp, valueProp, key);
+            }
+        }
+
+        return result.ToFrozenDictionary();
+    }
+
+    private static bool IsSerializableType(Type t) =>
+        t == typeof(string) || t == typeof(bool) || t == typeof(int)
+        || t == typeof(long) || t == typeof(double) || t == typeof(float)
+        || t.IsEnum
+        || (t.IsArray && IsSerializableType(t.GetElementType()!));
+
     internal static bool IsSupported(string key)
     {
         var normalized = Normalize(key);
-        return normalized == "text" || ScrollKeys.Contains(normalized) || PropertyMap.ContainsKey(normalized);
+        return normalized == "text" || DerivedKeys.Contains(normalized)
+            || PropertyMap.ContainsKey(normalized) || PatternPropertyMap.ContainsKey(normalized);
     }
 
     internal static string Normalize(string key)
@@ -64,18 +115,26 @@ internal static class ElementProperties
         if (text is not null)
             result["text"] = text;
 
-        ResolveScrollProperties(el, result);
+        ResolveDerivedProperties(el, result);
+        ResolvePatternProperties(el, result);
 
         return result;
     }
 
-    internal static string? Resolve(AutomationElement el, string key) =>
-        ResolveRaw(el, key)?.ToString();
+    internal static string? Resolve(AutomationElement el, string key)
+    {
+        var raw = ResolveRaw(el, key);
+        if (raw is null) return null;
+        if (raw is Array arr)
+            return string.Join(",", arr.Cast<object>().Select(o => o.ToString()));
+        return raw.ToString();
+    }
 
-    private static readonly HashSet<string> ScrollKeys = new(StringComparer.InvariantCultureIgnoreCase)
+    private static readonly HashSet<string> DerivedKeys = new(StringComparer.InvariantCultureIgnoreCase)
     {
         "vscrollpercent", "hscrollpercent", "vviewpercent", "hviewpercent",
-        "scrolltop", "scrollleft", "vscrolltotal", "hscrolltotal"
+        "scrolltop", "scrollleft", "vscrolltotal", "hscrolltotal",
+        "ischecked"
     };
 
     internal static object? ResolveRaw(AutomationElement el, string key)
@@ -85,12 +144,15 @@ internal static class ElementProperties
         if (normalized == "text")
             return ResolveText(el);
 
-        if (ScrollKeys.Contains(normalized))
+        if (DerivedKeys.Contains(normalized))
         {
             var dict = new Dictionary<string, object?>(StringComparer.InvariantCultureIgnoreCase);
-            ResolveScrollProperties(el, dict);
+            ResolveDerivedProperties(el, dict);
             return dict.GetValueOrDefault(normalized);
         }
+
+        if (PatternPropertyMap.TryGetValue(normalized, out var accessor))
+            return ResolvePatternProperty(el, accessor);
 
         if (!PropertyMap.TryGetValue(normalized, out var propInfo))
             return null;
@@ -114,8 +176,27 @@ internal static class ElementProperties
         bool or int or long or double or float or string => value,
         Point p => new { x = p.X, y = p.Y },
         Rectangle r => new { x = r.X, y = r.Y, width = r.Width, height = r.Height },
+        Array arr => arr.Cast<object>().Select(ToSerializable).ToArray(),
         _ => value.ToString() ?? ""
     };
+
+    private static void ResolveDerivedProperties(AutomationElement el, Dictionary<string, object?> result)
+    {
+        ResolveScrollProperties(el, result);
+        ResolveIsChecked(el, result);
+    }
+
+    private static void ResolveIsChecked(AutomationElement el, Dictionary<string, object?> result)
+    {
+        try
+        {
+            var toggle = el.Patterns.Toggle.PatternOrDefault;
+            if (toggle is null) return;
+            var state = toggle.ToggleState.ValueOrDefault;
+            result["ischecked"] = state == FlaUI.Core.Definitions.ToggleState.On;
+        }
+        catch { /* skip if toggle pattern not available */ }
+    }
 
     private static void ResolveScrollProperties(AutomationElement el, Dictionary<string, object?> result)
     {
@@ -151,6 +232,49 @@ internal static class ElementProperties
             }
         }
         catch { /* skip if scroll pattern not available */ }
+    }
+
+    private static void ResolvePatternProperties(AutomationElement el, Dictionary<string, object?> result)
+    {
+        var patternsContainer = PatternsProperty.GetValue(el);
+        if (patternsContainer is null) return;
+
+        foreach (var (key, accessor) in PatternPropertyMap)
+        {
+            try
+            {
+                var container = accessor.ContainerProp.GetValue(patternsContainer);
+                if (container is null) continue;
+                var pattern = accessor.PatternOrDefaultProp.GetValue(container);
+                if (pattern is null) continue;
+                var automationProp = accessor.ValueProp.GetValue(pattern);
+                if (automationProp is null) continue;
+                var value = automationProp.GetType().GetProperty("ValueOrDefault")?.GetValue(automationProp);
+                if (value is not null)
+                    result[key] = ToSerializable(value);
+            }
+            catch { /* skip if pattern not available */ }
+        }
+    }
+
+    private static object? ResolvePatternProperty(AutomationElement el, PatternPropAccessor accessor)
+    {
+        try
+        {
+            var patternsContainer = PatternsProperty.GetValue(el);
+            if (patternsContainer is null) return null;
+            var container = accessor.ContainerProp.GetValue(patternsContainer);
+            if (container is null) return null;
+            var pattern = accessor.PatternOrDefaultProp.GetValue(container);
+            if (pattern is null) return null;
+            var automationProp = accessor.ValueProp.GetValue(pattern);
+            if (automationProp is null) return null;
+            return automationProp.GetType().GetProperty("ValueOrDefault")?.GetValue(automationProp);
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     private static string? ResolveText(AutomationElement el)
