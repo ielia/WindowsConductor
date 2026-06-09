@@ -58,13 +58,22 @@ function Install-ParkTask {
     }
 
     @'
-# The trigger passes the event as XML; extract the session ID from it.
+# Wait briefly for the session state to settle, then check if it is
+# actually disconnected. When a user reconnects via RDP the console
+# session fires a disconnect event too — without this guard the task
+# would immediately redirect the session back to console, kicking the
+# user out in a loop.
+Start-Sleep -Seconds 5
+
 $event = Get-WinEvent -LogName "Microsoft-Windows-TerminalServices-LocalSessionManager/Operational" `
     -FilterXPath "*[System[EventID=24]]" -MaxEvents 1 -ErrorAction SilentlyContinue
 if ($event) {
     $sessionId = ([xml]$event.ToXml()).Event.UserData.EventXML.SessionID
     if ($sessionId) {
-        & tscon $sessionId /dest:console 2>&1 | Out-Null
+        $state = query session 2>&1 | Select-String "^\s*\S+\s+$sessionId\s+Disc"
+        if ($state) {
+            & tscon $sessionId /dest:console 2>&1 | Out-Null
+        }
     }
 }
 '@ | Set-Content -Path $ScriptPath -Encoding UTF8
