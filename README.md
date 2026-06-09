@@ -48,6 +48,7 @@ Convenience scripts are provided in `.bat`, `.ps1`, and `.sh` variants:
 | `inspector-gui` | Launch the Inspector GUI. |
 | `publish` | Publish framework-dependent and self-contained builds of the Driver and Inspector, and pack the Client NuGet package. Output goes to `publish/`. |
 | `test-coverage` | Run unit tests with code coverage collection and generate an HTML report in `coverage-report/`. Requires `reportgenerator` as a global dotnet tool. |
+| `session-park` | Install/uninstall a scheduled task that keeps the desktop alive on remote machines when an RDP connection disconnects. PowerShell only. See [SESSION-PARK.md](SESSION-PARK.md). |
 
 ## Requirements
 
