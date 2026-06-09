@@ -51,7 +51,7 @@ Or use the convenience scripts at the repository root: `run-driver.bat`, `run-dr
 
 ## What it does
 
-- Listens for WebSocket connections on the configured HTTP prefix (and optionally HTTPS/WSS).
+- Listens on all network interfaces (`0.0.0.0`) for WebSocket connections on the configured port (and optionally HTTPS/WSS).
 - Optionally authenticates clients via bearer token (plain or PBKDF2 hashed).
 - Each client gets an isolated session with its own element cache.
 - Translates JSON commands into native UIAutomation calls via FlaUI.

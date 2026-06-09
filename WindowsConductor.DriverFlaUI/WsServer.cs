@@ -54,9 +54,9 @@ public sealed class WsServer
         builder.WebHost.ConfigureKestrel(options =>
         {
             if (_httpPort is not null)
-                options.ListenLocalhost(_httpPort.Value);
+                options.ListenAnyIP(_httpPort.Value);
             if (_httpsPort is not null && _httpsCert is not null)
-                options.ListenLocalhost(_httpsPort.Value, lo => lo.UseHttps(_httpsCert));
+                options.ListenAnyIP(_httpsPort.Value, lo => lo.UseHttps(_httpsCert));
         });
 
         await using var app = builder.Build();
@@ -90,8 +90,8 @@ public sealed class WsServer
         });
 
         var endpoints = new List<string>();
-        if (_httpPort is not null) endpoints.Add($"http://localhost:{_httpPort}");
-        if (_httpsPort is not null) endpoints.Add($"https://localhost:{_httpsPort}");
+        if (_httpPort is not null) endpoints.Add($"http://0.0.0.0:{_httpPort}");
+        if (_httpsPort is not null) endpoints.Add($"https://0.0.0.0:{_httpsPort}");
         Console.WriteLine($"Listening on {string.Join(", ", endpoints)}");
         Console.WriteLine("Press Ctrl+C to stop.");
 
