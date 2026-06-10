@@ -16,6 +16,13 @@ public class WcElementAsyncTests
         _element = new WcElement("el-123", _transport);
     }
 
+    [Test]
+    public async Task GetElementAsync_ReturnsSelf()
+    {
+        var result = await _element.GetElementAsync();
+        Assert.That(result, Is.SameAs(_element));
+    }
+
     // ── Actions ──────────────────────────────────────────────────────────────
 
     [Test]
@@ -165,6 +172,21 @@ public class WcElementAsyncTests
     }
 
     [Test]
+    public async Task IsStaleAsync_True()
+    {
+        _transport.Enqueue(true);
+        Assert.That(await _element.IsStaleAsync(), Is.True);
+        Assert.That(_transport.Calls[0].Command, Is.EqualTo("isStale"));
+    }
+
+    [Test]
+    public async Task IsStaleAsync_False()
+    {
+        _transport.Enqueue(false);
+        Assert.That(await _element.IsStaleAsync(), Is.False);
+    }
+
+    [Test]
     public async Task IsEnabledAsync_True()
     {
         _transport.Enqueue(true);
@@ -230,5 +252,90 @@ public class WcElementAsyncTests
         Assert.That(result, Is.Not.Null);
         Assert.That(result.Width, Is.EqualTo(1));
         Assert.That(result.Height, Is.EqualTo(1));
+    }
+
+    // ── WaitForVanish ───────────────────────────────────────────────────────
+
+    [Test]
+    public async Task WaitForVanishAsync_SendsCorrectCommand()
+    {
+        await _element.WaitForVanishAsync(3000);
+        Assert.That(_transport.Calls, Has.Count.EqualTo(1));
+        Assert.That(_transport.Calls[0].Command, Is.EqualTo("waitForElementVanish"));
+        Assert.That(_transport.Calls[0].ParamsJson, Does.Contain("\"elementId\":\"el-123\""));
+        Assert.That(_transport.Calls[0].ParamsJson, Does.Contain("\"timeout\":3000"));
+    }
+
+    // ── GetBy* shorthand factories ──────────────────────────────────────────
+
+    [Test]
+    public void GetByAutomationId_ReturnsLocator()
+    {
+        var elWithApp = new WcElement("el-1", _transport, "app-1");
+        var locator = elWithApp.GetByAutomationId("myId");
+        Assert.That(locator, Is.Not.Null);
+        Assert.That(locator.ToString(), Does.Contain("[automationid=myId]"));
+    }
+
+    [Test]
+    public void GetByName_ReturnsLocator()
+    {
+        var elWithApp = new WcElement("el-1", _transport, "app-1");
+        var locator = elWithApp.GetByName("myName");
+        Assert.That(locator.ToString(), Does.Contain("[name=myName]"));
+    }
+
+    [Test]
+    public void GetByText_ReturnsLocator()
+    {
+        var elWithApp = new WcElement("el-1", _transport, "app-1");
+        var locator = elWithApp.GetByText("hello");
+        Assert.That(locator.ToString(), Does.Contain("text=hello"));
+    }
+
+    [Test]
+    public void GetByXPath_ReturnsLocator()
+    {
+        var elWithApp = new WcElement("el-1", _transport, "app-1");
+        var locator = elWithApp.GetByXPath("//Button");
+        Assert.That(locator.ToString(), Does.Contain("//Button"));
+    }
+
+    [Test]
+    public void GetByControlType_ReturnsLocator()
+    {
+        var elWithApp = new WcElement("el-1", _transport, "app-1");
+        var locator = elWithApp.GetByControlType("Button");
+        Assert.That(locator.ToString(), Does.Contain("type=Button"));
+    }
+
+    [Test]
+    public void GetBy_WithoutAppId_Throws()
+    {
+        Assert.Throws<InvalidOperationException>(() => _element.GetByAutomationId("x"));
+    }
+
+    // ── GetAtAsync / GetFrontAtAsync ────────────────────────────────────────
+
+    [Test]
+    public async Task GetAtAsync_SendsCommand()
+    {
+        var elWithApp = new WcElement("el-1", _transport, "app-1");
+        _transport.Enqueue(new[] { "hit-1", "hit-2" });
+        var results = await elWithApp.GetAtAsync(100.0, 200.0);
+        Assert.That(results, Has.Count.EqualTo(2));
+        Assert.That(_transport.Calls[0].Command, Is.EqualTo("findElementsAtPoint"));
+        Assert.That(_transport.Calls[0].ParamsJson, Does.Contain("\"rootElementId\":\"el-1\""));
+    }
+
+    [Test]
+    public async Task GetFrontAtAsync_SendsCommand()
+    {
+        var elWithApp = new WcElement("el-1", _transport, "app-1");
+        _transport.Enqueue("front-1");
+        var result = await elWithApp.GetFrontAtAsync(50.0, 75.0);
+        Assert.That(result.ElementId, Is.EqualTo("front-1"));
+        Assert.That(_transport.Calls[0].Command, Is.EqualTo("findFrontElementAtPoint"));
+        Assert.That(_transport.Calls[0].ParamsJson, Does.Contain("\"rootElementId\":\"el-1\""));
     }
 }

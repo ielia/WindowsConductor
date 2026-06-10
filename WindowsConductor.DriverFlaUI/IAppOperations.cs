@@ -20,6 +20,7 @@ internal interface IAppOperations
     string[] WaitForElements(string appId, string[] selectors, string? rootElementId, uint timeout, CancellationToken ct = default);
     object WaitForResolvedValue(string appId, string[] selectors, string? rootElementId, uint timeout, CancellationToken ct = default);
     void WaitForVanish(string appId, string[] selectors, string? rootElementId, uint timeout, CancellationToken ct = default);
+    void WaitForElementVanish(string elementId, uint timeout, CancellationToken ct = default);
     void Click(string elementId, string? anchor = null, int x = 0, int y = 0);
     void DoubleClick(string elementId, string? anchor = null, int x = 0, int y = 0);
     void RightClick(string elementId, string? anchor = null, int x = 0, int y = 0);
@@ -37,6 +38,7 @@ internal interface IAppOperations
     void SetAttribute(string elementId, string attribute, string value);
     string? GetParent(string elementId);
     string? GetTopLevelWindow(string elementId);
+    bool IsStale(string elementId);
     bool IsEnabled(string elementId);
     bool IsVisible(string elementId);
     void Focus(string elementId);

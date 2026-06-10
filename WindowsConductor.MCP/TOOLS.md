@@ -169,6 +169,23 @@ Wait for all elements matching the selector to disappear.
 
 All element tools take an `elementId` parameter (returned by FindElement, FindElements, or wait tools).
 
+### IsStale
+
+Check if a resolved element handle is stale (the underlying UI element no longer exists). Returns `true` if stale, `false` if alive. A stale element is evicted from the Driver cache.
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `elementId` | string | Yes | Element ID |
+
+### WaitForElementVanish
+
+Wait for a resolved element to become stale (removed from the UI). The element is evicted from the Driver cache on success.
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `elementId` | string | Yes | Element ID |
+| `timeout` | uint | Yes | Timeout in milliseconds |
+
 ### ClickElement / DoubleClickElement / RightClickElement / HoverElement
 
 Click, double-click, right-click, or hover over an element at its center.

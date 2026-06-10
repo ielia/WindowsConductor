@@ -7,7 +7,7 @@ namespace WindowsConductor.Client;
 /// Analogous to <c>IBrowser</c> in Playwright; windows/pages are accessed
 /// through <see cref="WcLocator"/>s.
 /// </summary>
-public sealed class WcApp : IAsyncDisposable
+public sealed class WcApp : IWcScope, IWcScreenshottable, IAsyncDisposable
 {
     public string AppId { get; }
     public IWcTransport Connection { get; }

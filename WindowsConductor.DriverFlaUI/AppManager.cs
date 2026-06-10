@@ -344,6 +344,29 @@ public sealed class AppManager : IAppOperations, IDisposable
         }
     }
 
+    public void WaitForElementVanish(string elementId, uint timeout, CancellationToken ct = default)
+    {
+        var deadline = Environment.TickCount64 + timeout;
+        while (true)
+        {
+            ct.ThrowIfCancellationRequested();
+            try
+            {
+                var el = GetElement(elementId);
+                _ = el.Properties.ProcessId.ValueOrDefault;
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _elements.Remove(elementId);
+                return;
+            }
+            if (Environment.TickCount64 >= deadline)
+                throw new UnwantedMatchException(
+                    $"Element '{elementId}' is still present after {timeout}ms.");
+            Thread.Sleep(100);
+        }
+    }
+
     // ── Element actions ─────────────────────────────────────────────────────
 
     public void Click(string elementId, string? anchor = null, int x = 0, int y = 0)
@@ -547,6 +570,21 @@ public sealed class AppManager : IAppOperations, IDisposable
     {
         try { return el.Parent; }
         catch { return null; }
+    }
+
+    public bool IsStale(string elementId)
+    {
+        try
+        {
+            var el = GetElement(elementId);
+            _ = el.Properties.ProcessId.ValueOrDefault;
+            return false;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _elements.Remove(elementId);
+            return true;
+        }
     }
 
     public bool IsEnabled(string elementId) =>

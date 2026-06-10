@@ -51,32 +51,40 @@ WebSocket connection to the Driver. Entry point for the API.
 
 ### `WcApp`
 
-A launched or attached application.
+A launched or attached application. Implements `IWcScope` and `IWcScreenshottable`.
 
 | Method | Description |
 |---|---|
-| `Locator(selector)` | Create a locator scoped to the app's main window. |
-| `GetByAutomationId(id)` / `GetByName(name)` / `GetByText(text)` / `GetByXPath(xpath)` / `GetByControlType(type)` | Shorthand locator factories. |
 | `GetTitleAsync()` | Get the main window title. |
-| `GetAtAsync(x, y)` | Find all elements at a screen point. |
-| `GetFrontAtAsync(x, y)` | Find the front-most element at a screen point. |
-| `ScreenshotAsync()` / `ScreenshotBytesAsync()` | Screenshot the main window. |
 | `StartRecordingAsync()` / `StopRecordingAsync(outputPath?)` | Video recording (returns `byte[]` on stop). |
 | `CloseAsync()` | Close the application. |
 
-### `WcLocator`
+### `IWcScope`
 
-Lazy element selector that re-queries on each call. Supports all interaction methods — they resolve the element, perform the action, and discard the handle.
+Scoping interface for locating child elements. Implemented by `WcApp`, `WcElement`, and `WcLocator`.
 
 | Method | Description |
 |---|---|
-| `Locator(selector)` | Chain a child locator. |
-| `GetByAutomationId(id)` / `GetByName(name)` / `GetByText(text)` / `GetByXPath(xpath)` / `GetByControlType(type)` | Shorthand child locator factories. |
-| `Parent()` | Locator for the parent element. |
-| `GetElementAsync()` / `GetAllElementsAsync()` | Resolve to `WcElement`(s). |
-| `GetResolvedValueAsync()` / `WaitForResolvedValueAsync(timeout)` | Resolve/wait for a typed value (`WcValue`). |
-| `WaitForElementAsync(timeout)` / `WaitForAllElementsAsync(timeout)` | Wait for element(s) to appear. |
-| `WaitForVanishAsync(timeout)` | Wait for all matching elements to disappear. |
+| `Locator(selector)` | Create a child locator. |
+| `GetByAutomationId(id)` / `GetByName(name)` / `GetByText(text)` / `GetByXPath(xpath)` / `GetByControlType(type)` | Shorthand locator factories. |
+| `GetAtAsync(x, y)` / `GetFrontAtAsync(x, y)` | Find all or front-most element at a screen point. |
+
+### `IWcScreenshottable`
+
+Screenshot interface. Implemented by `WcApp`, `WcElement`, and `WcLocator`.
+
+| Method | Description |
+|---|---|
+| `ScreenshotAsync()` | Screenshot (returns `SKBitmap`). |
+| `ScreenshotBytesAsync()` | Screenshot (returns `byte[]`). |
+
+### `IWcWidget`
+
+Extends `IWcScope` and `IWcScreenshottable`. Common interface implemented by both `WcLocator` and `WcElement`. Adds interaction, inspection, tree navigation, and OCR.
+
+| Method | Description |
+|---|---|
+| `GetElementAsync()` | Resolve to a `WcElement` (locator queries the Driver; element returns itself). |
 | `ClickAsync()` / `ClickAsync(anchor, offset)` | Click (with optional anchor + offset). |
 | `DoubleClickAsync()` / `DoubleClickAsync(anchor, offset)` | Double-click. |
 | `RightClickAsync()` / `RightClickAsync(anchor, offset)` | Right-click. |
@@ -85,23 +93,35 @@ Lazy element selector that re-queries on each call. Supports all interaction met
 | `ScrollAsync(lines, horizontal?)` | Scroll the mouse wheel. |
 | `TypeAsync(text, modifiers?)` / `HitKeysAsync(keys)` | Keyboard input. |
 | `FocusAsync()` / `SetForegroundAsync()` | Focus or bring window to foreground. |
+| `GetWindowStateAsync()` / `SetWindowStateAsync(state)` | Window state management. |
 | `GetTextAsync()` / `GetAttributeAsync(name)` / `GetAttributesAsync()` | Inspect element text and attributes. |
 | `SetAttributeAsync(name, value)` | Set a UIAutomation pattern property (toggle, expand/collapse, value, etc.). |
 | `IsEnabledAsync()` / `IsVisibleAsync()` | Element state queries. |
 | `GetBoundingRectAsync()` | Bounding rectangle (returns `BoundingRect`). |
-| `GetWindowStateAsync()` / `SetWindowStateAsync(state)` | Window state management. |
-| `ScreenshotAsync()` / `ScreenshotBytesAsync()` | Element screenshot. |
-
-### `WcElement`
-
-Resolved element handle for direct interaction. Has the same interaction methods as `WcLocator`, plus:
-
-| Method | Description |
-|---|---|
-| `Locator(selector)` | Create a child locator scoped to this element. |
 | `ParentAsync()` / `TopLevelWindowAsync()` | Tree navigation (returns `WcElement?`). |
 | `ChildrenAsync()` / `DescendantsAsync()` | Child/descendant tree (returns `WcElement[]` / `IReadOnlyTreeNode<WcElement>`). |
 | `GetOcrTextAsync()` | Read text using OCR (returns `WcElementOcrResult`). |
+
+### `WcLocator`
+
+Lazy element selector that re-queries on each call. Implements `IWcWidget`. Additional methods beyond the interface:
+
+| Method | Description |
+|---|---|
+| `Parent()` | Locator for the parent element. |
+| `GetAllElementsAsync()` | Resolve all matching elements. |
+| `GetResolvedValueAsync()` / `WaitForResolvedValueAsync(timeout)` | Resolve/wait for a typed value (`WcValue`). |
+| `WaitForElementAsync(timeout)` / `WaitForAllElementsAsync(timeout)` | Wait for element(s) to appear. |
+| `WaitForVanishAsync(timeout)` | Wait for all matching elements to disappear. |
+
+### `WcElement`
+
+Resolved element handle for direct interaction. Implements `IWcWidget`. Additional methods beyond the interface:
+
+| Method | Description |
+|---|---|
+| `IsStaleAsync()` | Check if this element handle is stale (underlying UI element no longer exists). Evicts from Driver cache if stale. |
+| `WaitForVanishAsync(timeout)` | Wait for this element to become stale. Evicts from Driver cache on success. |
 
 ### OCR types
 

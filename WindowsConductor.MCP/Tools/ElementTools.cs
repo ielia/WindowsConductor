@@ -187,6 +187,19 @@ public sealed class ElementTools(ConductorState state)
         return "Brought to foreground.";
     }
 
+    [McpServerTool, Description(
+        "Wait for a resolved element to become stale (removed from the UI). " +
+        "Returns a confirmation once the element is gone, or throws if the timeout elapses. " +
+        "The element is evicted from the Driver cache on success.")]
+    public async Task<string> WaitForElementVanish(
+        [Description("Element ID returned by FindElement/FindElements")] string elementId,
+        [Description("Timeout in milliseconds")] uint timeout)
+    {
+        var element = ResolveElement(elementId);
+        await element.WaitForVanishAsync(timeout);
+        return "Element vanished.";
+    }
+
     [McpServerTool, Description("Get the visible text of a UI element.")]
     public async Task<string> GetText(
         [Description("Element ID returned by FindElement/FindElements")] string elementId)
@@ -229,6 +242,16 @@ public sealed class ElementTools(ConductorState state)
         var element = ResolveElement(elementId);
         await element.SetAttributeAsync(attribute, value);
         return $"Set {attribute} to '{value}'.";
+    }
+
+    [McpServerTool, Description(
+        "Check if a resolved element handle is stale (the underlying UI element no longer exists). " +
+        "A stale element is evicted from the Driver cache.")]
+    public async Task<bool> IsStale(
+        [Description("Element ID returned by FindElement/FindElements")] string elementId)
+    {
+        var element = ResolveElement(elementId);
+        return await element.IsStaleAsync();
     }
 
     [McpServerTool, Description("Check if a UI element is enabled.")]

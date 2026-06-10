@@ -12,7 +12,7 @@ namespace WindowsConductor.Client;
 /// <see cref="WcLocator"/> for most operations because it re-queries
 /// the Driver on every call.
 /// </summary>
-public sealed class WcElement
+public sealed class WcElement : IWcWidget
 {
     private readonly string? _appId;
     private readonly IWcTransport _conn;
@@ -33,6 +33,48 @@ public sealed class WcElement
             throw new InvalidOperationException("Cannot create a locator from an element without an associated application.");
         return new WcLocator(_appId, selector, _conn, rootElementId: ElementId);
     }
+
+    public WcLocator GetByAutomationId(string automationId) =>
+        Locator($"[automationid={automationId.Replace("]", "\\]")}]");
+
+    public WcLocator GetByName(string name) =>
+        Locator($"[name={name.Replace("]", "\\]")}]");
+
+    public WcLocator GetByText(string text) =>
+        Locator($"text={text.Replace("]", "\\]")}");
+
+    public WcLocator GetByXPath(string xpath)
+    {
+        string normalised = xpath.StartsWith('/') || xpath.StartsWith('.') ? xpath : $"//{xpath}";
+        return Locator(normalised);
+    }
+
+    public WcLocator GetByControlType(string controlType) =>
+        Locator($"type={controlType}");
+
+    public async Task<IReadOnlyList<WcElement>> GetAtAsync(double x, double y, CancellationToken ct = default)
+    {
+        var result = await _conn.SendAsync(
+            "findElementsAtPoint",
+            new { appId = _appId, x, y, rootElementId = ElementId },
+            ct);
+        return result.EnumerateArray()
+            .Select(e => new WcElement(e.GetString()!, _conn, _appId))
+            .ToList();
+    }
+
+    public async Task<WcElement> GetFrontAtAsync(double x, double y, CancellationToken ct = default)
+    {
+        var result = await _conn.SendAsync(
+            "findFrontElementAtPoint",
+            new { appId = _appId, x, y, rootElementId = ElementId },
+            ct);
+        return new WcElement(result.GetString()!, _conn, _appId);
+    }
+
+    /// <summary>Returns this element. Provided for API parity with <see cref="WcLocator.GetElementAsync"/>.</summary>
+    public Task<WcElement> GetElementAsync(CancellationToken ct = default) =>
+        Task.FromResult(this);
 
     // ── Actions ──────────────────────────────────────────────────────────────
 
@@ -109,6 +151,14 @@ public sealed class WcElement
     public Task SetForegroundAsync(CancellationToken ct = default) =>
         _conn.SendAsync("setForeground", new { elementId = ElementId }, ct);
 
+    /// <summary>
+    /// Waits up to <paramref name="timeout"/> milliseconds for this element to become stale (removed from the UI).
+    /// Throws <see cref="UnwantedMatchException"/> if the timeout elapses and the element is still present.
+    /// On success the element is evicted from the Driver cache.
+    /// </summary>
+    public Task WaitForVanishAsync(uint timeout, CancellationToken ct = default) =>
+        _conn.SendAsync("waitForElementVanish", new { elementId = ElementId, timeout }, ct);
+
     public async Task<WcWindowState> GetWindowStateAsync(CancellationToken ct = default)
     {
         var r = await _conn.SendAsync("getWindowState", new { elementId = ElementId }, ct);
@@ -164,6 +214,16 @@ public sealed class WcElement
     public async Task SetAttributeAsync(string attribute, string value, CancellationToken ct = default) =>
         await _conn.SendAsync("setAttribute",
             new { elementId = ElementId, attribute, value }, ct);
+
+    /// <summary>
+    /// Returns <c>true</c> if this element handle is stale (the underlying UI element no longer exists).
+    /// A stale element is evicted from the Driver cache.
+    /// </summary>
+    public async Task<bool> IsStaleAsync(CancellationToken ct = default)
+    {
+        var r = await _conn.SendAsync("isStale", new { elementId = ElementId }, ct);
+        return r.ValueKind == JsonValueKind.True;
+    }
 
     public async Task<bool> IsEnabledAsync(CancellationToken ct = default)
     {

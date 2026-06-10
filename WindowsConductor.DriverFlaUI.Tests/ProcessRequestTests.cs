@@ -16,6 +16,7 @@ internal sealed class FakeAppOperations : IAppOperations
     public string[] FindElementsResult { get; set; } = { "el-1", "el-2" };
     public string GetTextResult { get; set; } = "Hello";
     public string GetAttributeResult { get; set; } = "btn-class";
+    public bool IsStaleResult { get; set; }
     public bool IsEnabledResult { get; set; } = true;
     public bool IsVisibleResult { get; set; } = true;
     public string GetWindowTitleResult { get; set; } = "My App";
@@ -79,6 +80,7 @@ internal sealed class FakeAppOperations : IAppOperations
     public string? GetTopLevelWindow(string elementId)
     { Record("GetTopLevelWindow", elementId); return GetTopLevelWindowResult; }
 
+    public bool IsStale(string elementId) { Record("IsStale", elementId); return IsStaleResult; }
     public bool IsEnabled(string elementId) { Record("IsEnabled", elementId); return IsEnabledResult; }
     public bool IsVisible(string elementId) { Record("IsVisible", elementId); return IsVisibleResult; }
     public void Focus(string elementId) => Record("Focus", elementId);
@@ -131,6 +133,9 @@ internal sealed class FakeAppOperations : IAppOperations
 
     public void WaitForVanish(string appId, string[] selectors, string? rootElementId, uint timeout, CancellationToken ct = default)
     { Record("WaitForVanish", appId, selectors, rootElementId, timeout); }
+
+    public void WaitForElementVanish(string elementId, uint timeout, CancellationToken ct = default)
+    { Record("WaitForElementVanish", elementId, timeout); }
 
     public string[] GetChildrenResult { get; set; } = ["child-1", "child-2"];
     public string[] GetChildren(string elementId)
@@ -630,6 +635,16 @@ public class ProcessRequestTests
     // ── isEnabled ────────────────────────────────────────────────────────────
 
     [Test]
+    public void IsStale_ReturnsBool()
+    {
+        var resp = WsServer.ProcessRequest(_fake, MakeRequest("isStale", new() { ["elementId"] = "e1" }));
+        Assert.That(resp.Result, Is.EqualTo(false));
+        Assert.That(_fake.Calls[0].Method, Is.EqualTo("IsStale"));
+    }
+
+    // ── isEnabled ────────────────────────────────────────────────────────────
+
+    [Test]
     public void IsEnabled_ReturnsBool()
     {
         var resp = WsServer.ProcessRequest(_fake, MakeRequest("isEnabled", new() { ["elementId"] = "e1" }));
@@ -843,6 +858,20 @@ public class ProcessRequestTests
         }));
         Assert.That(resp.Success, Is.True);
         Assert.That(_fake.Calls[0].Method, Is.EqualTo("WaitForVanish"));
+    }
+
+    // ── waitForElementVanish ────────────────────────────────────────────────
+
+    [Test]
+    public void WaitForElementVanish_CallsWaitForElementVanish_ReturnsOk()
+    {
+        var resp = WsServer.ProcessRequest(_fake, MakeRequest("waitForElementVanish", new()
+        {
+            ["elementId"] = "el-1",
+            ["timeout"] = 3000
+        }));
+        Assert.That(resp.Success, Is.True);
+        Assert.That(_fake.Calls[0].Method, Is.EqualTo("WaitForElementVanish"));
     }
 
     // ── errorType propagation ────────────────────────────────────────────────

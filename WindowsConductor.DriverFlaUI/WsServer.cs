@@ -301,6 +301,15 @@ public sealed class WsServer
                         return WcResponse.Ok(req.Id);
                     }
 
+                case "waitForElementVanish":
+                    {
+                        mgr.WaitForElementVanish(
+                            req.GetString("elementId"),
+                            (uint)req.GetInt("timeout"),
+                            ct);
+                        return WcResponse.Ok(req.Id);
+                    }
+
                 case "click":
                     {
                         var a = req.GetString("anchor");
@@ -381,6 +390,9 @@ public sealed class WsServer
                 case "getTopLevelWindow":
                     return WcResponse.Ok(req.Id,
                         mgr.GetTopLevelWindow(req.GetString("elementId")));
+
+                case "isStale":
+                    return WcResponse.Ok(req.Id, mgr.IsStale(req.GetString("elementId")));
 
                 case "isEnabled":
                     return WcResponse.Ok(req.Id, mgr.IsEnabled(req.GetString("elementId")));

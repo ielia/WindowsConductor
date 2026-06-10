@@ -15,7 +15,7 @@ namespace WindowsConductor.Client;
 /// Chaining narrows scope: <c>app.GetByControlType("Panel").GetByName("OK")</c>
 /// first resolves the panel, then searches within it.
 /// </summary>
-public sealed class WcLocator
+public sealed class WcLocator : IWcWidget
 {
     private readonly string _appId;
     private readonly string _selector;
@@ -65,7 +65,7 @@ public sealed class WcLocator
     /// <summary>Returns a locator that resolves to the parent of this locator's match.</summary>
     public WcLocator Parent() => Locator("/..");
 
-    /// <summary>Returns all elements whose bounding rectangles contain the given point, scoped within this locator's match.</summary>
+    /// <summary>Returns all elements whose bounding rectangles contain the given point, scoped within the first matching element.</summary>
     public async Task<IReadOnlyList<WcElement>> GetAtAsync(double x, double y, CancellationToken ct = default)
     {
         var el = await GetElementAsync(ct);
@@ -79,7 +79,7 @@ public sealed class WcLocator
             .ToList();
     }
 
-    /// <summary>Returns the front-most (smallest) element at the given point, scoped within this locator's match.</summary>
+    /// <summary>Returns the front-most (smallest) element at the given point, scoped within the first matching element.</summary>
     public async Task<WcElement> GetFrontAtAsync(double x, double y, CancellationToken ct = default)
     {
         var el = await GetElementAsync(ct);
@@ -329,6 +329,13 @@ public sealed class WcLocator
         await el.DragToAsync(fromAnchor, fromOffset, target, toAnchor, toOffset, ct);
     }
 
+    /// <summary>Scrolls the mouse wheel over the first matching element.</summary>
+    public async Task ScrollAsync(double lines, bool horizontal = false, CancellationToken ct = default)
+    {
+        var el = await GetElementAsync(ct);
+        await el.ScrollAsync(lines, horizontal, ct);
+    }
+
     /// <summary>
     /// Focuses the first matching element and hits keys <paramref name="keys"/>
     /// using keyboard simulation.
@@ -431,7 +438,53 @@ public sealed class WcLocator
         return await el.GetBoundingRectAsync(ct);
     }
 
+    // ── Tree navigation ────────────────────────────────────────────────────
+
+    /// <summary>Returns the parent of the first matching element.</summary>
+    public async Task<WcElement?> ParentAsync(CancellationToken ct = default)
+    {
+        var el = await GetElementAsync(ct);
+        return await el.ParentAsync(ct);
+    }
+
+    /// <summary>Returns the top-level window containing the first matching element.</summary>
+    public async Task<WcElement?> TopLevelWindowAsync(CancellationToken ct = default)
+    {
+        var el = await GetElementAsync(ct);
+        return await el.TopLevelWindowAsync(ct);
+    }
+
+    /// <summary>Returns the direct children of the first matching element.</summary>
+    public async Task<IReadOnlyList<WcElement>> ChildrenAsync(CancellationToken ct = default)
+    {
+        var el = await GetElementAsync(ct);
+        return await el.ChildrenAsync(ct);
+    }
+
+    /// <summary>Returns the full descendant tree of the first matching element.</summary>
+    public async Task<IReadOnlyTreeNode<WcElement>> DescendantsAsync(CancellationToken ct = default)
+    {
+        var el = await GetElementAsync(ct);
+        return await el.DescendantsAsync(ct);
+    }
+
+    // ── OCR ────────────────────────────────────────────────────────────────
+
+    /// <summary>Performs OCR on the first matching element.</summary>
+    public async Task<WcElementOcrResult> GetOcrTextAsync(CancellationToken ct = default)
+    {
+        var el = await GetElementAsync(ct);
+        return await el.GetOcrTextAsync(ct);
+    }
+
     // ── Screenshots ────────────────────────────────────────────────────────
+
+    /// <summary>Captures a screenshot of the first matching element as raw PNG bytes.</summary>
+    public async Task<byte[]> ScreenshotBytesAsync(CancellationToken ct = default)
+    {
+        var el = await GetElementAsync(ct);
+        return await el.ScreenshotBytesAsync(ct);
+    }
 
     /// <summary>Captures a screenshot of the first matching element as an SKBitmap.</summary>
     public async Task<SKBitmap> ScreenshotAsync(CancellationToken ct = default)

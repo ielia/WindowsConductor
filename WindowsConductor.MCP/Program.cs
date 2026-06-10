@@ -21,7 +21,7 @@ builder.Services
         options.ServerInfo = new()
         {
             Name = "WindowsConductor",
-            Version = "0.8.0"
+            Version = typeof(ConductorState).Assembly.GetName().Version?.ToString(3) ?? "0.0.0"
         };
     })
     .WithStdioServerTransport()
