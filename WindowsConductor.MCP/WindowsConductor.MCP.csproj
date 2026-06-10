@@ -8,6 +8,7 @@
     <RootNamespace>WindowsConductor.MCP</RootNamespace>
     <AssemblyName>WindowsConductor.MCP</AssemblyName>
     <Authors>Ignacio Elia</Authors>
+    <PublishReadyToRun>true</PublishReadyToRun>
   </PropertyGroup>
 
   <ItemGroup>

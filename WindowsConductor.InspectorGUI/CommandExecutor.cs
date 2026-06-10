@@ -192,6 +192,8 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
                     ? await session.ResolveValueFromElementAsync(cmd.Selector, ct)
                     : await session.ResolveValueAsync(cmd.Selector, ct);
                 output.WriteInfo(WcValueYamlFormatter.Format(resolveResult));
+                await ShowWindowScreenshotWithHighlightAsync(ct);
+                await ShowAttributesAsync(ct);
                 break;
 
             case RefreshCommand:
@@ -231,12 +233,15 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
                     var attrValue = await session.GetAttributeAsync(cmd.AttributeName, ct);
                     output.WriteInfo($"{cmd.AttributeName} = {attrValue}");
                 }
+                await ShowWindowScreenshotWithHighlightAsync(ct);
+                await ShowAttributesAsync(ct);
                 break;
 
             case SetAttributeCommand setAttr:
                 RequireElement();
                 await session.SetAttributeAsync(setAttr.AttributeName, setAttr.Value, ct);
                 output.WriteInfo($"Set {setAttr.AttributeName} = {setAttr.Value}");
+                await ShowWindowScreenshotWithHighlightAsync(ct);
                 await ShowAttributesAsync(ct);
                 break;
 
@@ -403,6 +408,11 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
                 RequireConnected();
                 await session.GlobalHitKeysAsync(gHitCmd.Keys, ct);
                 output.WriteInfo($"Global hit keys: {string.Join('+', gHitCmd.Keys)}.");
+                if (session.HasApp)
+                {
+                    await ShowWindowScreenshotWithHighlightAsync(ct);
+                    await ShowAttributesAsync(ct);
+                }
                 break;
 
             case GlobalTypeCommand gTypeCmd:
@@ -411,6 +421,11 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
                 output.WriteInfo(gTypeCmd.Modifiers != KeyModifiers.None
                     ? $"Global typed: {gTypeCmd.Text} (modifiers: {gTypeCmd.Modifiers})"
                     : $"Global typed: {gTypeCmd.Text}");
+                if (session.HasApp)
+                {
+                    await ShowWindowScreenshotWithHighlightAsync(ct);
+                    await ShowAttributesAsync(ct);
+                }
                 break;
 
             case ParentCommand:
@@ -483,30 +498,40 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
                 RequireElement();
                 await session.FocusAsync(ct);
                 output.WriteInfo("Focused.");
+                await ShowWindowScreenshotWithHighlightAsync(ct);
+                await ShowAttributesAsync(ct);
                 break;
 
             case ForegroundCommand:
                 RequireElement();
                 await session.SetForegroundAsync(ct);
                 output.WriteInfo("Brought to foreground.");
+                await ShowWindowScreenshotWithHighlightAsync(ct);
+                await ShowAttributesAsync(ct);
                 break;
 
             case WindowStateCommand { State: null }:
                 RequireElement();
                 var currentState = await session.GetWindowStateAsync(ct);
                 output.WriteInfo(currentState.ToString().ToLowerInvariant());
+                await ShowWindowScreenshotWithHighlightAsync(ct);
+                await ShowAttributesAsync(ct);
                 break;
 
             case WindowStateCommand { State: { } newState }:
                 RequireElement();
                 await session.SetWindowStateAsync(newState, ct);
                 output.WriteInfo($"Window state set to {newState.ToString().ToLowerInvariant()}.");
+                await ShowWindowScreenshotWithHighlightAsync(ct);
+                await ShowAttributesAsync(ct);
                 break;
 
             case TextCommand:
                 RequireElement();
                 var text = await session.GetTextAsync(ct);
                 output.WriteInfo(text);
+                await ShowWindowScreenshotWithHighlightAsync(ct);
+                await ShowAttributesAsync(ct);
                 break;
 
             case ScreenshotCommand:
@@ -520,6 +545,8 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
                 RequireElement();
                 var ocrResult = await session.GetOcrTextAsync(ct);
                 output.WriteInfo(FormatOcrResult(ocrResult));
+                await ShowWindowScreenshotWithHighlightAsync(ct);
+                await ShowAttributesAsync(ct);
                 break;
 
             case SnapshotCommand:
