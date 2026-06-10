@@ -10,7 +10,6 @@
     <AssemblyName>WindowsConductor.InspectorGUI</AssemblyName>
     <ApplicationIcon>InspectorGUI.ico</ApplicationIcon>
     <Authors>Ignacio Elia</Authors>
-    <PublishReadyToRun>true</PublishReadyToRun>
   </PropertyGroup>
 
   <ItemGroup>
