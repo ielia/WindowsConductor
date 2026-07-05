@@ -703,6 +703,51 @@ public class XPathEngineValidationTests
         Assert.DoesNotThrow(() => XPathEngine.Validate(xpath));
     }
 
+    // ── matches() / replace() / tokenize() ────────────────────────────────
+
+    [TestCase("//Button[matches(@Name, '^Calc')]")]
+    [TestCase("//Button[matches(@Name, 'calc', 'i')]")]
+    [TestCase("//Button[matches(@Name, 'c.lc', 'iq')]")]
+    [TestCase("//*[replace(@Name, '\\d+', '#') = 'Item#']")]
+    [TestCase("//*[tokenize(@Name, '\\s+')]")]
+    [TestCase("//*[tokenize(@Name, ',', 'i')]")]
+    public void ParseXPath_RegexFunctionPredicate_DoesNotThrow(string xpath)
+    {
+        Assert.DoesNotThrow(() => XPathEngine.Validate(xpath));
+    }
+
+    [Test]
+    public void ParseXPath_MatchesFunction_ParsesAsFunctionCall()
+    {
+        var steps = XPathSyntaxParser.Parse("//Button[matches(@Name, '^Calc')]");
+        var filter = (ExpressionFilter)steps[0].Filters[0];
+        var func = (FunctionCallExpr)filter.Expr;
+        Assert.That(func.Name, Is.EqualTo("matches"));
+        Assert.That(func.Args, Has.Count.EqualTo(2));
+        Assert.That(func.Args[0], Is.InstanceOf<AttrRefExpr>());
+        Assert.That(func.Args[1], Is.InstanceOf<LiteralStringExpr>());
+    }
+
+    [Test]
+    public void ParseXPath_ReplaceFunction_ParsesAsFunctionCall()
+    {
+        var steps = XPathSyntaxParser.Parse("//*[replace(@Name, '\\d+', '#')]");
+        var filter = (ExpressionFilter)steps[0].Filters[0];
+        var func = (FunctionCallExpr)filter.Expr;
+        Assert.That(func.Name, Is.EqualTo("replace"));
+        Assert.That(func.Args, Has.Count.EqualTo(3));
+    }
+
+    [Test]
+    public void ParseXPath_TokenizeFunction_ParsesAsFunctionCall()
+    {
+        var steps = XPathSyntaxParser.Parse("//*[tokenize(@Name, '\\s+')]");
+        var filter = (ExpressionFilter)steps[0].Filters[0];
+        var func = (FunctionCallExpr)filter.Expr;
+        Assert.That(func.Name, Is.EqualTo("tokenize"));
+        Assert.That(func.Args, Has.Count.EqualTo(2));
+    }
+
     // ── frontmost:: axis ────────────────────────────────────────────────────
 
     [TestCase("//Window//frontmost::Button[contains-point(bounds(), point(10, 50))]")]

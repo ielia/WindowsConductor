@@ -91,12 +91,16 @@ Extends `IWcScope` and `IWcScreenshottable`. Common interface implemented by bot
 | `HoverAsync()` / `HoverAsync(anchor, offset)` | Hover. |
 | `DragToAsync(target, ...)` | Drag to another element or locator (with optional anchors + offsets). |
 | `ScrollAsync(lines, horizontal?)` | Scroll the mouse wheel. |
-| `TypeAsync(text, modifiers?)` / `HitKeysAsync(keys)` | Keyboard input. |
+| `TypeAsync(text)` / `TypeAsync(text, modifiers)` / `HitKeysAsync(keys)` | Keyboard input. |
 | `FocusAsync()` / `SetForegroundAsync()` | Focus or bring window to foreground. |
 | `GetWindowStateAsync()` / `SetWindowStateAsync(state)` | Window state management. |
 | `GetTextAsync()` / `GetAttributeAsync(name)` / `GetAttributesAsync()` | Inspect element text and attributes. |
+| `GetAutomationIdAsync()` / `GetClassNameAsync()` / `GetControlTypeAsync()` / `GetNameAsync()` / `GetProcessIdAsync()` | Shorthand for common attributes. |
 | `SetAttributeAsync(name, value)` | Set a UIAutomation pattern property (toggle, expand/collapse, value, etc.). |
-| `IsEnabledAsync()` / `IsVisibleAsync()` | Element state queries. |
+| `ExistsAsync()` / `IsEnabledAsync()` / `IsVisibleAsync()` | Element state queries. |
+| `WaitForVanishAsync(timeout)` | Wait for the element to disappear. |
+| `WaitForVisibleAsync(timeout)` | Wait for the element to become visible (not offscreen). |
+| `WaitForHiddenAsync(timeout)` | Wait for the element to become hidden (offscreen). |
 | `GetBoundingRectAsync()` | Bounding rectangle (returns `BoundingRect`). |
 | `ParentAsync()` / `TopLevelWindowAsync()` | Tree navigation (returns `WcElement?`). |
 | `ChildrenAsync()` / `DescendantsAsync()` | Child/descendant tree (returns `WcElement[]` / `IReadOnlyTreeNode<WcElement>`). |
@@ -113,6 +117,8 @@ Lazy element selector that re-queries on each call. Implements `IWcWidget`. Addi
 | `GetResolvedValueAsync()` / `WaitForResolvedValueAsync(timeout)` | Resolve/wait for a typed value (`WcValue`). |
 | `WaitForElementAsync(timeout)` / `WaitForAllElementsAsync(timeout)` | Wait for element(s) to appear. |
 | `WaitForVanishAsync(timeout)` | Wait for all matching elements to disappear. |
+| `WaitForVisibleAsync(timeout)` | Wait for a matching element to become visible. |
+| `WaitForHiddenAsync(timeout)` | Wait for a matching element to become hidden. |
 
 ### `WcElement`
 
@@ -121,7 +127,6 @@ Resolved element handle for direct interaction. Implements `IWcWidget`. Addition
 | Method | Description |
 |---|---|
 | `IsStaleAsync()` | Check if this element handle is stale (underlying UI element no longer exists). Evicts from Driver cache if stale. |
-| `WaitForVanishAsync(timeout)` | Wait for this element to become stale. Evicts from Driver cache on success. |
 
 ### OCR types
 
@@ -161,4 +166,5 @@ All OCR text types inherit from `WcElementOcrText` and expose action methods:
 | `WcException` | Base exception for all WindowsConductor errors. |
 | `NoMatchException` | Thrown when a wait operation times out. |
 | `UnwantedMatchException` | Thrown when `WaitForVanishAsync` times out. |
+| `VisibilityException` | Thrown when `WaitForVisibleAsync` or `WaitForHiddenAsync` times out. |
 | `LocationOutOfRangeException` | Thrown when a click target is outside element bounds. |

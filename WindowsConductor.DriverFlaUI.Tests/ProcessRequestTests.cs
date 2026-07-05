@@ -81,8 +81,14 @@ internal sealed class FakeAppOperations : IAppOperations
     { Record("GetTopLevelWindow", elementId); return GetTopLevelWindowResult; }
 
     public bool IsStale(string elementId) { Record("IsStale", elementId); return IsStaleResult; }
+    public bool ExistsResult { get; set; } = true;
+    public bool Exists(string elementId) { Record("Exists", elementId); return ExistsResult; }
+    public bool Exists(string appId, string[] selectors, string? rootElementId = null, CancellationToken ct = default)
+    { Record("Exists", appId, selectors, rootElementId); return ExistsResult; }
     public bool IsEnabled(string elementId) { Record("IsEnabled", elementId); return IsEnabledResult; }
     public bool IsVisible(string elementId) { Record("IsVisible", elementId); return IsVisibleResult; }
+    public bool IsVisible(string appId, string[] selectors, string? rootElementId = null, CancellationToken ct = default)
+    { Record("IsVisible", appId, selectors, rootElementId); return IsVisibleResult; }
     public void Focus(string elementId) => Record("Focus", elementId);
     public void SetForeground(string elementId) => Record("SetForeground", elementId);
 
@@ -136,6 +142,18 @@ internal sealed class FakeAppOperations : IAppOperations
 
     public void WaitForElementVanish(string elementId, uint timeout, CancellationToken ct = default)
     { Record("WaitForElementVanish", elementId, timeout); }
+
+    public void WaitForVisible(string appId, string[] selectors, string? rootElementId, uint timeout, CancellationToken ct = default)
+    { Record("WaitForVisible", appId, selectors, rootElementId, timeout); }
+
+    public void WaitForElementVisible(string elementId, uint timeout, CancellationToken ct = default)
+    { Record("WaitForElementVisible", elementId, timeout); }
+
+    public void WaitForHidden(string appId, string[] selectors, string? rootElementId, uint timeout, CancellationToken ct = default)
+    { Record("WaitForHidden", appId, selectors, rootElementId, timeout); }
+
+    public void WaitForElementHidden(string elementId, uint timeout, CancellationToken ct = default)
+    { Record("WaitForElementHidden", elementId, timeout); }
 
     public string[] GetChildrenResult { get; set; } = ["child-1", "child-2"];
     public string[] GetChildren(string elementId)
@@ -642,6 +660,52 @@ public class ProcessRequestTests
         Assert.That(_fake.Calls[0].Method, Is.EqualTo("IsStale"));
     }
 
+    // ── exists ───────────────────────────────────────────────────────────────
+
+    [Test]
+    public void Exists_ByElementId_ReturnsTrue()
+    {
+        var resp = WsServer.ProcessRequest(_fake, MakeRequest("exists", new() { ["elementId"] = "e1" }));
+        Assert.That(resp.Result, Is.EqualTo(true));
+        Assert.That(_fake.Calls[0].Method, Is.EqualTo("Exists"));
+        Assert.That(_fake.Calls[0].Args[0], Is.EqualTo("e1"));
+    }
+
+    [Test]
+    public void Exists_ByElementId_ReturnsFalse()
+    {
+        _fake.ExistsResult = false;
+        var resp = WsServer.ProcessRequest(_fake, MakeRequest("exists", new() { ["elementId"] = "e1" }));
+        Assert.That(resp.Result, Is.EqualTo(false));
+    }
+
+    [Test]
+    public void Exists_BySelectors_ReturnsTrue()
+    {
+        var resp = WsServer.ProcessRequest(_fake, MakeRequest("exists", new()
+        {
+            ["appId"] = "app-1",
+            ["selectors"] = new[] { "[name=OK]" },
+            ["rootElementId"] = ""
+        }));
+        Assert.That(resp.Result, Is.EqualTo(true));
+        Assert.That(_fake.Calls[0].Method, Is.EqualTo("Exists"));
+        Assert.That(_fake.Calls[0].Args[0], Is.EqualTo("app-1"));
+    }
+
+    [Test]
+    public void Exists_BySelectors_ReturnsFalse()
+    {
+        _fake.ExistsResult = false;
+        var resp = WsServer.ProcessRequest(_fake, MakeRequest("exists", new()
+        {
+            ["appId"] = "app-1",
+            ["selectors"] = new[] { "[name=Missing]" },
+            ["rootElementId"] = ""
+        }));
+        Assert.That(resp.Result, Is.EqualTo(false));
+    }
+
     // ── isEnabled ────────────────────────────────────────────────────────────
 
     [Test]
@@ -654,10 +718,39 @@ public class ProcessRequestTests
     // ── isVisible ────────────────────────────────────────────────────────────
 
     [Test]
-    public void IsVisible_ReturnsBool()
+    public void IsVisible_ByElementId_ReturnsBool()
     {
         var resp = WsServer.ProcessRequest(_fake, MakeRequest("isVisible", new() { ["elementId"] = "e1" }));
         Assert.That(resp.Result, Is.EqualTo(true));
+        Assert.That(_fake.Calls[0].Method, Is.EqualTo("IsVisible"));
+        Assert.That(_fake.Calls[0].Args[0], Is.EqualTo("e1"));
+    }
+
+    [Test]
+    public void IsVisible_BySelectors_ReturnsBool()
+    {
+        var resp = WsServer.ProcessRequest(_fake, MakeRequest("isVisible", new()
+        {
+            ["appId"] = "app-1",
+            ["selectors"] = new[] { "[name=OK]" },
+            ["rootElementId"] = ""
+        }));
+        Assert.That(resp.Result, Is.EqualTo(true));
+        Assert.That(_fake.Calls[0].Method, Is.EqualTo("IsVisible"));
+        Assert.That(_fake.Calls[0].Args[0], Is.EqualTo("app-1"));
+    }
+
+    [Test]
+    public void IsVisible_BySelectors_NotVisible_ReturnsFalse()
+    {
+        _fake.IsVisibleResult = false;
+        var resp = WsServer.ProcessRequest(_fake, MakeRequest("isVisible", new()
+        {
+            ["appId"] = "app-1",
+            ["selectors"] = new[] { "[name=Missing]" },
+            ["rootElementId"] = ""
+        }));
+        Assert.That(resp.Result, Is.EqualTo(false));
     }
 
     // ── focus ────────────────────────────────────────────────────────────────
@@ -874,6 +967,64 @@ public class ProcessRequestTests
         Assert.That(_fake.Calls[0].Method, Is.EqualTo("WaitForElementVanish"));
     }
 
+    // ── waitForVisible ───────────────────────────────────────────────────────
+
+    [Test]
+    public void WaitForVisible_WithSelectors_CallsWaitForVisible_ReturnsOk()
+    {
+        var resp = WsServer.ProcessRequest(_fake, MakeRequest("waitForVisible", new()
+        {
+            ["appId"] = "a1",
+            ["selectors"] = new[] { "[name=Spinner]" },
+            ["rootElementId"] = "",
+            ["timeout"] = 2000
+        }));
+        Assert.That(resp.Success, Is.True);
+        Assert.That(_fake.Calls[0].Method, Is.EqualTo("WaitForVisible"));
+    }
+
+    [Test]
+    public void WaitForVisible_WithElementId_CallsWaitForElementVisible_ReturnsOk()
+    {
+        var resp = WsServer.ProcessRequest(_fake, MakeRequest("waitForVisible", new()
+        {
+            ["elementId"] = "el-1",
+            ["selectors"] = Array.Empty<string>(),
+            ["timeout"] = 3000
+        }));
+        Assert.That(resp.Success, Is.True);
+        Assert.That(_fake.Calls[0].Method, Is.EqualTo("WaitForElementVisible"));
+    }
+
+    // ── waitForHidden ───────────────────────────────────────────────────────
+
+    [Test]
+    public void WaitForHidden_WithSelectors_CallsWaitForHidden_ReturnsOk()
+    {
+        var resp = WsServer.ProcessRequest(_fake, MakeRequest("waitForHidden", new()
+        {
+            ["appId"] = "a1",
+            ["selectors"] = new[] { "[name=Spinner]" },
+            ["rootElementId"] = "",
+            ["timeout"] = 2000
+        }));
+        Assert.That(resp.Success, Is.True);
+        Assert.That(_fake.Calls[0].Method, Is.EqualTo("WaitForHidden"));
+    }
+
+    [Test]
+    public void WaitForHidden_WithElementId_CallsWaitForElementHidden_ReturnsOk()
+    {
+        var resp = WsServer.ProcessRequest(_fake, MakeRequest("waitForHidden", new()
+        {
+            ["elementId"] = "el-1",
+            ["selectors"] = Array.Empty<string>(),
+            ["timeout"] = 3000
+        }));
+        Assert.That(resp.Success, Is.True);
+        Assert.That(_fake.Calls[0].Method, Is.EqualTo("WaitForElementHidden"));
+    }
+
     // ── errorType propagation ────────────────────────────────────────────────
 
     [Test]
@@ -904,6 +1055,21 @@ public class ProcessRequestTests
         }));
         Assert.That(resp.Success, Is.False);
         Assert.That(resp.ErrorType, Is.EqualTo("UnwantedMatchException"));
+    }
+
+    [Test]
+    public void VisibilityException_SetsErrorType()
+    {
+        _fake.ThrowOnNext = new VisibilityException("Not visible after 3000ms.");
+        var resp = WsServer.ProcessRequest(_fake, MakeRequest("waitForVisible", new()
+        {
+            ["appId"] = "a1",
+            ["selectors"] = new[] { "[name=X]" },
+            ["rootElementId"] = "",
+            ["timeout"] = 3000
+        }));
+        Assert.That(resp.Success, Is.False);
+        Assert.That(resp.ErrorType, Is.EqualTo("VisibilityException"));
     }
 
     [Test]

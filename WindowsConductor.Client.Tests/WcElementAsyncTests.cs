@@ -142,6 +142,56 @@ public class WcElementAsyncTests
     }
 
     [Test]
+    public async Task GetAutomationIdAsync_SendsGetAttributeWithAutomationId()
+    {
+        _transport.Enqueue("txtInput");
+        var val = await _element.GetAutomationIdAsync();
+        Assert.That(val, Is.EqualTo("txtInput"));
+        Assert.That(_transport.Calls[0].Command, Is.EqualTo("getAttribute"));
+        Assert.That(_transport.Calls[0].ParamsJson, Does.Contain("\"attribute\":\"AutomationId\""));
+    }
+
+    [Test]
+    public async Task GetClassNameAsync_SendsGetAttributeWithClassName()
+    {
+        _transport.Enqueue("TextBlock");
+        var val = await _element.GetClassNameAsync();
+        Assert.That(val, Is.EqualTo("TextBlock"));
+        Assert.That(_transport.Calls[0].Command, Is.EqualTo("getAttribute"));
+        Assert.That(_transport.Calls[0].ParamsJson, Does.Contain("\"attribute\":\"ClassName\""));
+    }
+
+    [Test]
+    public async Task GetControlTypeAsync_SendsGetAttributeWithControlType()
+    {
+        _transport.Enqueue("Button");
+        var val = await _element.GetControlTypeAsync();
+        Assert.That(val, Is.EqualTo("Button"));
+        Assert.That(_transport.Calls[0].Command, Is.EqualTo("getAttribute"));
+        Assert.That(_transport.Calls[0].ParamsJson, Does.Contain("\"attribute\":\"ControlType\""));
+    }
+
+    [Test]
+    public async Task GetNameAsync_SendsGetAttributeWithName()
+    {
+        _transport.Enqueue("OK");
+        var val = await _element.GetNameAsync();
+        Assert.That(val, Is.EqualTo("OK"));
+        Assert.That(_transport.Calls[0].Command, Is.EqualTo("getAttribute"));
+        Assert.That(_transport.Calls[0].ParamsJson, Does.Contain("\"attribute\":\"Name\""));
+    }
+
+    [Test]
+    public async Task GetProcessIdAsync_SendsGetAttributeWithProcessId()
+    {
+        _transport.Enqueue("1234");
+        var val = await _element.GetProcessIdAsync();
+        Assert.That(val, Is.EqualTo("1234"));
+        Assert.That(_transport.Calls[0].Command, Is.EqualTo("getAttribute"));
+        Assert.That(_transport.Calls[0].ParamsJson, Does.Contain("\"attribute\":\"ProcessId\""));
+    }
+
+    [Test]
     public async Task GetAttributeAsync_ReturnsDriverValue()
     {
         _transport.Enqueue("btn-class");
@@ -199,6 +249,21 @@ public class WcElementAsyncTests
     {
         _transport.Enqueue(false);
         Assert.That(await _element.IsEnabledAsync(), Is.False);
+    }
+
+    [Test]
+    public async Task ExistsAsync_True()
+    {
+        _transport.Enqueue(true);
+        Assert.That(await _element.ExistsAsync(), Is.True);
+        Assert.That(_transport.Calls[0].Command, Is.EqualTo("exists"));
+    }
+
+    [Test]
+    public async Task ExistsAsync_False()
+    {
+        _transport.Enqueue(false);
+        Assert.That(await _element.ExistsAsync(), Is.False);
     }
 
     [Test]
@@ -262,6 +327,30 @@ public class WcElementAsyncTests
         await _element.WaitForVanishAsync(3000);
         Assert.That(_transport.Calls, Has.Count.EqualTo(1));
         Assert.That(_transport.Calls[0].Command, Is.EqualTo("waitForElementVanish"));
+        Assert.That(_transport.Calls[0].ParamsJson, Does.Contain("\"elementId\":\"el-123\""));
+        Assert.That(_transport.Calls[0].ParamsJson, Does.Contain("\"timeout\":3000"));
+    }
+
+    // ── WaitForVisible ────────────────────────────────────────────────────────
+
+    [Test]
+    public async Task WaitForVisibleAsync_SendsCorrectCommand()
+    {
+        await _element.WaitForVisibleAsync(3000);
+        Assert.That(_transport.Calls, Has.Count.EqualTo(1));
+        Assert.That(_transport.Calls[0].Command, Is.EqualTo("waitForVisible"));
+        Assert.That(_transport.Calls[0].ParamsJson, Does.Contain("\"elementId\":\"el-123\""));
+        Assert.That(_transport.Calls[0].ParamsJson, Does.Contain("\"timeout\":3000"));
+    }
+
+    // ── WaitForHidden ────────────────────────────────────────────────────────
+
+    [Test]
+    public async Task WaitForHiddenAsync_SendsCorrectCommand()
+    {
+        await _element.WaitForHiddenAsync(3000);
+        Assert.That(_transport.Calls, Has.Count.EqualTo(1));
+        Assert.That(_transport.Calls[0].Command, Is.EqualTo("waitForHidden"));
         Assert.That(_transport.Calls[0].ParamsJson, Does.Contain("\"elementId\":\"el-123\""));
         Assert.That(_transport.Calls[0].ParamsJson, Does.Contain("\"timeout\":3000"));
     }

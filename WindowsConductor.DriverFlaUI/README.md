@@ -93,6 +93,8 @@ All commands are sent as JSON objects with a `command` field and a `params` obje
 | `waitForElements` | Wait for at least one element to appear. |
 | `waitForResolvedValue` | Wait for a selector to resolve to a non-empty value. |
 | `waitForVanish` | Wait for all matching elements to disappear. |
+| `waitForVisible` | Wait for an element to become visible (not offscreen). Locator or element ID. |
+| `waitForHidden` | Wait for an element to become hidden (offscreen). Locator or element ID. |
 
 ### Mouse interaction
 

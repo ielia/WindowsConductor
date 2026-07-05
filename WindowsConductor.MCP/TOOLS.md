@@ -163,6 +163,28 @@ Wait for all elements matching the selector to disappear.
 | `timeout` | uint | Yes | Timeout in milliseconds |
 | `rootElementId` | string | No | Element ID to scope the search within |
 
+### WaitForVisible
+
+Wait for a UI element matching the selector to become visible (not offscreen).
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `appId` | string | Yes | The appId returned by LaunchApp or AttachApp |
+| `selector` | string | Yes | Element selector (see [Selectors](#selectors)) |
+| `timeout` | uint | Yes | Timeout in milliseconds |
+| `rootElementId` | string | No | Element ID to scope the search within |
+
+### WaitForHidden
+
+Wait for a UI element matching the selector to become hidden (offscreen).
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `appId` | string | Yes | The appId returned by LaunchApp or AttachApp |
+| `selector` | string | Yes | Element selector (see [Selectors](#selectors)) |
+| `timeout` | uint | Yes | Timeout in milliseconds |
+| `rootElementId` | string | No | Element ID to scope the search within |
+
 ---
 
 ## Element interaction
@@ -180,6 +202,24 @@ Check if a resolved element handle is stale (the underlying UI element no longer
 ### WaitForElementVanish
 
 Wait for a resolved element to become stale (removed from the UI). The element is evicted from the Driver cache on success.
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `elementId` | string | Yes | Element ID |
+| `timeout` | uint | Yes | Timeout in milliseconds |
+
+### WaitForElementVisible
+
+Wait for a resolved element to become visible (not offscreen).
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `elementId` | string | Yes | Element ID |
+| `timeout` | uint | Yes | Timeout in milliseconds |
+
+### WaitForElementHidden
+
+Wait for a resolved element to become hidden (offscreen).
 
 | Parameter | Type | Required | Description |
 |---|---|---|---|

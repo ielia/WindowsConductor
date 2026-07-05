@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using FlaUI.Core.AutomationElements;
 
 namespace WindowsConductor.DriverFlaUI;
@@ -56,6 +57,36 @@ internal static class XPathFunctions
                 : [first.AsString()];
             var sep = args.Length == 2 ? args[1].AsString() : "";
             return new XPathString(string.Join(sep, items));
+        });
+
+        Add("matches", 2, 3, (args, _) =>
+        {
+            var input = args[0].AsString();
+            var (options, quote) = args.Length == 3 ? ParseRegexFlags(args[2].AsString()) : (RegexOptions.None, false);
+            var pattern = quote ? Regex.Escape(args[1].AsString()) : args[1].AsString();
+            return new XPathBool(Regex.IsMatch(input, pattern, options));
+        });
+
+        Add("replace", 3, 4, (args, _) =>
+        {
+            var input = args[0].AsString();
+            var replacement = args[2].AsString();
+            var (options, quote) = args.Length == 4 ? ParseRegexFlags(args[3].AsString()) : (RegexOptions.None, false);
+            var pattern = quote ? Regex.Escape(args[1].AsString()) : args[1].AsString();
+            return new XPathString(Regex.Replace(input, pattern, replacement, options));
+        });
+
+        Add("tokenize", 1, 3, (args, _) =>
+        {
+            var input = args[0].AsString();
+            var (options, quote) = args.Length == 3 ? ParseRegexFlags(args[2].AsString()) : (RegexOptions.None, false);
+            var rawPattern = args.Length >= 2 ? args[1].AsString() : @"\s+";
+            var pattern = quote ? Regex.Escape(rawPattern) : rawPattern;
+            var tokens = Regex.Split(input, pattern, options)
+                .Where(t => t.Length > 0)
+                .Select(t => (XPathValue)new XPathString(t))
+                .ToList();
+            return new XPathSequence(tokens);
         });
 
         // text() — returns the Text property
@@ -277,6 +308,25 @@ internal static class XPathFunctions
             new XPathNumber(Math.Atan2(args[0].AsNumber(), args[1].AsNumber())));
 
         return r;
+    }
+
+    private static (RegexOptions Options, bool Quote) ParseRegexFlags(string flags)
+    {
+        var options = RegexOptions.None;
+        var quote = false;
+        foreach (var c in flags)
+        {
+            switch (c)
+            {
+                case 'i': options |= RegexOptions.IgnoreCase; break;
+                case 'm': options |= RegexOptions.Multiline; break;
+                case 's': options |= RegexOptions.Singleline; break;
+                case 'x': options |= RegexOptions.IgnorePatternWhitespace; break;
+                case 'q': quote = true; break;
+                default: throw new ArgumentException($"Unknown regex flag: '{c}'");
+            }
+        }
+        return (options, quote);
     }
 
     private static IReadOnlyList<XPathValue> AsSequenceItems(XPathValue value) =>

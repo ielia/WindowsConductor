@@ -251,6 +251,34 @@ public sealed class AppTools(ConductorState state)
         return "Element vanished.";
     }
 
+    [McpServerTool, Description(
+        "Wait for UI elements matching the selector to become visible (not offscreen). " +
+        "Returns a confirmation once visible, or throws if the timeout elapses.")]
+    public async Task<string> WaitForVisible(
+        [Description("The appId returned by LaunchApp or AttachApp")] string appId,
+        [Description("Element selector (attribute, text, type, or XPath)")] string selector,
+        [Description("Timeout in milliseconds")] uint timeout,
+        [Description("Optional element ID to scope the search within")] string? rootElementId = null)
+    {
+        var locator = BuildLocator(appId, selector, rootElementId);
+        await locator.WaitForVisibleAsync(timeout);
+        return "Element is visible.";
+    }
+
+    [McpServerTool, Description(
+        "Wait for UI elements matching the selector to become hidden (offscreen). " +
+        "Returns a confirmation once hidden, or throws if the timeout elapses.")]
+    public async Task<string> WaitForHidden(
+        [Description("The appId returned by LaunchApp or AttachApp")] string appId,
+        [Description("Element selector (attribute, text, type, or XPath)")] string selector,
+        [Description("Timeout in milliseconds")] uint timeout,
+        [Description("Optional element ID to scope the search within")] string? rootElementId = null)
+    {
+        var locator = BuildLocator(appId, selector, rootElementId);
+        await locator.WaitForHiddenAsync(timeout);
+        return "Element is hidden.";
+    }
+
     // ── Hit-testing ─────────────────────────────────────────────────────────
 
     [McpServerTool, Description(

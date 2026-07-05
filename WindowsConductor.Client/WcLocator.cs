@@ -207,6 +207,24 @@ public sealed class WcLocator : IWcWidget
             ct);
     }
 
+    public async Task WaitForVisibleAsync(uint timeout, CancellationToken ct = default)
+    {
+        var (selectors, rootElementId) = CollectChain();
+        await _conn.SendAsync(
+            "waitForVisible",
+            new { appId = _appId, selectors, rootElementId, timeout },
+            ct);
+    }
+
+    public async Task WaitForHiddenAsync(uint timeout, CancellationToken ct = default)
+    {
+        var (selectors, rootElementId) = CollectChain();
+        await _conn.SendAsync(
+            "waitForHidden",
+            new { appId = _appId, selectors, rootElementId, timeout },
+            ct);
+    }
+
     // ── Actions ──────────────────────────────────────────────────────────────
 
     /// <summary>Clicks the first matching element.</summary>
@@ -350,7 +368,10 @@ public sealed class WcLocator : IWcWidget
     /// Focuses the first matching element and types <paramref name="text"/>
     /// using keyboard simulation.
     /// </summary>
-    public async Task TypeAsync(string text, KeyModifiers modifiers = KeyModifiers.None, CancellationToken ct = default)
+    public Task TypeAsync(string text, CancellationToken ct = default) =>
+        TypeAsync(text, KeyModifiers.None, ct);
+
+    public async Task TypeAsync(string text, KeyModifiers modifiers, CancellationToken ct = default)
     {
         var el = await GetElementAsync(ct);
         await el.TypeAsync(text, modifiers, ct);
@@ -396,6 +417,21 @@ public sealed class WcLocator : IWcWidget
         return await el.GetTextAsync(ct);
     }
 
+    public Task<string> GetAutomationIdAsync(CancellationToken ct = default) =>
+        GetAttributeAsync("AutomationId", ct);
+
+    public Task<string> GetClassNameAsync(CancellationToken ct = default) =>
+        GetAttributeAsync("ClassName", ct);
+
+    public Task<string> GetControlTypeAsync(CancellationToken ct = default) =>
+        GetAttributeAsync("ControlType", ct);
+
+    public Task<string> GetNameAsync(CancellationToken ct = default) =>
+        GetAttributeAsync("Name", ct);
+
+    public Task<string> GetProcessIdAsync(CancellationToken ct = default) =>
+        GetAttributeAsync("ProcessId", ct);
+
     /// <summary>Returns a named UIAutomation property of the first matching element.</summary>
     public async Task<string> GetAttributeAsync(string attribute, CancellationToken ct = default)
     {
@@ -417,6 +453,20 @@ public sealed class WcLocator : IWcWidget
         await el.SetAttributeAsync(attribute, value, ct);
     }
 
+    /// <summary>
+    /// Returns <c>true</c> if the selector chain resolves to at least one element that is not stale.
+    /// Returns <c>false</c> if the selector chain cannot be resolved or the element is stale.
+    /// </summary>
+    public async Task<bool> ExistsAsync(CancellationToken ct = default)
+    {
+        var (selectors, rootElementId) = CollectChain();
+        var r = await _conn.SendAsync(
+            "exists",
+            new { appId = _appId, selectors, rootElementId },
+            ct);
+        return r.ValueKind == JsonValueKind.True;
+    }
+
     /// <summary>Returns <c>true</c> if the first matching element is enabled.</summary>
     public async Task<bool> IsEnabledAsync(CancellationToken ct = default)
     {
@@ -424,11 +474,18 @@ public sealed class WcLocator : IWcWidget
         return await el.IsEnabledAsync(ct);
     }
 
-    /// <summary>Returns <c>true</c> if the first matching element is on-screen.</summary>
+    /// <summary>
+    /// Returns <c>true</c> if the first matching element is on-screen.
+    /// Returns <c>false</c> if the selector chain cannot be resolved or the element is not visible.
+    /// </summary>
     public async Task<bool> IsVisibleAsync(CancellationToken ct = default)
     {
-        var el = await GetElementAsync(ct);
-        return await el.IsVisibleAsync(ct);
+        var (selectors, rootElementId) = CollectChain();
+        var r = await _conn.SendAsync(
+            "isVisible",
+            new { appId = _appId, selectors, rootElementId },
+            ct);
+        return r.ValueKind == JsonValueKind.True;
     }
 
     /// <summary>Returns the bounding rectangle of the first matching element.</summary>

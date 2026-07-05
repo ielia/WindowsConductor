@@ -60,7 +60,8 @@ public interface IWcWidget : IWcScope, IWcScreenshottable
 
     Task ScrollAsync(double lines, bool horizontal = false, CancellationToken ct = default);
     Task HitKeysAsync(Key[] keys, CancellationToken ct = default);
-    Task TypeAsync(string text, KeyModifiers modifiers = KeyModifiers.None, CancellationToken ct = default);
+    Task TypeAsync(string text, CancellationToken ct = default);
+    Task TypeAsync(string text, KeyModifiers modifiers, CancellationToken ct = default);
     Task FocusAsync(CancellationToken ct = default);
     Task SetForegroundAsync(CancellationToken ct = default);
 
@@ -70,12 +71,21 @@ public interface IWcWidget : IWcScope, IWcScreenshottable
     // ── Queries ─────────────────────────────────────────────────────────────
 
     Task<string> GetTextAsync(CancellationToken ct = default);
+    Task<string> GetAutomationIdAsync(CancellationToken ct = default);
+    Task<string> GetClassNameAsync(CancellationToken ct = default);
+    Task<string> GetControlTypeAsync(CancellationToken ct = default);
+    Task<string> GetNameAsync(CancellationToken ct = default);
+    Task<string> GetProcessIdAsync(CancellationToken ct = default);
     Task<string> GetAttributeAsync(string attribute, CancellationToken ct = default);
     Task<Dictionary<string, object?>> GetAttributesAsync(CancellationToken ct = default);
     Task SetAttributeAsync(string attribute, string value, CancellationToken ct = default);
+    Task<bool> ExistsAsync(CancellationToken ct = default);
     Task<bool> IsEnabledAsync(CancellationToken ct = default);
     Task<bool> IsVisibleAsync(CancellationToken ct = default);
     Task<BoundingRect> GetBoundingRectAsync(CancellationToken ct = default);
+    Task WaitForVanishAsync(uint timeout, CancellationToken ct = default);
+    Task WaitForVisibleAsync(uint timeout, CancellationToken ct = default);
+    Task WaitForHiddenAsync(uint timeout, CancellationToken ct = default);
 
     // ── Tree navigation ─────────────────────────────────────────────────────
 

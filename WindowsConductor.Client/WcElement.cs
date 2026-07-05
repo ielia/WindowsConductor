@@ -142,7 +142,10 @@ public sealed class WcElement : IWcWidget
     public Task HitKeysAsync(Key[] keys, CancellationToken ct = default) =>
         _conn.SendAsync("hitKeys", new { elementId = ElementId, keys = keys.Select(k => k.ToString()) }, ct);
 
-    public Task TypeAsync(string text, KeyModifiers modifiers = KeyModifiers.None, CancellationToken ct = default) =>
+    public Task TypeAsync(string text, CancellationToken ct = default) =>
+        TypeAsync(text, KeyModifiers.None, ct);
+
+    public Task TypeAsync(string text, KeyModifiers modifiers, CancellationToken ct = default) =>
         _conn.SendAsync("typeText", new { elementId = ElementId, text, modifiers = (int)modifiers }, ct);
 
     public Task FocusAsync(CancellationToken ct = default) =>
@@ -158,6 +161,12 @@ public sealed class WcElement : IWcWidget
     /// </summary>
     public Task WaitForVanishAsync(uint timeout, CancellationToken ct = default) =>
         _conn.SendAsync("waitForElementVanish", new { elementId = ElementId, timeout }, ct);
+
+    public Task WaitForVisibleAsync(uint timeout, CancellationToken ct = default) =>
+        _conn.SendAsync("waitForVisible", new { elementId = ElementId, timeout }, ct);
+
+    public Task WaitForHiddenAsync(uint timeout, CancellationToken ct = default) =>
+        _conn.SendAsync("waitForHidden", new { elementId = ElementId, timeout }, ct);
 
     public async Task<WcWindowState> GetWindowStateAsync(CancellationToken ct = default)
     {
@@ -194,6 +203,21 @@ public sealed class WcElement : IWcWidget
         return r.GetString() ?? "";
     }
 
+    public Task<string> GetAutomationIdAsync(CancellationToken ct = default) =>
+        GetAttributeAsync("AutomationId", ct);
+
+    public Task<string> GetClassNameAsync(CancellationToken ct = default) =>
+        GetAttributeAsync("ClassName", ct);
+
+    public Task<string> GetControlTypeAsync(CancellationToken ct = default) =>
+        GetAttributeAsync("ControlType", ct);
+
+    public Task<string> GetNameAsync(CancellationToken ct = default) =>
+        GetAttributeAsync("Name", ct);
+
+    public Task<string> GetProcessIdAsync(CancellationToken ct = default) =>
+        GetAttributeAsync("ProcessId", ct);
+
     public async Task<string> GetAttributeAsync(string attribute, CancellationToken ct = default)
     {
         var r = await _conn.SendAsync("getAttribute",
@@ -222,6 +246,12 @@ public sealed class WcElement : IWcWidget
     public async Task<bool> IsStaleAsync(CancellationToken ct = default)
     {
         var r = await _conn.SendAsync("isStale", new { elementId = ElementId }, ct);
+        return r.ValueKind == JsonValueKind.True;
+    }
+
+    public async Task<bool> ExistsAsync(CancellationToken ct = default)
+    {
+        var r = await _conn.SendAsync("exists", new { elementId = ElementId }, ct);
         return r.ValueKind == JsonValueKind.True;
     }
 

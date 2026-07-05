@@ -89,6 +89,20 @@ public class ElementToolsTests
     }
 
     [Test]
+    public void WaitForElementVisible_WhenNotConnected_Throws()
+    {
+        Assert.ThrowsAsync<InvalidOperationException>(
+            () => _tools.WaitForElementVisible("el-1", 3000));
+    }
+
+    [Test]
+    public void WaitForElementHidden_WhenNotConnected_Throws()
+    {
+        Assert.ThrowsAsync<InvalidOperationException>(
+            () => _tools.WaitForElementHidden("el-1", 3000));
+    }
+
+    [Test]
     public void GetText_WhenNotConnected_Throws()
     {
         Assert.ThrowsAsync<InvalidOperationException>(
@@ -121,6 +135,13 @@ public class ElementToolsTests
     {
         Assert.ThrowsAsync<InvalidOperationException>(
             () => _tools.IsStale("el-1"));
+    }
+
+    [Test]
+    public void Exists_WhenNotConnected_Throws()
+    {
+        Assert.ThrowsAsync<InvalidOperationException>(
+            () => _tools.Exists("el-1"));
     }
 
     [Test]
@@ -297,6 +318,30 @@ public class ElementToolsTests
     }
 
     [Test]
+    public async Task WaitForElementVisible_SendsCommand()
+    {
+        ConnectFakeTransport();
+        var result = await _tools.WaitForElementVisible("el-1", 3000);
+
+        Assert.That(result, Is.EqualTo("Element is visible."));
+        Assert.That(_transport.Calls[0].Command, Is.EqualTo("waitForVisible"));
+        Assert.That(_transport.Calls[0].ParamsJson, Does.Contain("\"elementId\":\"el-1\""));
+        Assert.That(_transport.Calls[0].ParamsJson, Does.Contain("\"timeout\":3000"));
+    }
+
+    [Test]
+    public async Task WaitForElementHidden_SendsCommand()
+    {
+        ConnectFakeTransport();
+        var result = await _tools.WaitForElementHidden("el-1", 3000);
+
+        Assert.That(result, Is.EqualTo("Element is hidden."));
+        Assert.That(_transport.Calls[0].Command, Is.EqualTo("waitForHidden"));
+        Assert.That(_transport.Calls[0].ParamsJson, Does.Contain("\"elementId\":\"el-1\""));
+        Assert.That(_transport.Calls[0].ParamsJson, Does.Contain("\"timeout\":3000"));
+    }
+
+    [Test]
     public async Task GetText_SendsGetTextCommand()
     {
         ConnectFakeTransport();
@@ -355,6 +400,27 @@ public class ElementToolsTests
         var result = await _tools.IsStale("el-1");
         Assert.That(result, Is.False);
         Assert.That(_transport.Calls[0].Command, Is.EqualTo("isStale"));
+    }
+
+    [Test]
+    public async Task Exists_ReturnsTrueWhenAlive()
+    {
+        ConnectFakeTransport();
+        _transport.Enqueue(true);
+
+        var result = await _tools.Exists("el-1");
+        Assert.That(result, Is.True);
+        Assert.That(_transport.Calls[0].Command, Is.EqualTo("exists"));
+    }
+
+    [Test]
+    public async Task Exists_ReturnsFalseWhenStale()
+    {
+        ConnectFakeTransport();
+        _transport.Enqueue(false);
+
+        var result = await _tools.Exists("el-1");
+        Assert.That(result, Is.False);
     }
 
     [Test]

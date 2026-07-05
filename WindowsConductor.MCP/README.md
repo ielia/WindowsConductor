@@ -56,7 +56,7 @@ Any client that supports stdio-based MCP servers can connect by spawning the pro
 3. It uses **FindElement** / **FindElements** with selectors to locate UI elements.
 4. It interacts with elements via **ClickElement**, **TypeText**, **HitKeys**, etc.
 5. It can inspect elements with **GetText**, **GetAttribute**, **GetBoundingRect**, etc.
-6. It can use **WaitForElement** / **WaitForVanish** / **WaitForElementVanish** / **IsStale** to handle dynamic UI.
+6. It can use **WaitForElement** / **WaitForVanish** / **WaitForVisible** / **WaitForHidden** / **WaitForElementVanish** / **WaitForElementVisible** / **WaitForElementHidden** / **IsStale** to handle dynamic UI.
 7. When done, it calls **CloseApp** and **Disconnect**.
 
 ## Tools reference

@@ -310,6 +310,52 @@ public sealed class WsServer
                         return WcResponse.Ok(req.Id);
                     }
 
+                case "waitForVisible":
+                    {
+                        var selectors = req.GetStringArray("selectors");
+                        if (selectors.Length > 0)
+                        {
+                            var rootElId = req.GetString("rootElementId");
+                            mgr.WaitForVisible(
+                                req.GetString("appId"),
+                                selectors,
+                                string.IsNullOrEmpty(rootElId) ? null : rootElId,
+                                (uint)req.GetInt("timeout"),
+                                ct);
+                        }
+                        else
+                        {
+                            mgr.WaitForElementVisible(
+                                req.GetString("elementId"),
+                                (uint)req.GetInt("timeout"),
+                                ct);
+                        }
+                        return WcResponse.Ok(req.Id);
+                    }
+
+                case "waitForHidden":
+                    {
+                        var selectors = req.GetStringArray("selectors");
+                        if (selectors.Length > 0)
+                        {
+                            var rootElId = req.GetString("rootElementId");
+                            mgr.WaitForHidden(
+                                req.GetString("appId"),
+                                selectors,
+                                string.IsNullOrEmpty(rootElId) ? null : rootElId,
+                                (uint)req.GetInt("timeout"),
+                                ct);
+                        }
+                        else
+                        {
+                            mgr.WaitForElementHidden(
+                                req.GetString("elementId"),
+                                (uint)req.GetInt("timeout"),
+                                ct);
+                        }
+                        return WcResponse.Ok(req.Id);
+                    }
+
                 case "click":
                     {
                         var a = req.GetString("anchor");
@@ -394,11 +440,40 @@ public sealed class WsServer
                 case "isStale":
                     return WcResponse.Ok(req.Id, mgr.IsStale(req.GetString("elementId")));
 
+                case "exists":
+                    {
+                        var selectors = req.GetStringArray("selectors");
+                        if (selectors.Length > 0)
+                        {
+                            var rootElId = req.GetString("rootElementId");
+                            return WcResponse.Ok(req.Id,
+                                mgr.Exists(
+                                    req.GetString("appId"),
+                                    selectors,
+                                    string.IsNullOrEmpty(rootElId) ? null : rootElId,
+                                    ct));
+                        }
+                        return WcResponse.Ok(req.Id, mgr.Exists(req.GetString("elementId")));
+                    }
+
                 case "isEnabled":
                     return WcResponse.Ok(req.Id, mgr.IsEnabled(req.GetString("elementId")));
 
                 case "isVisible":
-                    return WcResponse.Ok(req.Id, mgr.IsVisible(req.GetString("elementId")));
+                    {
+                        var selectors = req.GetStringArray("selectors");
+                        if (selectors.Length > 0)
+                        {
+                            var rootElId = req.GetString("rootElementId");
+                            return WcResponse.Ok(req.Id,
+                                mgr.IsVisible(
+                                    req.GetString("appId"),
+                                    selectors,
+                                    string.IsNullOrEmpty(rootElId) ? null : rootElId,
+                                    ct));
+                        }
+                        return WcResponse.Ok(req.Id, mgr.IsVisible(req.GetString("elementId")));
+                    }
 
                 case "focus":
                     mgr.Focus(req.GetString("elementId"));
@@ -461,7 +536,7 @@ public sealed class WsServer
         }
         catch (Exception ex)
         {
-            var errorType = ex is NoMatchException or UnwantedMatchException or AccessRestrictedException or LocationOutOfRangeException
+            var errorType = ex is NoMatchException or UnwantedMatchException or VisibilityException or AccessRestrictedException or LocationOutOfRangeException
                 ? ex.GetType().Name
                 : null;
             return WcResponse.Fail(req.Id, ex.Message, errorType);

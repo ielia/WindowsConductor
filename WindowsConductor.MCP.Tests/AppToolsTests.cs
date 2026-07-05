@@ -610,6 +610,46 @@ public class AppToolsTests
     }
 
     [Test]
+    public void WaitForVisible_UnknownAppId_Throws()
+    {
+        Assert.ThrowsAsync<InvalidOperationException>(
+            () => _tools.WaitForVisible("nonexistent", "[name=OK]", 5000));
+    }
+
+    [Test]
+    public async Task WaitForVisible_ReturnsConfirmation()
+    {
+        var transport = new FakeTransport();
+        _state.TrackApp("app-1", new WcApp("app-1", transport));
+
+        var result = await _tools.WaitForVisible("app-1", "[name=Loading]", 3000);
+
+        Assert.That(result, Is.EqualTo("Element is visible."));
+        Assert.That(transport.Calls[0].Command, Is.EqualTo("waitForVisible"));
+        Assert.That(transport.Calls[0].ParamsJson, Does.Contain("\"timeout\":3000"));
+    }
+
+    [Test]
+    public void WaitForHidden_UnknownAppId_Throws()
+    {
+        Assert.ThrowsAsync<InvalidOperationException>(
+            () => _tools.WaitForHidden("nonexistent", "[name=OK]", 5000));
+    }
+
+    [Test]
+    public async Task WaitForHidden_ReturnsConfirmation()
+    {
+        var transport = new FakeTransport();
+        _state.TrackApp("app-1", new WcApp("app-1", transport));
+
+        var result = await _tools.WaitForHidden("app-1", "[name=Loading]", 3000);
+
+        Assert.That(result, Is.EqualTo("Element is hidden."));
+        Assert.That(transport.Calls[0].Command, Is.EqualTo("waitForHidden"));
+        Assert.That(transport.Calls[0].ParamsJson, Does.Contain("\"timeout\":3000"));
+    }
+
+    [Test]
     public void WaitForVanish_UnknownAppId_Throws()
     {
         Assert.ThrowsAsync<InvalidOperationException>(

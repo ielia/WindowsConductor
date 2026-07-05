@@ -367,6 +367,66 @@ public sealed class AppManager : IAppOperations, IDisposable
         }
     }
 
+    public void WaitForVisible(string appId, string[] selectors, string? rootElementId, uint timeout, CancellationToken ct = default)
+    {
+        var deadline = Environment.TickCount64 + timeout;
+        while (true)
+        {
+            ct.ThrowIfCancellationRequested();
+            if (IsVisible(appId, selectors, rootElementId, ct))
+                return;
+            if (Environment.TickCount64 >= deadline)
+                throw new VisibilityException(
+                    $"Element for selectors '{string.Join(" > ", selectors)}' is not visible after {timeout}ms.");
+            Thread.Sleep(100);
+        }
+    }
+
+    public void WaitForElementVisible(string elementId, uint timeout, CancellationToken ct = default)
+    {
+        var deadline = Environment.TickCount64 + timeout;
+        while (true)
+        {
+            ct.ThrowIfCancellationRequested();
+            if (IsVisible(elementId))
+                return;
+            if (Environment.TickCount64 >= deadline)
+                throw new VisibilityException(
+                    $"Element '{elementId}' is not visible after {timeout}ms.");
+            Thread.Sleep(100);
+        }
+    }
+
+    public void WaitForHidden(string appId, string[] selectors, string? rootElementId, uint timeout, CancellationToken ct = default)
+    {
+        var deadline = Environment.TickCount64 + timeout;
+        while (true)
+        {
+            ct.ThrowIfCancellationRequested();
+            if (!IsVisible(appId, selectors, rootElementId, ct))
+                return;
+            if (Environment.TickCount64 >= deadline)
+                throw new VisibilityException(
+                    $"Element for selectors '{string.Join(" > ", selectors)}' is still visible after {timeout}ms.");
+            Thread.Sleep(100);
+        }
+    }
+
+    public void WaitForElementHidden(string elementId, uint timeout, CancellationToken ct = default)
+    {
+        var deadline = Environment.TickCount64 + timeout;
+        while (true)
+        {
+            ct.ThrowIfCancellationRequested();
+            if (!IsVisible(elementId))
+                return;
+            if (Environment.TickCount64 >= deadline)
+                throw new VisibilityException(
+                    $"Element '{elementId}' is still visible after {timeout}ms.");
+            Thread.Sleep(100);
+        }
+    }
+
     // ── Element actions ─────────────────────────────────────────────────────
 
     public void Click(string elementId, string? anchor = null, int x = 0, int y = 0)
@@ -587,11 +647,48 @@ public sealed class AppManager : IAppOperations, IDisposable
         }
     }
 
+    public bool Exists(string elementId) => !IsStale(elementId);
+
+    public bool Exists(string appId, string[] selectors, string? rootElementId = null, CancellationToken ct = default)
+    {
+        try
+        {
+            var elementId = FindElement(appId, selectors, rootElementId, ct);
+            return !IsStale(elementId);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            return false;
+        }
+    }
+
     public bool IsEnabled(string elementId) =>
         GetElement(elementId).IsEnabled;
 
-    public bool IsVisible(string elementId) =>
-        !GetElement(elementId).IsOffscreen;
+    public bool IsVisible(string elementId)
+    {
+        try
+        {
+            return !GetElement(elementId).IsOffscreen;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            return false;
+        }
+    }
+
+    public bool IsVisible(string appId, string[] selectors, string? rootElementId = null, CancellationToken ct = default)
+    {
+        try
+        {
+            var elementId = FindElement(appId, selectors, rootElementId, ct);
+            return !GetElement(elementId).IsOffscreen;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            return false;
+        }
+    }
 
     public void Focus(string elementId) =>
         GetElement(elementId).Focus();

@@ -379,6 +379,74 @@ public class XPathMatchingTests
             Props(name: "Calculator", controlType: "Window")), Is.True);
     }
 
+    // ── Regex function predicates (matches, replace, tokenize) ────────────
+
+    [Test]
+    public void MatchesStep_Matches_MatchesRegex()
+    {
+        var steps = XPathSyntaxParser.Parse("//*[matches(@Name, '^Calc')]");
+        Assert.That(XPathEngine.MatchesStep(steps[0],
+            Props(name: "Calculator", controlType: "Window")), Is.True);
+    }
+
+    [Test]
+    public void MatchesStep_Matches_Mismatch()
+    {
+        var steps = XPathSyntaxParser.Parse("//*[matches(@Name, '^Foo')]");
+        Assert.That(XPathEngine.MatchesStep(steps[0],
+            Props(name: "Calculator", controlType: "Window")), Is.False);
+    }
+
+    [Test]
+    public void MatchesStep_Matches_CaseInsensitiveFlag()
+    {
+        var steps = XPathSyntaxParser.Parse("//*[matches(@Name, '^calc', 'i')]");
+        Assert.That(XPathEngine.MatchesStep(steps[0],
+            Props(name: "Calculator", controlType: "Window")), Is.True);
+    }
+
+    [Test]
+    public void MatchesStep_Matches_QuoteFlag_EscapesMetachars()
+    {
+        var steps = XPathSyntaxParser.Parse("//*[matches(@Name, 'a.b', 'q')]");
+        Assert.That(XPathEngine.MatchesStep(steps[0],
+            Props(name: "axb", controlType: "Button")), Is.False);
+        Assert.That(XPathEngine.MatchesStep(steps[0],
+            Props(name: "a.b", controlType: "Button")), Is.True);
+    }
+
+    [Test]
+    public void MatchesStep_Replace_ProducesExpectedString()
+    {
+        var steps = XPathSyntaxParser.Parse("//*[replace(@Name, '\\d+', '#') = 'Item#']");
+        Assert.That(XPathEngine.MatchesStep(steps[0],
+            Props(name: "Item42", controlType: "Text")), Is.True);
+    }
+
+    [Test]
+    public void MatchesStep_Replace_QuoteFlag()
+    {
+        var steps = XPathSyntaxParser.Parse("//*[replace(@Name, 'a.b', 'X', 'q') = 'XcXc']");
+        Assert.That(XPathEngine.MatchesStep(steps[0],
+            Props(name: "a.bca.bc", controlType: "Text")), Is.True);
+    }
+
+    [Test]
+    public void MatchesStep_Tokenize_ProducesSequence()
+    {
+        var steps = XPathSyntaxParser.Parse("//*[count(tokenize(@Name, ' ')) = 3]");
+        Assert.That(XPathEngine.MatchesStep(steps[0],
+            Props(name: "one two three", controlType: "Text")), Is.True);
+    }
+
+    [Test]
+    public void MatchesStep_Tokenize_DefaultPattern_SplitsWhitespace()
+    {
+        var steps = XPathSyntaxParser.Parse("//*[count(tokenize(@Name)) = 2]");
+        Assert.That(XPathEngine.MatchesStep(steps[0],
+            Props(name: "hello world", controlType: "Text")), Is.True);
+    }
+
     // ── Or predicate groups ──────────────────────────────────────────────────
 
     [Test]

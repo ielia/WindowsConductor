@@ -232,9 +232,28 @@ the element is not a TextBox). Accessible via `text()` in expressions or
 | `ends-with(s, suffix)` | Case-insensitive suffix test. |
 | `string-join(sequence)` | Joins a sequence of strings with no separator. |
 | `string-join(sequence, sep)` | Joins a sequence of strings with the given separator. |
+| `matches(s, pattern)` | Returns `true` if `s` matches the regular expression `pattern`. |
+| `matches(s, pattern, flags)` | Regex match with flags (see below). |
+| `replace(s, pattern, replacement)` | Replaces all occurrences of `pattern` in `s` with `replacement`. |
+| `replace(s, pattern, replacement, flags)` | Regex replace with flags. |
+| `tokenize(s)` | Splits `s` on whitespace (default pattern `\s+`). Returns a sequence. |
+| `tokenize(s, pattern)` | Splits `s` by the given regex pattern. Returns a sequence. |
+| `tokenize(s, pattern, flags)` | Splits with flags. Returns a sequence. |
 
 A sequence is a comma-separated list in parentheses: `()`, `('a')`,
 `('a', 'b', 'c')`. A single string argument is also accepted.
+
+**Regex flags** (for `matches`, `replace`, `tokenize`):
+
+| Flag | Description |
+|---|---|
+| `i` | Case-insensitive matching. |
+| `m` | Multiline — `^` and `$` match at line boundaries. |
+| `s` | Single-line (dot-all) — `.` matches newline characters. |
+| `x` | Ignore unescaped whitespace in the pattern. |
+| `q` | Quote — treat the entire pattern as a literal string (metacharacters are escaped). |
+
+Flags can be combined: `matches(@Name, 'hello', 'iq')` does a case-insensitive literal match.
 
 ### Numeric
 
@@ -415,6 +434,16 @@ instead of XPath. Multiple clauses can be combined with `&&`.
 //Button[ends-with(@Name, 'End')]           Name ends with "End"
 //Window[text()='Calculator']               TextBox text equals "Calculator"
 //Edit[string-length(text()) > 0]           Non-empty text boxes
+```
+
+### Predicates: regex functions
+
+```xpath
+//Button[matches(@Name, '^\d+$')]              Name is all digits
+//Button[matches(@Name, 'calc', 'i')]          Case-insensitive regex match
+//Edit[replace(@Name, '\d+', '#') = 'Item#']   Replace digits, then compare
+//*[count(tokenize(@Name, '\s+')) > 2]         Name has more than 2 words
+//Button[matches(@Name, 'a.b', 'q')]           Literal match (dot not a wildcard)
 ```
 
 ### Compound predicates

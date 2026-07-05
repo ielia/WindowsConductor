@@ -205,6 +205,56 @@ public class WcLocatorAsyncTests
     }
 
     [Test]
+    public async Task GetAutomationIdAsync_ResolvesAndReturnsAutomationId()
+    {
+        _transport.Enqueue("el-1");
+        _transport.Enqueue("txtInput");
+        var val = await MakeLocator("[name=OK]").GetAutomationIdAsync();
+        Assert.That(val, Is.EqualTo("txtInput"));
+        Assert.That(_transport.Calls[1].ParamsJson, Does.Contain("\"attribute\":\"AutomationId\""));
+    }
+
+    [Test]
+    public async Task GetClassNameAsync_ResolvesAndReturnsClassName()
+    {
+        _transport.Enqueue("el-1");
+        _transport.Enqueue("TextBlock");
+        var val = await MakeLocator("[name=OK]").GetClassNameAsync();
+        Assert.That(val, Is.EqualTo("TextBlock"));
+        Assert.That(_transport.Calls[1].ParamsJson, Does.Contain("\"attribute\":\"ClassName\""));
+    }
+
+    [Test]
+    public async Task GetControlTypeAsync_ResolvesAndReturnsControlType()
+    {
+        _transport.Enqueue("el-1");
+        _transport.Enqueue("Button");
+        var val = await MakeLocator("[name=OK]").GetControlTypeAsync();
+        Assert.That(val, Is.EqualTo("Button"));
+        Assert.That(_transport.Calls[1].ParamsJson, Does.Contain("\"attribute\":\"ControlType\""));
+    }
+
+    [Test]
+    public async Task GetNameAsync_ResolvesAndReturnsName()
+    {
+        _transport.Enqueue("el-1");
+        _transport.Enqueue("OK");
+        var val = await MakeLocator("[name=OK]").GetNameAsync();
+        Assert.That(val, Is.EqualTo("OK"));
+        Assert.That(_transport.Calls[1].ParamsJson, Does.Contain("\"attribute\":\"Name\""));
+    }
+
+    [Test]
+    public async Task GetProcessIdAsync_ResolvesAndReturnsProcessId()
+    {
+        _transport.Enqueue("el-1");
+        _transport.Enqueue("1234");
+        var val = await MakeLocator("[name=OK]").GetProcessIdAsync();
+        Assert.That(val, Is.EqualTo("1234"));
+        Assert.That(_transport.Calls[1].ParamsJson, Does.Contain("\"attribute\":\"ProcessId\""));
+    }
+
+    [Test]
     public async Task GetAttributeAsync_ResolvesAndReturnsAttribute()
     {
         _transport.Enqueue("el-1");
@@ -232,9 +282,35 @@ public class WcLocatorAsyncTests
     }
 
     [Test]
-    public async Task IsVisibleAsync_ResolvesAndReturnsValue()
+    public async Task ExistsAsync_SendsDirectCommand_True()
     {
-        _transport.Enqueue("el-1");
+        _transport.Enqueue(true);
+        Assert.That(await MakeLocator("[name=OK]").ExistsAsync(), Is.True);
+        Assert.That(_transport.Calls[0].Command, Is.EqualTo("exists"));
+        Assert.That(_transport.Calls[0].ParamsJson, Does.Contain("\"selectors\""));
+        Assert.That(_transport.Calls[0].ParamsJson, Does.Contain("\"appId\":\"app1\""));
+    }
+
+    [Test]
+    public async Task ExistsAsync_SendsDirectCommand_False()
+    {
+        _transport.Enqueue(false);
+        Assert.That(await MakeLocator("[name=OK]").ExistsAsync(), Is.False);
+    }
+
+    [Test]
+    public async Task IsVisibleAsync_SendsDirectCommand_True()
+    {
+        _transport.Enqueue(true);
+        Assert.That(await MakeLocator("[name=OK]").IsVisibleAsync(), Is.True);
+        Assert.That(_transport.Calls[0].Command, Is.EqualTo("isVisible"));
+        Assert.That(_transport.Calls[0].ParamsJson, Does.Contain("\"selectors\""));
+        Assert.That(_transport.Calls[0].ParamsJson, Does.Contain("\"appId\":\"app1\""));
+    }
+
+    [Test]
+    public async Task IsVisibleAsync_SendsDirectCommand_False()
+    {
         _transport.Enqueue(false);
         Assert.That(await MakeLocator("[name=OK]").IsVisibleAsync(), Is.False);
     }
@@ -393,6 +469,46 @@ public class WcLocatorAsyncTests
         await MakeLocator("[name=Loading]", MakeLocator("type=Window")).WaitForVanishAsync(5000);
         Assert.That(_transport.Calls, Has.Count.EqualTo(1));
         Assert.That(_transport.Calls[0].Command, Is.EqualTo("waitForVanish"));
+        Assert.That(_transport.Calls[0].ParamsJson,
+            Does.Contain("\"selectors\":[\"type=Window\",\"[name=Loading]\"]"));
+    }
+
+    // ── WaitForVisible ──────────────────────────────────────────────────────
+
+    [Test]
+    public async Task WaitForVisible_SendsCommand()
+    {
+        await MakeLocator("[name=Spinner]").WaitForVisibleAsync(2000);
+        Assert.That(_transport.Calls[0].Command, Is.EqualTo("waitForVisible"));
+        Assert.That(_transport.Calls[0].ParamsJson, Does.Contain("\"timeout\":2000"));
+    }
+
+    [Test]
+    public async Task WaitForVisible_WithParent_SendsSingleCallWithSelectors()
+    {
+        await MakeLocator("[name=Loading]", MakeLocator("type=Window")).WaitForVisibleAsync(5000);
+        Assert.That(_transport.Calls, Has.Count.EqualTo(1));
+        Assert.That(_transport.Calls[0].Command, Is.EqualTo("waitForVisible"));
+        Assert.That(_transport.Calls[0].ParamsJson,
+            Does.Contain("\"selectors\":[\"type=Window\",\"[name=Loading]\"]"));
+    }
+
+    // ── WaitForHidden ───────────────────────────────────────────────────────
+
+    [Test]
+    public async Task WaitForHidden_SendsCommand()
+    {
+        await MakeLocator("[name=Spinner]").WaitForHiddenAsync(2000);
+        Assert.That(_transport.Calls[0].Command, Is.EqualTo("waitForHidden"));
+        Assert.That(_transport.Calls[0].ParamsJson, Does.Contain("\"timeout\":2000"));
+    }
+
+    [Test]
+    public async Task WaitForHidden_WithParent_SendsSingleCallWithSelectors()
+    {
+        await MakeLocator("[name=Loading]", MakeLocator("type=Window")).WaitForHiddenAsync(5000);
+        Assert.That(_transport.Calls, Has.Count.EqualTo(1));
+        Assert.That(_transport.Calls[0].Command, Is.EqualTo("waitForHidden"));
         Assert.That(_transport.Calls[0].ParamsJson,
             Does.Contain("\"selectors\":[\"type=Window\",\"[name=Loading]\"]"));
     }

@@ -200,6 +200,30 @@ public sealed class ElementTools(ConductorState state)
         return "Element vanished.";
     }
 
+    [McpServerTool, Description(
+        "Wait for a resolved element to become visible (not offscreen). " +
+        "Returns a confirmation once visible, or throws if the timeout elapses.")]
+    public async Task<string> WaitForElementVisible(
+        [Description("Element ID returned by FindElement/FindElements")] string elementId,
+        [Description("Timeout in milliseconds")] uint timeout)
+    {
+        var element = ResolveElement(elementId);
+        await element.WaitForVisibleAsync(timeout);
+        return "Element is visible.";
+    }
+
+    [McpServerTool, Description(
+        "Wait for a resolved element to become hidden (offscreen). " +
+        "Returns a confirmation once hidden, or throws if the timeout elapses.")]
+    public async Task<string> WaitForElementHidden(
+        [Description("Element ID returned by FindElement/FindElements")] string elementId,
+        [Description("Timeout in milliseconds")] uint timeout)
+    {
+        var element = ResolveElement(elementId);
+        await element.WaitForHiddenAsync(timeout);
+        return "Element is hidden.";
+    }
+
     [McpServerTool, Description("Get the visible text of a UI element.")]
     public async Task<string> GetText(
         [Description("Element ID returned by FindElement/FindElements")] string elementId)
@@ -252,6 +276,16 @@ public sealed class ElementTools(ConductorState state)
     {
         var element = ResolveElement(elementId);
         return await element.IsStaleAsync();
+    }
+
+    [McpServerTool, Description(
+        "Check if a UI element exists (is not stale). " +
+        "Never throws; returns false if the element is stale or not found.")]
+    public async Task<bool> Exists(
+        [Description("Element ID returned by FindElement/FindElements")] string elementId)
+    {
+        var element = ResolveElement(elementId);
+        return await element.ExistsAsync();
     }
 
     [McpServerTool, Description("Check if a UI element is enabled.")]

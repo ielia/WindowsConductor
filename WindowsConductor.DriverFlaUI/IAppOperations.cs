@@ -21,6 +21,10 @@ internal interface IAppOperations
     object WaitForResolvedValue(string appId, string[] selectors, string? rootElementId, uint timeout, CancellationToken ct = default);
     void WaitForVanish(string appId, string[] selectors, string? rootElementId, uint timeout, CancellationToken ct = default);
     void WaitForElementVanish(string elementId, uint timeout, CancellationToken ct = default);
+    void WaitForVisible(string appId, string[] selectors, string? rootElementId, uint timeout, CancellationToken ct = default);
+    void WaitForElementVisible(string elementId, uint timeout, CancellationToken ct = default);
+    void WaitForHidden(string appId, string[] selectors, string? rootElementId, uint timeout, CancellationToken ct = default);
+    void WaitForElementHidden(string elementId, uint timeout, CancellationToken ct = default);
     void Click(string elementId, string? anchor = null, int x = 0, int y = 0);
     void DoubleClick(string elementId, string? anchor = null, int x = 0, int y = 0);
     void RightClick(string elementId, string? anchor = null, int x = 0, int y = 0);
@@ -39,8 +43,11 @@ internal interface IAppOperations
     string? GetParent(string elementId);
     string? GetTopLevelWindow(string elementId);
     bool IsStale(string elementId);
+    bool Exists(string elementId);
+    bool Exists(string appId, string[] selectors, string? rootElementId = null, CancellationToken ct = default);
     bool IsEnabled(string elementId);
     bool IsVisible(string elementId);
+    bool IsVisible(string appId, string[] selectors, string? rootElementId = null, CancellationToken ct = default);
     void Focus(string elementId);
     void SetForeground(string elementId);
     WcWindowState GetWindowState(string elementId);
