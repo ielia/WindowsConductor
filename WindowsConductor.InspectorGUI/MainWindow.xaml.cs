@@ -50,6 +50,13 @@ public partial class MainWindow : Window, ICommandOutput
     private bool _preSnapshotClickless;
     private List<TreeViewItem> _snapshotHitItems = [];
     private int _snapshotHitIndex;
+    private double _zoomLevel = 1.0;
+    private bool _isPanning;
+    private System.Windows.Point _panStart;
+    private double _panOriginX;
+    private double _panOriginY;
+    private const double NativePixelZoomMax = 10.0;
+    private const double ZoomStep = 1.2;
 
     private const int WM_SYSCOMMAND = 0x0112;
     private const int WM_MEASUREITEM = 0x002C;
@@ -407,6 +414,13 @@ public partial class MainWindow : Window, ICommandOutput
                 SleepStopButton_Click(SleepStopButton, new RoutedEventArgs());
                 return;
             }
+        }
+
+        if (Keyboard.Modifiers == ModifierKeys.Control && e.Key is Key.D0 or Key.NumPad0)
+        {
+            e.Handled = true;
+            ResetZoom();
+            return;
         }
 
         if (Keyboard.Modifiers == ModifierKeys.Shift && e.Key is Key.PageUp or Key.PageDown)
@@ -1239,6 +1253,91 @@ public partial class MainWindow : Window, ICommandOutput
     private void ScreenshotContainer_SizeChanged(object sender, SizeChangedEventArgs e) =>
         PositionHighlight();
 
+    private void ScreenshotContainer_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
+    {
+        if (!Keyboard.Modifiers.HasFlag(ModifierKeys.Control)) return;
+        e.Handled = true;
+
+        var mousePos = e.GetPosition(ScreenshotBorder);
+        var newZoom = e.Delta > 0 ? _zoomLevel * ZoomStep : _zoomLevel / ZoomStep;
+        newZoom = Math.Clamp(newZoom, 1.0, EffectiveZoomMax());
+        if (Math.Abs(newZoom - _zoomLevel) < 0.001) return;
+
+        // Zoom toward the mouse cursor position.
+        var oldZoom = _zoomLevel;
+        _zoomLevel = newZoom;
+
+        // Adjust pan so the point under the cursor stays fixed.
+        PanTransform.X = mousePos.X * (1 - newZoom / oldZoom) + PanTransform.X * (newZoom / oldZoom);
+        PanTransform.Y = mousePos.Y * (1 - newZoom / oldZoom) + PanTransform.Y * (newZoom / oldZoom);
+        ZoomTransform.ScaleX = newZoom;
+        ZoomTransform.ScaleY = newZoom;
+        ClampPan();
+        PositionHighlight();
+    }
+
+    private void ScreenshotContainer_MouseRightButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (_zoomLevel <= 1.0) return;
+        _isPanning = true;
+        _panStart = e.GetPosition(ScreenshotBorder);
+        _panOriginX = PanTransform.X;
+        _panOriginY = PanTransform.Y;
+        ScreenshotContainer.CaptureMouse();
+        e.Handled = true;
+    }
+
+    private void ScreenshotContainer_MouseRightButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        if (!_isPanning) return;
+        _isPanning = false;
+        ScreenshotContainer.ReleaseMouseCapture();
+        e.Handled = true;
+    }
+
+    private void ScreenshotContainer_MouseMoveInternal(MouseEventArgs e)
+    {
+        if (!_isPanning) return;
+        var pos = e.GetPosition(ScreenshotBorder);
+        PanTransform.X = _panOriginX + (pos.X - _panStart.X);
+        PanTransform.Y = _panOriginY + (pos.Y - _panStart.Y);
+        ClampPan();
+        PositionHighlight();
+    }
+
+    private void ClampPan()
+    {
+        var containerWidth = ScreenshotContainer.ActualWidth;
+        var containerHeight = ScreenshotContainer.ActualHeight;
+        if (containerWidth <= 0 || containerHeight <= 0) return;
+
+        var maxOffsetX = containerWidth * (_zoomLevel - 1);
+        var maxOffsetY = containerHeight * (_zoomLevel - 1);
+        PanTransform.X = Math.Clamp(PanTransform.X, -maxOffsetX, 0);
+        PanTransform.Y = Math.Clamp(PanTransform.Y, -maxOffsetY, 0);
+    }
+
+    private double EffectiveZoomMax()
+    {
+        if (_currentBitmap is null) return NativePixelZoomMax;
+        var containerWidth = ScreenshotContainer.ActualWidth;
+        var containerHeight = ScreenshotContainer.ActualHeight;
+        if (containerWidth <= 0 || containerHeight <= 0) return NativePixelZoomMax;
+
+        var fitScale = Math.Min(containerWidth / _currentBitmap.PixelWidth, containerHeight / _currentBitmap.PixelHeight);
+        return Math.Max(1.0, NativePixelZoomMax / fitScale);
+    }
+
+    private void ResetZoom()
+    {
+        _zoomLevel = 1.0;
+        ZoomTransform.ScaleX = 1.0;
+        ZoomTransform.ScaleY = 1.0;
+        PanTransform.X = 0;
+        PanTransform.Y = 0;
+        PositionHighlight();
+    }
+
     private void PositionHighlight()
     {
         if (_currentBitmap is null || _currentHighlight is null)
@@ -1309,10 +1408,18 @@ public partial class MainWindow : Window, ICommandOutput
         _blinkTimer = null;
     }
 
-    private (double X, double Y)? ScreenPointToWindowRelative(System.Windows.Point pos)
+    private System.Windows.Point BorderPointToContainerLocal(System.Windows.Point borderPos)
+    {
+        return new System.Windows.Point(
+            (borderPos.X - PanTransform.X) / _zoomLevel,
+            (borderPos.Y - PanTransform.Y) / _zoomLevel);
+    }
+
+    private (double X, double Y)? ScreenPointToWindowRelative(System.Windows.Point borderPos)
     {
         if (_currentBitmap is null || _windowDimensions is null) return null;
 
+        var pos = BorderPointToContainerLocal(borderPos);
         var containerWidth = ScreenshotContainer.ActualWidth;
         var containerHeight = ScreenshotContainer.ActualHeight;
         if (containerWidth <= 0 || containerHeight <= 0) return null;
@@ -1350,7 +1457,7 @@ public partial class MainWindow : Window, ICommandOutput
         }
 
         if (_busy) return;
-        var coords = ScreenPointToWindowRelative(e.GetPosition(ScreenshotContainer));
+        var coords = ScreenPointToWindowRelative(e.GetPosition(ScreenshotBorder));
         if (coords is null) return;
 
         var (winRelX, winRelY) = coords.Value;
@@ -1375,7 +1482,7 @@ public partial class MainWindow : Window, ICommandOutput
     {
         if (_snapshotCapture is null || !SnapshotTree.IsEnabled) return;
 
-        var coords = ScreenPointToWindowRelative(e.GetPosition(ScreenshotContainer));
+        var coords = ScreenPointToWindowRelative(e.GetPosition(ScreenshotBorder));
         if (coords is null) return;
 
         var (relX, relY) = coords.Value;
@@ -1439,11 +1546,22 @@ public partial class MainWindow : Window, ICommandOutput
         }
     }
 
+    private void WrapCheckBox_Changed(object sender, RoutedEventArgs e)
+    {
+        var wrap = WrapCheckBox.IsChecked == true;
+        var valueColumn = AttributesGrid.Columns[1];
+        valueColumn.Width = wrap ? new DataGridLength(1, DataGridLengthUnitType.Star) : DataGridLength.Auto;
+        valueColumn.MinWidth = wrap ? 0 : 120;
+        AttributesGrid.HorizontalScrollBarVisibility = wrap ? ScrollBarVisibility.Disabled : ScrollBarVisibility.Auto;
+    }
+
     private void ScreenshotImage_MouseMove(object sender, MouseEventArgs e)
     {
+        ScreenshotContainer_MouseMoveInternal(e);
+        if (_isPanning) return;
         if (_snapshotMode || !_clicklessMode || (_busy && !_sleeping)) return;
 
-        var coords = ScreenPointToWindowRelative(e.GetPosition(ScreenshotContainer));
+        var coords = ScreenPointToWindowRelative(e.GetPosition(ScreenshotBorder));
         if (coords is null) return;
 
         var rounded = ((int)coords.Value.X, (int)coords.Value.Y);

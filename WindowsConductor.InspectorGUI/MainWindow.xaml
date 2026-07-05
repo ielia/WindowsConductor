@@ -93,11 +93,21 @@
                               Checked="ClicklessCheckBox_Changed"
                               Unchecked="ClicklessCheckBox_Changed" />
                     <Border x:Name="ScreenshotBorder" Background="#1E1E1E" Margin="4"
-                            BorderThickness="3" BorderBrush="#333333">
-                        <Grid x:Name="ScreenshotContainer" SizeChanged="ScreenshotContainer_SizeChanged">
-                            <Image x:Name="ScreenshotImage" Stretch="Uniform" Focusable="True"
-                                   MouseLeftButtonDown="ScreenshotImage_MouseLeftButtonDown"
-                                   MouseMove="ScreenshotImage_MouseMove" />
+                            BorderThickness="3" BorderBrush="#333333" ClipToBounds="True">
+                        <Grid x:Name="ScreenshotContainer" SizeChanged="ScreenshotContainer_SizeChanged"
+                              PreviewMouseWheel="ScreenshotContainer_PreviewMouseWheel"
+                              MouseLeftButtonDown="ScreenshotImage_MouseLeftButtonDown"
+                              MouseMove="ScreenshotImage_MouseMove"
+                              MouseRightButtonDown="ScreenshotContainer_MouseRightButtonDown"
+                              MouseRightButtonUp="ScreenshotContainer_MouseRightButtonUp"
+                              Background="Transparent">
+                            <Grid.RenderTransform>
+                                <TransformGroup>
+                                    <ScaleTransform x:Name="ZoomTransform" />
+                                    <TranslateTransform x:Name="PanTransform" />
+                                </TransformGroup>
+                            </Grid.RenderTransform>
+                            <Image x:Name="ScreenshotImage" Stretch="Uniform" Focusable="True" />
                             <Canvas x:Name="HighlightCanvas" IsHitTestVisible="False">
                                 <Rectangle x:Name="HighlightRect"
                                            Stroke="Red" StrokeThickness="2"
@@ -144,6 +154,8 @@
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="4" />
                                 <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="4" />
+                                <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
                             <Button Grid.Column="0" x:Name="PrevMatchButton"
                                     Content="&lt;" Padding="6,3"
@@ -173,6 +185,13 @@
                                     Content="_Refresh" Padding="12,3"
                                     ToolTip="Refresh screenshot and attributes (Alt+R)"
                                     Click="RefreshButton_Click" />
+                            <CheckBox Grid.Column="10" x:Name="WrapCheckBox"
+                                      Content="_Wrap" VerticalAlignment="Center"
+                                      FontFamily="Consolas" FontSize="11"
+                                      Foreground="#AAAAAA"
+                                      ToolTip="Toggle text wrapping in values (Alt+W)"
+                                      Checked="WrapCheckBox_Changed"
+                                      Unchecked="WrapCheckBox_Changed" />
                         </Grid>
 
                         <DataGrid x:Name="AttributesGrid"
@@ -188,7 +207,8 @@
                                   BorderThickness="0"
                                   FontFamily="Consolas" FontSize="11"
                                   CanUserResizeRows="False"
-                                  SelectionMode="Extended">
+                                  SelectionMode="Extended"
+                                  HorizontalScrollBarVisibility="Auto">
                             <DataGrid.ColumnHeaderStyle>
                                 <Style TargetType="DataGridColumnHeader">
                                     <Setter Property="Background" Value="#2D2D2D" />
@@ -201,15 +221,19 @@
                             </DataGrid.ColumnHeaderStyle>
                             <DataGrid.Columns>
                                 <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="Auto" MinWidth="80" />
-                                <DataGridTemplateColumn Header="Value" Width="*">
+                                <DataGridTemplateColumn Header="Value" Width="Auto" MinWidth="120">
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate>
                                             <TextBlock Text="{Binding Value}" Padding="2,0">
                                                 <TextBlock.Style>
                                                     <Style TargetType="TextBlock">
+                                                        <Setter Property="TextWrapping" Value="NoWrap" />
                                                         <Style.Triggers>
                                                             <DataTrigger Binding="{Binding IsNull}" Value="True">
                                                                 <Setter Property="FontStyle" Value="Italic" />
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding IsChecked, ElementName=WrapCheckBox}" Value="True">
+                                                                <Setter Property="TextWrapping" Value="Wrap" />
                                                             </DataTrigger>
                                                         </Style.Triggers>
                                                     </Style>

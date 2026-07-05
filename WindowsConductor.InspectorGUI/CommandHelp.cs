@@ -61,6 +61,11 @@ internal static class CommandHelp
           Alt+L                       Toggle clickless mode
           Alt+R                       Refresh
           Alt+S                       Stop sleep and remaining commands
+          Alt+W                       Toggle attribute value wrapping
+        Screenshot zoom & pan:
+          Ctrl+Scroll                 Zoom in / out (fit-to-window up to 10x native pixels)
+          Right-click drag            Pan when zoomed in
+          Ctrl+0                      Reset zoom to fit-to-window
         """;
 
     internal static string? GetFor(string commandName)
