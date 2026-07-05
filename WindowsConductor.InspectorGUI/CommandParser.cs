@@ -108,20 +108,18 @@ internal static class CommandParser
 
         var args = new List<string>();
         var sb = new System.Text.StringBuilder();
-        bool inQuote = false;
         char quoteChar = '\0';
 
         for (int i = 0; i < token.Length; i++)
         {
             char c = token[i];
-            if (inQuote)
+            if (quoteChar != '\0')
             {
-                if (c == quoteChar) inQuote = false;
+                if (c == quoteChar) quoteChar = '\0';
                 else sb.Append(c);
             }
             else if (c is '"' or '\'')
             {
-                inQuote = true;
                 quoteChar = c;
             }
             else if (c == ',')
@@ -571,22 +569,20 @@ internal static class CommandParser
     {
         var commands = new List<string>();
         var current = new System.Text.StringBuilder();
-        bool inQuote = false;
         char quoteChar = '\0';
         int bracketDepth = 0;
 
         for (int i = 0; i < input.Length; i++)
         {
             char c = input[i];
-            if (inQuote)
+            if (quoteChar != '\0')
             {
                 current.Append(c);
-                if (c == quoteChar) inQuote = false;
+                if (c == quoteChar) quoteChar = '\0';
             }
             else if (c is '"' or '\'')
             {
                 current.Append(c);
-                inQuote = true;
                 quoteChar = c;
             }
             else if (c == '[')
@@ -627,7 +623,6 @@ internal static class CommandParser
     {
         var tokens = new List<Token>();
         var current = new System.Text.StringBuilder();
-        bool inQuote = false;
         bool wasQuoted = false;
         char quoteChar = '\0';
 
@@ -635,20 +630,19 @@ internal static class CommandParser
         {
             char c = input[i];
 
-            if (inQuote)
+            if (quoteChar != '\0')
             {
                 if (c == quoteChar)
                 {
-                    inQuote = false;
+                    quoteChar = '\0';
                 }
                 else
                 {
                     current.Append(c);
                 }
             }
-            else if (c == '"' || c == '\'')
+            else if (c is '"' or '\'')
             {
-                inQuote = true;
                 wasQuoted = true;
                 quoteChar = c;
             }
@@ -656,20 +650,18 @@ internal static class CommandParser
             {
                 current.Append(c);
                 i++;
-                bool inBracketQuote = false;
                 char bracketQuoteChar = '\0';
                 while (i < input.Length)
                 {
                     char bc = input[i];
-                    if (inBracketQuote)
+                    if (bracketQuoteChar != '\0')
                     {
                         current.Append(bc);
-                        if (bc == bracketQuoteChar) inBracketQuote = false;
+                        if (bc == bracketQuoteChar) bracketQuoteChar = '\0';
                     }
                     else if (bc is '"' or '\'')
                     {
                         current.Append(bc);
-                        inBracketQuote = true;
                         bracketQuoteChar = bc;
                     }
                     else if (bc == ']')
