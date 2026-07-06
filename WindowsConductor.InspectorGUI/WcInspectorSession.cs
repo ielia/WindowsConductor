@@ -261,6 +261,47 @@ internal sealed class WcInspectorSession : IInspectorSession, IAsyncDisposable
     public async Task<IReadOnlyTreeNode<WcElement>> GetDescendantsAsync(CancellationToken ct = default) =>
         await _selectedElement!.DescendantsAsync(ct);
 
+    public async Task<BoundingRect[]> GetAllWindowBoundingRectsAsync(CancellationToken ct = default)
+    {
+        var rects = new List<BoundingRect>();
+        try
+        {
+            var mainRect = await GetWindowBoundingRectAsync(ct);
+            if (mainRect.Width > 0 && mainRect.Height > 0)
+                rects.Add(mainRect);
+        }
+        catch { /* skip if main window rect unavailable */ }
+
+        try
+        {
+            var windows = await _app!.Locator("//Window").GetAllElementsAsync(ct);
+            foreach (var w in windows)
+            {
+                try
+                {
+                    var r = await w.GetBoundingRectAsync(ct);
+                    if (r.Width > 0 && r.Height > 0)
+                        rects.Add(r);
+                }
+                catch { /* skip windows that don't support bounding rect */ }
+            }
+        }
+        catch { /* skip if //Window locator fails */ }
+
+        if (_selectedElement is not null)
+        {
+            try
+            {
+                var elWinRect = await GetElementWindowBoundingRectAsync(ct);
+                if (elWinRect.Width > 0 && elWinRect.Height > 0)
+                    rects.Add(elWinRect);
+            }
+            catch { /* skip if element window rect unavailable */ }
+        }
+
+        return rects.ToArray();
+    }
+
     public async Task<DesktopScreenshotResult> DesktopScreenshotWithOriginAsync(CancellationToken ct = default) =>
         await _session!.DesktopScreenshotWithOriginAsync(ct);
 

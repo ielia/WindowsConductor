@@ -126,10 +126,14 @@ Anchors for `click`, `doubleclick`, `rightclick`, `hover`, and `drag`: `center`,
 | `Alt+L` | Toggle clickless mode |
 | `Alt+R` | Refresh |
 | `Alt+S` | Stop sleep and remaining commands |
+| `Alt+W` | Toggle attribute value text wrapping |
+| `Ctrl+Scroll` | Zoom screenshot in/out |
+| `Right-click drag` | Pan zoomed screenshot |
+| `Ctrl+0` | Reset screenshot zoom |
 
 ## Features
 
-- Live screenshot of the inspected window with blinking highlight on the selected element.
+- Live screenshot covering all application windows (main window plus any sub-windows or dialogs), with blinking highlight on the selected element.
 - Attribute panel showing all UIAutomation properties of the selected element.
 - Multi-match navigation when a selector matches several elements.
 - Tab-completion and command history.

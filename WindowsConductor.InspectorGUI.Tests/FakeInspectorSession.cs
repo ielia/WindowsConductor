@@ -299,6 +299,13 @@ internal sealed class FakeInspectorSession : IInspectorSession
         return Task.FromResult(GetDescendantsResult!);
     }
 
+    public BoundingRect[] GetAllWindowBoundingRectsResult { get; set; } = [new BoundingRect(0, 0, 800, 600)];
+    public Task<BoundingRect[]> GetAllWindowBoundingRectsAsync(CancellationToken ct = default)
+    {
+        Record("GetAllWindowBoundingRects");
+        return Task.FromResult(GetAllWindowBoundingRectsResult);
+    }
+
     public DesktopScreenshotResult DesktopScreenshotWithOriginResult { get; set; } = new([0x89, 0x50, 0x4E, 0x47], 0, 0);
     public Task<DesktopScreenshotResult> DesktopScreenshotWithOriginAsync(CancellationToken ct = default)
     {

@@ -35,4 +35,4 @@ internal sealed record HighlightInfo(
     double X, double Y, double Width, double Height,
     double WindowWidth, double WindowHeight);
 
-internal sealed record WindowDimensions(double X, double Y, double Width, double Height);
+internal sealed record WindowDimensions(double X, double Y, double Width, double Height, double MainWindowOffsetX = 0, double MainWindowOffsetY = 0);

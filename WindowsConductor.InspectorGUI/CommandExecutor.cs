@@ -1,4 +1,5 @@
 using System.Globalization;
+using SkiaSharp;
 using WindowsConductor.Client;
 
 namespace WindowsConductor.InspectorGUI;
@@ -590,9 +591,11 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
 
     private async Task ShowWindowScreenshotAsync(CancellationToken ct)
     {
-        var imgData = await session.WindowScreenshotAsync(ct);
-        var winRect = await session.GetWindowBoundingRectAsync(ct);
-        output.ShowScreenshot(imgData, windowDimensions: new WindowDimensions(winRect.X, winRect.Y, winRect.Width, winRect.Height));
+        var (imgData, unionRect) = await CaptureUnionScreenshotAsync(ct);
+        var mainRect = await session.GetWindowBoundingRectAsync(ct);
+        var offsetX = mainRect.X - unionRect.X;
+        var offsetY = mainRect.Y - unionRect.Y;
+        output.ShowScreenshot(imgData, windowDimensions: new WindowDimensions(unionRect.X, unionRect.Y, unionRect.Width, unionRect.Height, offsetX, offsetY));
     }
 
     internal async Task NavigateMatchAsync(int direction, CancellationToken ct = default)
@@ -671,30 +674,97 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
             return;
         }
 
-        var imgData = await session.ElementWindowScreenshotAsync(ct);
-        var winRect = await session.GetElementWindowBoundingRectAsync(ct);
+        var (imgData, unionRect) = await CaptureUnionScreenshotAsync(ct);
 
         HighlightInfo? highlight = null;
+        double offsetX = 0, offsetY = 0;
         try
         {
+            var elWinRect = await session.GetElementWindowBoundingRectAsync(ct);
+            offsetX = elWinRect.X - unionRect.X;
+            offsetY = elWinRect.Y - unionRect.Y;
+
             var elRect = await session.GetElementBoundingRectAsync(ct);
-            // Element rect is in screen coordinates; convert to window-relative.
-            // Pass window dimensions so the renderer can compensate for DPI
-            // scaling mismatches between UIAutomation coords and screenshot pixels.
             highlight = new HighlightInfo(
-                elRect.X - winRect.X,
-                elRect.Y - winRect.Y,
+                elRect.X - unionRect.X,
+                elRect.Y - unionRect.Y,
                 elRect.Width,
                 elRect.Height,
-                winRect.Width,
-                winRect.Height);
+                unionRect.Width,
+                unionRect.Height);
         }
         catch
         {
             // Some elements (e.g. Desktop root) do not support bounding rect.
         }
 
-        output.ShowScreenshot(imgData, highlight, new WindowDimensions(winRect.X, winRect.Y, winRect.Width, winRect.Height));
+        output.ShowScreenshot(imgData, highlight, new WindowDimensions(unionRect.X, unionRect.Y, unionRect.Width, unionRect.Height, offsetX, offsetY));
+    }
+
+    private async Task<(byte[] ImageData, BoundingRect UnionRect)> CaptureUnionScreenshotAsync(CancellationToken ct)
+    {
+        var allRects = await session.GetAllWindowBoundingRectsAsync(ct);
+        if (allRects.Length == 0)
+            return await FallbackWindowScreenshotAsync(ct);
+
+        try
+        {
+            var unionRect = ComputeUnionRect(allRects);
+            var desktopResult = await session.DesktopScreenshotWithOriginAsync(ct);
+            var cropped = CropScreenshot(desktopResult.Png, unionRect, desktopResult.OriginX, desktopResult.OriginY);
+            return (cropped, unionRect);
+        }
+        catch
+        {
+            return await FallbackWindowScreenshotAsync(ct);
+        }
+    }
+
+    private async Task<(byte[] ImageData, BoundingRect Rect)> FallbackWindowScreenshotAsync(CancellationToken ct)
+    {
+        var imgData = await session.WindowScreenshotAsync(ct);
+        var winRect = await session.GetWindowBoundingRectAsync(ct);
+        return (imgData, winRect);
+    }
+
+    private static BoundingRect ComputeUnionRect(BoundingRect[] rects)
+    {
+        double minX = double.MaxValue, minY = double.MaxValue;
+        double maxX = double.MinValue, maxY = double.MinValue;
+        foreach (var r in rects)
+        {
+            if (r.Width <= 0 || r.Height <= 0) continue;
+            minX = Math.Min(minX, r.X);
+            minY = Math.Min(minY, r.Y);
+            maxX = Math.Max(maxX, r.X + r.Width);
+            maxY = Math.Max(maxY, r.Y + r.Height);
+        }
+        return new BoundingRect(minX, minY, maxX - minX, maxY - minY);
+    }
+
+    internal static byte[] CropScreenshot(byte[] screenshotBytes, BoundingRect cropRect,
+        double screenOriginX = 0, double screenOriginY = 0)
+    {
+        SKBitmap? bitmap;
+        try { bitmap = SKBitmap.Decode(screenshotBytes); }
+        catch { return screenshotBytes; }
+        if (bitmap is null) return screenshotBytes;
+        using (bitmap)
+        {
+            var cropX = Math.Max(0, (int)(cropRect.X - screenOriginX));
+            var cropY = Math.Max(0, (int)(cropRect.Y - screenOriginY));
+            var cropW = Math.Min((int)cropRect.Width, bitmap.Width - cropX);
+            var cropH = Math.Min((int)cropRect.Height, bitmap.Height - cropY);
+            if (cropW <= 0 || cropH <= 0) return screenshotBytes;
+
+            var subset = new SKBitmap(cropW, cropH);
+            using var canvas = new SKCanvas(subset);
+            canvas.DrawBitmap(bitmap, new SKRect(cropX, cropY, cropX + cropW, cropY + cropH),
+                new SKRect(0, 0, cropW, cropH));
+            using var image = SKImage.FromBitmap(subset);
+            using var data = image.Encode(SKEncodedImageFormat.Png, 100);
+            return data.ToArray();
+        }
     }
 
     private void RequireConnected()

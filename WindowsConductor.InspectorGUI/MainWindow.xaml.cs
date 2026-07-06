@@ -1461,9 +1461,13 @@ public partial class MainWindow : Window, ICommandOutput
         if (coords is null) return;
 
         var (winRelX, winRelY) = coords.Value;
+        var mwOffX = _windowDimensions?.MainWindowOffsetX ?? 0;
+        var mwOffY = _windowDimensions?.MainWindowOffsetY ?? 0;
+        var atX = winRelX - mwOffX;
+        var atY = winRelY - mwOffY;
         var selector = _executor.IsAtRoot
-            ? FormattableString.Invariant($"/*[at({winRelX:F0}, {winRelY:F0})]")
-            : FormattableString.Invariant($"//frontmost::*[at({winRelX:F0}, {winRelY:F0})]");
+            ? FormattableString.Invariant($"/*[at({atX:F0}, {atY:F0})]")
+            : FormattableString.Invariant($"//frontmost::*[at({atX:F0}, {atY:F0})]");
         AppendLog($"> {selector}", bold: true);
 
         SetBusy(true);
@@ -1564,7 +1568,9 @@ public partial class MainWindow : Window, ICommandOutput
         var coords = ScreenPointToWindowRelative(e.GetPosition(ScreenshotBorder));
         if (coords is null) return;
 
-        var rounded = ((int)coords.Value.X, (int)coords.Value.Y);
+        var mwOffX = _windowDimensions?.MainWindowOffsetX ?? 0;
+        var mwOffY = _windowDimensions?.MainWindowOffsetY ?? 0;
+        var rounded = ((int)(coords.Value.X - mwOffX), (int)(coords.Value.Y - mwOffY));
         if (rounded == _lastClicklessCoords) return;
         _lastClicklessCoords = rounded;
 
