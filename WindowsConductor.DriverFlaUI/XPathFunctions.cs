@@ -89,6 +89,29 @@ internal static class XPathFunctions
             return new XPathSequence(tokens);
         });
 
+        Add("codepoints-to-string", 1, 1, (args, _) =>
+        {
+            var items = args[0] is XPathSequence seq ? seq.Items : [args[0]];
+            var chars = items.Select(v => (char)(int)v.AsNumber());
+            return new XPathString(new string(chars.ToArray()));
+        });
+
+        Add("string-to-codepoints", 1, 1, (args, _) =>
+        {
+            var str = args[0].AsString();
+            var codepoints = str.Select(c => (XPathValue)new XPathNumber(c)).ToList();
+            return new XPathSequence(codepoints);
+        });
+
+        Add("codepoint-equal", 2, 2, (args, _) =>
+        {
+            if (args[0] is XPathSequence s0 && s0.Items.Count == 0)
+                return new XPathSequence([]);
+            if (args[1] is XPathSequence s1 && s1.Items.Count == 0)
+                return new XPathSequence([]);
+            return new XPathBool(args[0].AsString() == args[1].AsString());
+        });
+
         // text() — returns the Text property
         Add("text", 0, 0, (_, ctx) =>
             new XPathString(ctx.GetProperty("text") ?? ""));

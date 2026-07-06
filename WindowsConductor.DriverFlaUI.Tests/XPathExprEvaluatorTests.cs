@@ -1210,6 +1210,121 @@ public class XPathExprEvaluatorTests
         Assert.That(Eval("deep-equal((1, 2, 3), (3, 2, 1))", 1, 1), Is.False);
     }
 
+    // ── codepoints-to-string() ──────────────────────────────────────────────
+
+    [Test]
+    public void Evaluate_CodepointsToString_Sequence()
+    {
+        var result = EvalValue("codepoints-to-string((72, 105))");
+        Assert.That(result.AsString(), Is.EqualTo("Hi"));
+    }
+
+    [Test]
+    public void Evaluate_CodepointsToString_SingleInt()
+    {
+        var result = EvalValue("codepoints-to-string(65)");
+        Assert.That(result.AsString(), Is.EqualTo("A"));
+    }
+
+    [Test]
+    public void Evaluate_CodepointsToString_Newline()
+    {
+        var result = EvalValue("codepoints-to-string((10))");
+        Assert.That(result.AsString(), Is.EqualTo("\n"));
+    }
+
+    [Test]
+    public void Evaluate_CodepointsToString_Tab()
+    {
+        var result = EvalValue("codepoints-to-string((9))");
+        Assert.That(result.AsString(), Is.EqualTo("\t"));
+    }
+
+    [Test]
+    public void Evaluate_CodepointsToString_ConcatWithNewline()
+    {
+        var result = EvalValue("concat('A', codepoints-to-string((10)), 'B')");
+        Assert.That(result.AsString(), Is.EqualTo("A\nB"));
+    }
+
+    // ── string-to-codepoints() ──────────────────────────────────────────────
+
+    [Test]
+    public void Evaluate_StringToCodepoints_ReturnsSequence()
+    {
+        var result = EvalValue("string-to-codepoints('Hi')");
+        Assert.That(result, Is.InstanceOf<XPathSequence>());
+        var seq = (XPathSequence)result;
+        Assert.That(seq.Items, Has.Count.EqualTo(2));
+        Assert.That(seq.Items[0].AsNumber(), Is.EqualTo(72));
+        Assert.That(seq.Items[1].AsNumber(), Is.EqualTo(105));
+    }
+
+    [Test]
+    public void Evaluate_StringToCodepoints_EmptyString()
+    {
+        var result = EvalValue("string-to-codepoints('')");
+        Assert.That(result, Is.InstanceOf<XPathSequence>());
+        Assert.That(((XPathSequence)result).Items, Has.Count.EqualTo(0));
+    }
+
+    [Test]
+    public void Evaluate_StringToCodepoints_CountComposability()
+    {
+        Assert.That(EvalNum("count(string-to-codepoints('abc'))"), Is.EqualTo(3));
+    }
+
+    [Test]
+    public void Evaluate_CodepointsRoundTrip()
+    {
+        var result = EvalValue("codepoints-to-string(string-to-codepoints('Hello'))");
+        Assert.That(result.AsString(), Is.EqualTo("Hello"));
+    }
+
+    // ── codepoint-equal() ───────────────────────────────────────────────────
+
+    [Test]
+    public void Evaluate_CodepointEqual_SameStrings_ReturnsTrue()
+    {
+        Assert.That(Eval("codepoint-equal('abc', 'abc')", 1, 1), Is.True);
+    }
+
+    [Test]
+    public void Evaluate_CodepointEqual_DifferentStrings_ReturnsFalse()
+    {
+        Assert.That(Eval("codepoint-equal('abc', 'def')", 1, 1), Is.False);
+    }
+
+    [Test]
+    public void Evaluate_CodepointEqual_EmptyStrings_ReturnsTrue()
+    {
+        Assert.That(Eval("codepoint-equal('', '')", 1, 1), Is.True);
+    }
+
+    [Test]
+    public void Evaluate_CodepointEqual_FirstArgEmptySequence_ReturnsEmptySequence()
+    {
+        var result = EvalValue("codepoint-equal((), 'abc')");
+        Assert.That(result, Is.InstanceOf<XPathSequence>());
+        Assert.That(((XPathSequence)result).Items, Has.Count.EqualTo(0));
+    }
+
+    [Test]
+    public void Evaluate_CodepointEqual_SecondArgEmptySequence_ReturnsEmptySequence()
+    {
+        var result = EvalValue("codepoint-equal('abc', ())");
+        Assert.That(result, Is.InstanceOf<XPathSequence>());
+        Assert.That(((XPathSequence)result).Items, Has.Count.EqualTo(0));
+    }
+
+    [Test]
+    public void Evaluate_CodepointEqual_BothEmptySequences_ReturnsEmptySequence()
+    {
+        var result = EvalValue("codepoint-equal((), ())");
+        Assert.That(result, Is.InstanceOf<XPathSequence>());
+        Assert.That(((XPathSequence)result).Items, Has.Count.EqualTo(0));
+    }
+
     // ── XPathCastException ───────────────────────────────────────────────────
 
     [Test]

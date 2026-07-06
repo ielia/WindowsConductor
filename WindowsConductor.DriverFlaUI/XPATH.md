@@ -239,6 +239,9 @@ the element is not a TextBox). Accessible via `text()` in expressions or
 | `tokenize(s)` | Splits `s` on whitespace (default pattern `\s+`). Returns a sequence. |
 | `tokenize(s, pattern)` | Splits `s` by the given regex pattern. Returns a sequence. |
 | `tokenize(s, pattern, flags)` | Splits with flags. Returns a sequence. |
+| `codepoints-to-string(seq)` | Converts a sequence of Unicode codepoints (integers) to a string. |
+| `string-to-codepoints(s)` | Converts a string to a sequence of Unicode codepoint integers. |
+| `codepoint-equal(s1, s2)` | Compares two strings by codepoints. Returns empty sequence if either argument is an empty sequence. |
 
 A sequence is a comma-separated list in parentheses: `()`, `('a')`,
 `('a', 'b', 'c')`. A single string argument is also accepted.
@@ -508,6 +511,17 @@ instead of XPath. Multiple clauses can be combined with `&&`.
 ```xpath
 //Button[@Name='it''s']               Escaped single quote → it's
 //Button[@Name="say ""hello"""]       Escaped double quote → say "hello"
+```
+
+XPath has no backslash escape sequences. Use `codepoints-to-string()` for special characters:
+
+```xpath
+//Text[contains(@Name, codepoints-to-string((10)))]          Element whose name contains a newline
+//Text[@Name=concat('Line1', codepoints-to-string((10)), 'Line2')]  Match multiline text
+codepoints-to-string((72, 101, 108, 108, 111))               Returns "Hello"
+string-to-codepoints('Hi')                                    Returns (72, 105)
+codepoint-equal('abc', 'abc')                                 Returns true
+codepoint-equal((), 'abc')                                    Returns empty sequence
 ```
 
 ### Combining axes
