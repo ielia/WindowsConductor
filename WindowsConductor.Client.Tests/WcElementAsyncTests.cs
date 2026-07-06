@@ -222,6 +222,22 @@ public class WcElementAsyncTests
     }
 
     [Test]
+    public async Task WaitForElementAsync_NotStale_ReturnsSelf()
+    {
+        _transport.Enqueue(false); // isStale returns false
+        var result = await _element.WaitForElementAsync(5000);
+        Assert.That(result, Is.SameAs(_element));
+        Assert.That(_transport.Calls[0].Command, Is.EqualTo("isStale"));
+    }
+
+    [Test]
+    public void WaitForElementAsync_Stale_Throws()
+    {
+        _transport.Enqueue(true); // isStale returns true
+        Assert.ThrowsAsync<NoMatchException>(() => _element.WaitForElementAsync(5000));
+    }
+
+    [Test]
     public async Task IsStaleAsync_True()
     {
         _transport.Enqueue(true);

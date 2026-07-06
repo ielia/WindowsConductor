@@ -76,6 +76,19 @@ public sealed class WcElement : IWcWidget
     public Task<WcElement> GetElementAsync(CancellationToken ct = default) =>
         Task.FromResult(this);
 
+    /// <summary>
+    /// Returns this element if it still exists (is not stale).
+    /// The <paramref name="timeout"/> parameter is accepted for API parity with
+    /// <see cref="WcLocator.WaitForElementAsync"/> but is not used — the element
+    /// is already resolved, so existence is checked immediately.
+    /// </summary>
+    public async Task<WcElement> WaitForElementAsync(uint timeout, CancellationToken ct = default)
+    {
+        if (await IsStaleAsync(ct))
+            throw new NoMatchException($"Element '{ElementId}' is stale.");
+        return this;
+    }
+
     // ── Actions ──────────────────────────────────────────────────────────────
 
     public Task ClickAsync(CancellationToken ct = default) =>

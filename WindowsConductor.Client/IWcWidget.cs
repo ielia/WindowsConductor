@@ -37,6 +37,7 @@ public interface IWcScreenshottable
 public interface IWcWidget : IWcScope, IWcScreenshottable
 {
     Task<WcElement> GetElementAsync(CancellationToken ct = default);
+    Task<WcElement> WaitForElementAsync(uint timeout, CancellationToken ct = default);
 
     // ── Actions ─────────────────────────────────────────────────────────────
 

@@ -98,6 +98,7 @@ Extends `IWcScope` and `IWcScreenshottable`. Common interface implemented by bot
 | `GetAutomationIdAsync()` / `GetClassNameAsync()` / `GetControlTypeAsync()` / `GetNameAsync()` / `GetProcessIdAsync()` | Shorthand for common attributes. |
 | `SetAttributeAsync(name, value)` | Set a UIAutomation pattern property (toggle, expand/collapse, value, etc.). |
 | `ExistsAsync()` / `IsEnabledAsync()` / `IsVisibleAsync()` | Element state queries. |
+| `WaitForElementAsync(timeout)` | Wait for the element to appear (locator) or verify it still exists (element). |
 | `WaitForVanishAsync(timeout)` | Wait for the element to disappear. |
 | `WaitForVisibleAsync(timeout)` | Wait for the element to become visible (not offscreen). |
 | `WaitForHiddenAsync(timeout)` | Wait for the element to become hidden (offscreen). |
@@ -115,7 +116,7 @@ Lazy element selector that re-queries on each call. Implements `IWcWidget`. Addi
 | `Parent()` | Locator for the parent element. |
 | `GetAllElementsAsync()` | Resolve all matching elements. |
 | `GetResolvedValueAsync()` / `WaitForResolvedValueAsync(timeout)` | Resolve/wait for a typed value (`WcValue`). |
-| `WaitForElementAsync(timeout)` / `WaitForAllElementsAsync(timeout)` | Wait for element(s) to appear. |
+| `WaitForAllElementsAsync(timeout)` | Wait for at least one matching element to appear. |
 | `WaitForVanishAsync(timeout)` | Wait for all matching elements to disappear. |
 | `WaitForVisibleAsync(timeout)` | Wait for a matching element to become visible. |
 | `WaitForHiddenAsync(timeout)` | Wait for a matching element to become hidden. |
