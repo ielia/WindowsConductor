@@ -18,12 +18,18 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Content Include="appsettings.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\WindowsConductor.Client\WindowsConductor.Client.csproj" />
   </ItemGroup>
 
   <ItemGroup>
     <!-- FlaUI wraps UIAutomation v3 (UIA3) for .NET; brings FlaUI.Core as transitive dep. -->
     <PackageReference Include="FlaUI.UIA3" Version="5.0.0" />
+    <PackageReference Include="Serilog.AspNetCore" Version="8.0.3" />
+    <PackageReference Include="Serilog.Sinks.File" Version="6.0.0" />
     <PackageReference Include="Superpower" Version="3.1.0" />
   </ItemGroup>
 

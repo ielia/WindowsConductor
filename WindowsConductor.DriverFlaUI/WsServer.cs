@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Serilog;
 using WindowsConductor.Client;
 
 namespace WindowsConductor.DriverFlaUI;
@@ -19,6 +20,8 @@ namespace WindowsConductor.DriverFlaUI;
 /// </summary>
 public sealed class WsServer
 {
+    private static readonly Serilog.ILogger Logger = Log.ForContext<WsServer>();
+
     private readonly bool _confineToApp;
     private readonly string? _ffmpegPath;
     private readonly AuthTokenValidator _authValidator;
@@ -51,6 +54,7 @@ public sealed class WsServer
     {
         var builder = WebApplication.CreateSlimBuilder();
         builder.Logging.ClearProviders();
+        builder.Host.UseSerilog();
         builder.WebHost.ConfigureKestrel(options =>
         {
             if (_httpPort is not null)
@@ -79,7 +83,7 @@ public sealed class WsServer
 
                 if (!_authValidator.Validate(token))
                 {
-                    Console.WriteLine("[!] Rejected client: invalid or missing auth token.");
+                    Logger.Warning("Rejected client: invalid or missing auth token");
                     context.Response.StatusCode = 401;
                     return;
                 }
@@ -92,8 +96,8 @@ public sealed class WsServer
         var endpoints = new List<string>();
         if (_httpPort is not null) endpoints.Add($"http://0.0.0.0:{_httpPort}");
         if (_httpsPort is not null) endpoints.Add($"https://0.0.0.0:{_httpsPort}");
-        Console.WriteLine($"Listening on {string.Join(", ", endpoints)}");
-        Console.WriteLine("Press Ctrl+C to stop.");
+        Logger.Information("Listening on {Endpoints}", string.Join(", ", endpoints));
+        Logger.Information("Press Ctrl+C to stop");
 
         await ((IHost)app).RunAsync(ct);
     }
@@ -102,7 +106,8 @@ public sealed class WsServer
     {
         using var appManager = new AppManager(confineToApp: _confineToApp, ffmpegPath: _ffmpegPath);
         var buffer = new byte[256 * 1024];
-        Console.WriteLine($"[+] Client connected ({ws.GetHashCode()})");
+        var clientId = ws.GetHashCode();
+        Logger.Information("Client connected ({ClientId})", clientId);
 
         try
         {
@@ -117,7 +122,7 @@ public sealed class WsServer
                     if (wsResult.MessageType == WebSocketMessageType.Close)
                     {
                         await ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "", ct);
-                        Console.WriteLine($"[-] Client disconnected ({ws.GetHashCode()})");
+                        Logger.Information("Client disconnected ({ClientId})", clientId);
                         return;
                     }
                     ms.Write(buffer, 0, wsResult.Count);
@@ -135,7 +140,7 @@ public sealed class WsServer
                 }
                 catch (Exception ex)
                 {
-                    Console.Error.WriteLine($"[!] Request error: {ex.Message}");
+                    Logger.Error(ex, "Request error");
                     response = WcResponse.Fail("", ex.Message);
                 }
 
@@ -147,11 +152,11 @@ public sealed class WsServer
         catch (OperationCanceledException) { }
         catch (Exception ex)
         {
-            Console.Error.WriteLine($"[!] Connection error: {ex.Message}");
+            Logger.Error(ex, "Connection error ({ClientId})", clientId);
         }
         finally
         {
-            Console.WriteLine($"[-] Client session ended ({ws.GetHashCode()})");
+            Logger.Information("Client session ended ({ClientId})", clientId);
         }
     }
 
@@ -165,8 +170,10 @@ public sealed class WsServer
                     {
                         var clientVersion = req.GetString("clientVersion", "Unknown");
                         var serverVersion = WcDefaults.Version;
-                        var clientVersionWarning = serverVersion == clientVersion ? "" : "  <<< VERSION MISMATCH >>>";
-                        Console.WriteLine($"[i] Client version: {clientVersion}{clientVersionWarning}");
+                        if (serverVersion == clientVersion)
+                            Logger.Information("Client version: {ClientVersion}", clientVersion);
+                        else
+                            Logger.Warning("Client version: {ClientVersion}  <<< VERSION MISMATCH >>>", clientVersion);
                         return WcResponse.Ok(req.Id, serverVersion);
                     }
 

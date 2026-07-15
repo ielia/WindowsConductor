@@ -3,6 +3,7 @@ param(
     [Parameter(Position=0)][int]$Port = 8765,
     [switch]$ConfineToApp,
     [string]$FfmpegPath,
+    [string]$LogFile,
     [string]$AuthToken,
     [string]$AuthTokenFile,
     [string]$HashToken,
@@ -19,6 +20,7 @@ param(
 $args_ = @("$Port")
 if ($ConfineToApp)     { $args_ += "--confine-to-app" }
 if ($FfmpegPath)       { $args_ += "--ffmpeg-path";       $args_ += $FfmpegPath }
+if ($LogFile)          { $args_ += "--log-file";          $args_ += $LogFile }
 if ($AuthToken)        { $args_ += "--auth-token";        $args_ += $AuthToken }
 if ($AuthTokenFile)    { $args_ += "--auth-token-file";   $args_ += $AuthTokenFile }
 if ($HashToken)        { $args_ += "--hash-token";        $args_ += $HashToken }

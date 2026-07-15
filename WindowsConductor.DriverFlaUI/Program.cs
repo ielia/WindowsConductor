@@ -1,10 +1,14 @@
 using System.Net;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
+using Microsoft.Extensions.Configuration;
+using Serilog;
+using Serilog.Events;
 using WindowsConductor.Client;
 using WindowsConductor.DriverFlaUI;
 
 // Usage: WindowsConductor.DriverFlaUI.exe [port] [--confine-to-app] [--ffmpeg-path <path>]
+//          [--log-file <path>]
 //          [--auth-token <token>] [--auth-token-file <file>]
 //          [--hash-token <salt:iterations:hash>] [--hash-token-file <file>]
 //          [--tls-port <port>] [--tls-only]
@@ -14,6 +18,7 @@ using WindowsConductor.DriverFlaUI;
 //   port                  Listening port (default 8765)
 //   --confine-to-app      Prevent locators from navigating above the application root
 //   --ffmpeg-path         Path to the ffmpeg executable (overrides FFMPEG_PATH env var)
+//   --log-file            Path to a log file (enables file logging in addition to console)
 //   --auth-token          Plain bearer token required for client connections
 //   --auth-token-file     File containing a plain bearer token
 //   --hash-token          PBKDF2 triplet (salt:iterations:hash, base64) for token validation
@@ -27,92 +32,163 @@ using WindowsConductor.DriverFlaUI;
 //   --cert-thumbprint     Load certificate from CurrentUser\My store by thumbprint
 //   --cert-self-signed    Generate an ephemeral self-signed certificate at startup
 
-bool confineToApp = args.Contains("--confine-to-app");
-bool tlsOnly = args.Contains("--tls-only");
+// ── Logging bootstrap ──────────────────────────────────────────────────────
 
-string? ffmpegPath = GetFlagValue(args, "--ffmpeg-path");
-ffmpegPath ??= Environment.GetEnvironmentVariable("FFMPEG_PATH");
+string? logFile = GetFlagValue(args, "--log-file");
 
-var authValidator = ParseAuthValidator(args);
+var configuration = new ConfigurationBuilder()
+    .SetBasePath(AppContext.BaseDirectory)
+    .AddJsonFile("appsettings.json", optional: true, reloadOnChange: false)
+    .Build();
 
-int? tlsPort = null;
-var tlsPortStr = GetFlagValue(args, "--tls-port");
-if (tlsPortStr is not null)
+var serilogSection = configuration.GetSection("Serilog");
+var consoleSection = serilogSection.GetSection("Console");
+var fileSection = serilogSection.GetSection("File");
+
+var consoleTemplate = consoleSection["OutputTemplate"] ?? "{Timestamp:HH:mm:ss} [{Level:u3}] {Message:lj}{NewLine}{Exception}";
+var consoleMinLevel = Enum.TryParse<LogEventLevel>(consoleSection["MinimumLevel"], true, out var cml) ? cml : LogEventLevel.Information;
+var fileTemplate = fileSection["OutputTemplate"] ?? "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {SourceContext} {Message:lj}{NewLine}{Exception}";
+var fileMinLevel = Enum.TryParse<LogEventLevel>(fileSection["MinimumLevel"], true, out var fml) ? fml : LogEventLevel.Debug;
+var fileRollingInterval = Enum.TryParse<RollingInterval>(fileSection["RollingInterval"], true, out var fri) ? fri : RollingInterval.Day;
+var fileRetainedCount = int.TryParse(fileSection["RetainedFileCountLimit"], out var frc) ? frc : 7;
+var fileSizeLimit = long.TryParse(fileSection["FileSizeLimitBytes"], out var fsl) ? fsl : 50L * 1024 * 1024;
+
+var minLevelSection = serilogSection.GetSection("MinimumLevel");
+var globalMinLevel = Enum.TryParse<LogEventLevel>(minLevelSection["Default"], true, out var gml) ? gml : LogEventLevel.Information;
+
+var loggerConfig = new LoggerConfiguration()
+    .MinimumLevel.Is(globalMinLevel)
+    .WriteTo.Console(restrictedToMinimumLevel: consoleMinLevel, outputTemplate: consoleTemplate, formatProvider: null);
+
+// Apply source-context overrides
+var overrides = minLevelSection.GetSection("Override");
+foreach (var entry in overrides.GetChildren())
 {
-    if (!int.TryParse(tlsPortStr, out var tp) || tp <= 0 || tp > 65535)
+    if (Enum.TryParse<LogEventLevel>(entry.Value, true, out var overrideLevel))
+        loggerConfig.MinimumLevel.Override(entry.Key, overrideLevel);
+}
+
+if (logFile is not null)
+{
+    loggerConfig.WriteTo.File(
+        logFile,
+        restrictedToMinimumLevel: fileMinLevel,
+        outputTemplate: fileTemplate,
+        formatProvider: null,
+        rollingInterval: fileRollingInterval,
+        retainedFileCountLimit: fileRetainedCount,
+        fileSizeLimitBytes: fileSizeLimit);
+}
+
+Log.Logger = loggerConfig.CreateLogger();
+
+try
+{
+    RunDriver(args, logFile);
+}
+catch (Exception ex)
+{
+    Log.Fatal(ex, "Driver terminated unexpectedly");
+}
+finally
+{
+    await Log.CloseAndFlushAsync();
+}
+
+// ── Driver main ─────────────────────────────────────────────────────────────
+
+static void RunDriver(string[] args, string? logFile)
+{
+    bool confineToApp = args.Contains("--confine-to-app");
+    bool tlsOnly = args.Contains("--tls-only");
+
+    string? ffmpegPath = GetFlagValue(args, "--ffmpeg-path");
+    ffmpegPath ??= Environment.GetEnvironmentVariable("FFMPEG_PATH");
+
+    var authValidator = ParseAuthValidator(args);
+
+    int? tlsPort = null;
+    var tlsPortStr = GetFlagValue(args, "--tls-port");
+    if (tlsPortStr is not null)
     {
-        Console.Error.WriteLine("Error: --tls-port must be a valid port number (1–65535).");
+        if (!int.TryParse(tlsPortStr, out var tp) || tp <= 0 || tp > 65535)
+        {
+            Log.Fatal("--tls-port must be a valid port number (1–65535)");
+            Environment.Exit(1);
+        }
+        tlsPort = tp;
+    }
+
+    if (tlsOnly && tlsPort is null)
+    {
+        Log.Fatal("--tls-only requires --tls-port");
         Environment.Exit(1);
     }
-    tlsPort = tp;
-}
 
-if (tlsOnly && tlsPort is null)
-{
-    Console.Error.WriteLine("Error: --tls-only requires --tls-port.");
-    Environment.Exit(1);
-}
+    var httpsCert = LoadCertificate(args);
 
-var httpsCert = LoadCertificate(args);
-
-if (tlsPort is not null && httpsCert is null)
-{
-    Console.Error.WriteLine("Error: --tls-port requires a certificate (--cert, --cert-thumbprint, or --cert-self-signed).");
-    Environment.Exit(1);
-}
-
-if (httpsCert is not null && tlsPort is null)
-{
-    Console.Error.WriteLine("Error: Certificate options require --tls-port.");
-    Environment.Exit(1);
-}
-
-// Parse the HTTP port from positional args (skip all --flag and their values)
-var valuedFlags = new HashSet<int>();
-foreach (var flag in new[]
-{
-    "--ffmpeg-path", "--auth-token", "--auth-token-file", "--hash-token", "--hash-token-file",
-    "--tls-port", "--cert", "--cert-key", "--cert-password", "--cert-password-file", "--cert-thumbprint"
-})
-    AddValuedFlag(valuedFlags, args, flag);
-
-int httpPort = int.Parse(WcDefaults.Port, System.Globalization.CultureInfo.InvariantCulture);
-var portArg = args
-    .Where((a, i) => !a.StartsWith("--", StringComparison.Ordinal) && !valuedFlags.Contains(i))
-    .FirstOrDefault();
-if (portArg is not null)
-{
-    if (!int.TryParse(portArg, out httpPort) || httpPort <= 0 || httpPort > 65535)
+    if (tlsPort is not null && httpsCert is null)
     {
-        Console.Error.WriteLine("Error: Port must be a valid number (1–65535).");
+        Log.Fatal("--tls-port requires a certificate (--cert, --cert-thumbprint, or --cert-self-signed)");
         Environment.Exit(1);
     }
+
+    if (httpsCert is not null && tlsPort is null)
+    {
+        Log.Fatal("Certificate options require --tls-port");
+        Environment.Exit(1);
+    }
+
+    // Parse the HTTP port from positional args (skip all --flag and their values)
+    var valuedFlags = new HashSet<int>();
+    foreach (var flag in new[]
+    {
+        "--ffmpeg-path", "--log-file",
+        "--auth-token", "--auth-token-file", "--hash-token", "--hash-token-file",
+        "--tls-port", "--cert", "--cert-key", "--cert-password", "--cert-password-file", "--cert-thumbprint"
+    })
+        AddValuedFlag(valuedFlags, args, flag);
+
+    int httpPort = int.Parse(WcDefaults.Port, System.Globalization.CultureInfo.InvariantCulture);
+    var portArg = args
+        .Where((a, i) => !a.StartsWith("--", StringComparison.Ordinal) && !valuedFlags.Contains(i))
+        .FirstOrDefault();
+    if (portArg is not null)
+    {
+        if (!int.TryParse(portArg, out httpPort) || httpPort <= 0 || httpPort > 65535)
+        {
+            Log.Fatal("Port must be a valid number (1–65535)");
+            Environment.Exit(1);
+        }
+    }
+
+    // When TLS port equals HTTP port, TLS wins — can't serve both on one port.
+    if (tlsPort == httpPort)
+        tlsOnly = true;
+
+    int? effectiveHttpPort = tlsOnly ? null : httpPort;
+
+    using var cts = new CancellationTokenSource();
+
+    Console.CancelKeyPress += (_, e) =>
+    {
+        Log.Information("Shutting down…");
+        e.Cancel = true;
+        cts.Cancel();
+    };
+
+    AppDomain.CurrentDomain.UnhandledException += (_, e) =>
+        Log.Fatal("Unhandled exception: {Exception}", e.ExceptionObject);
+
+    Log.Information("WindowsConductor Driver v{Version}  |  .NET {DotNetVersion}", WcDefaults.Version, Environment.Version);
+    if (logFile is not null)
+        Log.Information("Logging to file: {LogFile}", logFile);
+
+    var server = new WsServer(effectiveHttpPort, tlsPort, httpsCert, confineToApp, ffmpegPath, authValidator);
+    server.StartAsync(cts.Token).GetAwaiter().GetResult();
+
+    Log.Information("Driver stopped");
 }
-
-// When TLS port equals HTTP port, TLS wins — can't serve both on one port.
-if (tlsPort == httpPort)
-    tlsOnly = true;
-
-int? effectiveHttpPort = tlsOnly ? null : httpPort;
-
-using var cts = new CancellationTokenSource();
-
-Console.CancelKeyPress += (_, e) =>
-{
-    Console.WriteLine("\nShutting down…");
-    e.Cancel = true;
-    cts.Cancel();
-};
-
-AppDomain.CurrentDomain.UnhandledException += (_, e) =>
-    Console.Error.WriteLine($"Unhandled: {e.ExceptionObject}");
-
-Console.WriteLine($"WindowsConductor Driver v{WcDefaults.Version}  |  .NET {Environment.Version}");
-
-var server = new WsServer(effectiveHttpPort, tlsPort, httpsCert, confineToApp, ffmpegPath, authValidator);
-await server.StartAsync(cts.Token);
-
-Console.WriteLine("Driver stopped.");
 
 static AuthTokenValidator ParseAuthValidator(string[] args)
 {
@@ -128,7 +204,7 @@ static AuthTokenValidator ParseAuthValidator(string[] args)
 
     if (flagCount > 1)
     {
-        Console.Error.WriteLine("Error: Only one of --auth-token, --auth-token-file, --hash-token, --hash-token-file may be specified.");
+        Log.Fatal("Only one of --auth-token, --auth-token-file, --hash-token, --hash-token-file may be specified");
         Environment.Exit(1);
     }
 
@@ -168,7 +244,7 @@ static X509Certificate2? LoadCertificate(string[] args)
         + (selfSigned ? 1 : 0);
     if (sourceCount > 1)
     {
-        Console.Error.WriteLine("Error: Only one of --cert, --cert-thumbprint, --cert-self-signed may be specified.");
+        Log.Fatal("Only one of --cert, --cert-thumbprint, --cert-self-signed may be specified");
         Environment.Exit(1);
     }
 
@@ -177,7 +253,7 @@ static X509Certificate2? LoadCertificate(string[] args)
         // Warn about orphan options
         if (certKeyPath is not null || certPassword is not null || certPasswordFile is not null)
         {
-            Console.Error.WriteLine("Error: --cert-key, --cert-password, and --cert-password-file require --cert.");
+            Log.Fatal("--cert-key, --cert-password, and --cert-password-file require --cert");
             Environment.Exit(1);
         }
         return null;
@@ -185,7 +261,7 @@ static X509Certificate2? LoadCertificate(string[] args)
 
     if (certPassword is not null && certPasswordFile is not null)
     {
-        Console.Error.WriteLine("Error: Only one of --cert-password, --cert-password-file may be specified.");
+        Log.Fatal("Only one of --cert-password, --cert-password-file may be specified");
         Environment.Exit(1);
     }
 
@@ -201,7 +277,7 @@ static X509Certificate2? LoadCertificate(string[] args)
         var certs = store.Certificates.Find(X509FindType.FindByThumbprint, certThumbprint, false);
         if (certs.Count == 0)
         {
-            Console.Error.WriteLine($"Error: No certificate with thumbprint '{certThumbprint}' found in CurrentUser\\My store.");
+            Log.Fatal("No certificate with thumbprint {Thumbprint} found in CurrentUser\\My store", certThumbprint);
             Environment.Exit(1);
         }
         return certs[0];
@@ -239,7 +315,7 @@ static X509Certificate2 GenerateSelfSignedCert()
         DateTimeOffset.UtcNow.AddDays(-1),
         DateTimeOffset.UtcNow.AddYears(1));
 
-    Console.WriteLine($"Self-signed certificate thumbprint: {cert.Thumbprint}");
+    Log.Information("Self-signed certificate thumbprint: {Thumbprint}", cert.Thumbprint);
 
     // Windows SChannel requires persisted key container
     return new X509Certificate2(cert.Export(X509ContentType.Pfx));

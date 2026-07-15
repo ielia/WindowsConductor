@@ -11,6 +11,10 @@ if "%~1"=="--ffmpeg-path" (
     shift
     set EXTRA_ARGS=%EXTRA_ARGS% %1
 )
+if "%~1"=="--log-file" (
+    shift
+    set EXTRA_ARGS=%EXTRA_ARGS% %1
+)
 if "%~1"=="--auth-token" (
     shift
     set EXTRA_ARGS=%EXTRA_ARGS% %1

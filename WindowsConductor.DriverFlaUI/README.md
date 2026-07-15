@@ -20,6 +20,9 @@ dotnet run --project WindowsConductor.DriverFlaUI -- --ffmpeg-path "C:\tools\ffm
 # Bearer token authentication
 dotnet run --project WindowsConductor.DriverFlaUI -- --auth-token MY_SECRET
 
+# Enable file logging
+dotnet run --project WindowsConductor.DriverFlaUI -- --log-file driver.log
+
 # TLS with a self-signed certificate
 dotnet run --project WindowsConductor.DriverFlaUI -- --tls-port 8443 --cert-self-signed
 
@@ -36,6 +39,7 @@ Or use the convenience scripts at the repository root: `run-driver.bat`, `run-dr
 | `[port]` | Listening port for HTTP/WS (default: 8765). Positional argument. |
 | `--confine-to-app` | Prevent locators from navigating above the application root. |
 | `--ffmpeg-path <path>` | Path to the ffmpeg executable (overrides `FFMPEG_PATH` env var). |
+| `--log-file <path>` | Path to a log file. Enables file logging (Debug level) in addition to console (Information level). |
 | `--auth-token <token>` | Plain bearer token required for client connections. |
 | `--auth-token-file <file>` | File containing a plain bearer token. |
 | `--hash-token <salt:iter:hash>` | PBKDF2 triplet (base64) for token validation. |
@@ -48,6 +52,12 @@ Or use the convenience scripts at the repository root: `run-driver.bat`, `run-dr
 | `--cert-password-file <file>` | File containing the certificate password. |
 | `--cert-thumbprint <hex>` | Load certificate from `CurrentUser\My` store by thumbprint. |
 | `--cert-self-signed` | Generate an ephemeral self-signed certificate at startup. |
+
+## Logging
+
+The driver uses [Serilog](https://serilog.net/) for structured logging. By default only the console sink is active at `Information` level. When `--log-file` is provided, a file sink is added at `Debug` level with daily rolling, 7-day retention, and a 50 MB size limit.
+
+Both sinks are configured via `appsettings.json` (copied alongside the executable). You can customise output templates, minimum levels, rolling intervals, and source-context overrides without recompiling.
 
 ## What it does
 
