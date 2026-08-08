@@ -109,7 +109,7 @@ static void RunDriver(string[] args, string? logFile)
 
     var authValidator = ParseAuthValidator(args);
 
-    int maxConcurrency = 4;
+    int maxConcurrency = 8;
     var maxConcurrencyStr = GetFlagValue(args, "--max-concurrency");
     if (maxConcurrencyStr is not null)
     {

@@ -807,10 +807,11 @@ public partial class MainWindow : Window, ICommandOutput
             var session = _executor.Session;
             var elementsById = new Dictionary<string, WcElement>();
 
+            var desktopTask = session.DesktopScreenshotWithOriginAsync(ct);
             var rootNode = await BuildSnapshotTreeAsync(session, elementsById, ct);
             ct.ThrowIfCancellationRequested();
 
-            var desktopResult = await session.DesktopScreenshotWithOriginAsync(ct);
+            var desktopResult = await desktopTask;
             ct.ThrowIfCancellationRequested();
 
             var unionRect = ComputeUnionRect(rootNode);

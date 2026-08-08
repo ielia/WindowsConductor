@@ -263,43 +263,53 @@ internal sealed class WcInspectorSession : IInspectorSession, IAsyncDisposable
 
     public async Task<BoundingRect[]> GetAllWindowBoundingRectsAsync(CancellationToken ct = default)
     {
+        var mainRectTask = SafeBoundingRectAsync(GetWindowBoundingRectAsync(ct));
+        var subWindowsTask = SafeSubWindowRectsAsync(ct);
+        var elWinRectTask = _selectedElement is not null
+            ? SafeBoundingRectAsync(GetElementWindowBoundingRectAsync(ct))
+            : Task.FromResult<BoundingRect?>(null);
+        var elRectTask = _selectedElement is not null
+            ? SafeBoundingRectAsync(_selectedElement.GetBoundingRectAsync(ct))
+            : Task.FromResult<BoundingRect?>(null);
+
+        await Task.WhenAll(mainRectTask, subWindowsTask, elWinRectTask, elRectTask);
+
+        var rects = new List<BoundingRect>();
+        if (mainRectTask.Result is { } mainRect) rects.Add(mainRect);
+        rects.AddRange(subWindowsTask.Result);
+        if (elWinRectTask.Result is { } elWinRect) rects.Add(elWinRect);
+        if (elRectTask.Result is { } elRect) rects.Add(elRect);
+        return rects.ToArray();
+    }
+
+    private static async Task<BoundingRect?> SafeBoundingRectAsync(Task<BoundingRect> task)
+    {
+        try
+        {
+            var r = await task;
+            return r.Width > 0 && r.Height > 0 ? r : null;
+        }
+        catch { return null; }
+    }
+
+    private async Task<List<BoundingRect>> SafeSubWindowRectsAsync(CancellationToken ct)
+    {
         var rects = new List<BoundingRect>();
         try
         {
-            var mainRect = await GetWindowBoundingRectAsync(ct);
-            if (mainRect.Width > 0 && mainRect.Height > 0)
-                rects.Add(mainRect);
-        }
-        catch { /* skip if main window rect unavailable */ }
-
-        try
-        {
-            var windows = await _app!.Locator("//Window").GetAllElementsAsync(ct);
-            foreach (var w in windows)
+            var resolved = await _app!.Locator("//Window/@boundingrectangle").GetResolvedValueAsync(ct);
+            if (resolved.GetAsList() is { } items)
             {
-                try
+                foreach (var item in items)
                 {
-                    var r = await w.GetBoundingRectAsync(ct);
-                    if (r.Width > 0 && r.Height > 0)
-                        rects.Add(r);
+                    var rect = item.GetAsRectangle();
+                    if (rect is { Width: > 0, Height: > 0 })
+                        rects.Add(new BoundingRect(rect.Value.X, rect.Value.Y, rect.Value.Width, rect.Value.Height));
                 }
-                catch { /* skip windows that don't support bounding rect */ }
             }
         }
         catch { /* skip if //Window locator fails */ }
-
-        if (_selectedElement is not null)
-        {
-            try
-            {
-                var elWinRect = await GetElementWindowBoundingRectAsync(ct);
-                if (elWinRect.Width > 0 && elWinRect.Height > 0)
-                    rects.Add(elWinRect);
-            }
-            catch { /* skip if element window rect unavailable */ }
-        }
-
-        return rects.ToArray();
+        return rects;
     }
 
     public async Task<DesktopScreenshotResult> DesktopScreenshotWithOriginAsync(CancellationToken ct = default) =>
