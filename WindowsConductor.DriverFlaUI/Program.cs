@@ -15,8 +15,10 @@ using WindowsConductor.DriverFlaUI;
 //          [--cert <path>] [--cert-key <path>]
 //          [--cert-password <password>] [--cert-password-file <file>]
 //          [--cert-thumbprint <hex>] [--cert-self-signed]
+//          [--max-concurrency <n>]
 //   port                  Listening port (default 8765)
 //   --confine-to-app      Prevent locators from navigating above the application root
+//   --max-concurrency     Maximum concurrent requests per session (default 4)
 //   --ffmpeg-path         Path to the ffmpeg executable (overrides FFMPEG_PATH env var)
 //   --log-file            Path to a log file (enables file logging in addition to console)
 //   --auth-token          Plain bearer token required for client connections
@@ -107,6 +109,17 @@ static void RunDriver(string[] args, string? logFile)
 
     var authValidator = ParseAuthValidator(args);
 
+    int maxConcurrency = 4;
+    var maxConcurrencyStr = GetFlagValue(args, "--max-concurrency");
+    if (maxConcurrencyStr is not null)
+    {
+        if (!int.TryParse(maxConcurrencyStr, out maxConcurrency) || maxConcurrency < 1)
+        {
+            Log.Fatal("--max-concurrency must be a positive integer");
+            Environment.Exit(1);
+        }
+    }
+
     int? tlsPort = null;
     var tlsPortStr = GetFlagValue(args, "--tls-port");
     if (tlsPortStr is not null)
@@ -143,7 +156,7 @@ static void RunDriver(string[] args, string? logFile)
     var valuedFlags = new HashSet<int>();
     foreach (var flag in new[]
     {
-        "--ffmpeg-path", "--log-file",
+        "--ffmpeg-path", "--log-file", "--max-concurrency",
         "--auth-token", "--auth-token-file", "--hash-token", "--hash-token-file",
         "--tls-port", "--cert", "--cert-key", "--cert-password", "--cert-password-file", "--cert-thumbprint"
     })
@@ -184,7 +197,7 @@ static void RunDriver(string[] args, string? logFile)
     if (logFile is not null)
         Log.Information("Logging to file: {LogFile}", logFile);
 
-    var server = new WsServer(effectiveHttpPort, tlsPort, httpsCert, confineToApp, ffmpegPath, authValidator);
+    var server = new WsServer(effectiveHttpPort, tlsPort, httpsCert, confineToApp, ffmpegPath, authValidator, maxConcurrency);
     server.StartAsync(cts.Token).GetAwaiter().GetResult();
 
     Log.Information("Driver stopped");

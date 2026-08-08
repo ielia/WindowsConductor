@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Reflection;
 using FlaUI.Core.AutomationElements;
 
@@ -8,13 +9,13 @@ namespace WindowsConductor.DriverFlaUI.Tests;
 public class AppManagerIsStaleTests
 {
     private AppManager _mgr = null!;
-    private Dictionary<string, AutomationElement> _elements = null!;
+    private ConcurrentDictionary<string, AutomationElement> _elements = null!;
 
     [SetUp]
     public void SetUp()
     {
         _mgr = new AppManager();
-        _elements = (Dictionary<string, AutomationElement>)
+        _elements = (ConcurrentDictionary<string, AutomationElement>)
             typeof(AppManager)
                 .GetField("_elements", BindingFlags.NonPublic | BindingFlags.Instance)!
                 .GetValue(_mgr)!;

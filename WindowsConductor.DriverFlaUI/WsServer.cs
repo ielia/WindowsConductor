@@ -11,6 +11,8 @@ using Microsoft.Extensions.Logging;
 using Serilog;
 using WindowsConductor.Client;
 
+// ReSharper disable AccessToDisposedClosure
+
 namespace WindowsConductor.DriverFlaUI;
 
 /// <summary>
@@ -22,12 +24,16 @@ public sealed class WsServer
 {
     private static readonly Serilog.ILogger Logger = Log.ForContext<WsServer>();
 
+    private const int COM_RETRY_ATTEMPTS = 3;
+    private const int CATASTROPHIC_FAILURE = unchecked((int)0x8000FFFF);
+
     private readonly bool _confineToApp;
     private readonly string? _ffmpegPath;
     private readonly AuthTokenValidator _authValidator;
     private readonly int? _httpPort;
     private readonly int? _httpsPort;
     private readonly X509Certificate2? _httpsCert;
+    private readonly int _maxConcurrency;
     private readonly JsonSerializerOptions _jsonOpts = new()
     {
         PropertyNameCaseInsensitive = true,
@@ -40,7 +46,8 @@ public sealed class WsServer
         X509Certificate2? httpsCert = null,
         bool confineToApp = false,
         string? ffmpegPath = null,
-        AuthTokenValidator? authValidator = null)
+        AuthTokenValidator? authValidator = null,
+        int maxConcurrency = 4)
     {
         _httpPort = httpPort;
         _httpsPort = httpsPort;
@@ -48,6 +55,7 @@ public sealed class WsServer
         _confineToApp = confineToApp;
         _ffmpegPath = ffmpegPath;
         _authValidator = authValidator ?? AuthTokenValidator.None();
+        _maxConcurrency = maxConcurrency;
     }
 
     public async Task StartAsync(CancellationToken ct = default)
@@ -105,6 +113,9 @@ public sealed class WsServer
     private async Task HandleClientAsync(WebSocket ws, CancellationToken ct)
     {
         using var appManager = new AppManager(confineToApp: _confineToApp, ffmpegPath: _ffmpegPath);
+        using var writeLock = new SemaphoreSlim(1, 1);
+        using var concurrencyLimiter = new SemaphoreSlim(_maxConcurrency, _maxConcurrency);
+        var outstanding = new List<Task>();
         var buffer = new byte[256 * 1024];
         var clientId = ws.GetHashCode();
         Logger.Information("Client connected ({ClientId})", clientId);
@@ -130,23 +141,42 @@ public sealed class WsServer
                 while (!wsResult.EndOfMessage);
 
                 string rawJson = Encoding.UTF8.GetString(ms.ToArray());
-                WcResponse response;
 
+                WcRequest? request;
                 try
                 {
-                    var request = JsonSerializer.Deserialize<WcRequest>(rawJson, _jsonOpts)
+                    request = JsonSerializer.Deserialize<WcRequest>(rawJson, _jsonOpts)
                         ?? throw new InvalidOperationException("Received null request.");
-                    response = ProcessRequest(appManager, request, ct);
                 }
                 catch (Exception ex)
                 {
-                    Logger.Error(ex, "Request error");
-                    response = WcResponse.Fail("", ex.Message);
+                    Logger.Error(ex, "Request parse error");
+                    await SendResponseAsync(ws, writeLock, WcResponse.Fail("", ex.Message), ct);
+                    continue;
                 }
 
-                string responseJson = JsonSerializer.Serialize(response, _jsonOpts);
-                byte[] responseBytes = Encoding.UTF8.GetBytes(responseJson);
-                await ws.SendAsync(responseBytes, WebSocketMessageType.Text, true, ct);
+                var task = Task.Run(async () =>
+                {
+                    await concurrencyLimiter.WaitAsync(ct);
+                    try
+                    {
+                        var response = ProcessRequestWithRetry(appManager, request, ct);
+                        await SendResponseAsync(ws, writeLock, response, ct);
+                    }
+                    finally
+                    {
+                        concurrencyLimiter.Release();
+                    }
+                }, ct);
+
+                lock (outstanding)
+                    outstanding.Add(task);
+
+                _ = task.ContinueWith(_ =>
+                {
+                    lock (outstanding)
+                        outstanding.Remove(task);
+                }, TaskContinuationOptions.ExecuteSynchronously);
             }
         }
         catch (OperationCanceledException) { }
@@ -156,9 +186,50 @@ public sealed class WsServer
         }
         finally
         {
+            Task[] pending;
+            lock (outstanding)
+                pending = outstanding.ToArray();
+            if (pending.Length > 0)
+                await Task.WhenAll(pending).ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
             Logger.Information("Client session ended ({ClientId})", clientId);
         }
     }
+
+    private async Task SendResponseAsync(WebSocket ws, SemaphoreSlim writeLock, WcResponse response, CancellationToken ct)
+    {
+        var responseJson = JsonSerializer.Serialize(response, _jsonOpts);
+        var responseBytes = Encoding.UTF8.GetBytes(responseJson);
+        await writeLock.WaitAsync(ct);
+        try
+        {
+            await ws.SendAsync(responseBytes, WebSocketMessageType.Text, true, ct);
+        }
+        finally
+        {
+            writeLock.Release();
+        }
+    }
+
+    internal static WcResponse ProcessRequestWithRetry(IAppOperations mgr, WcRequest req, CancellationToken ct = default)
+    {
+        for (int attempt = 1; attempt <= COM_RETRY_ATTEMPTS; attempt++)
+        {
+            var response = ProcessRequest(mgr, req, ct);
+            if (response.Success || attempt == COM_RETRY_ATTEMPTS)
+                return response;
+
+            if (!IsCatastrophicComError(response))
+                return response;
+
+            Logger.Warning("COM catastrophic failure on attempt {Attempt}/{Max} for command '{Command}' (id={Id}), retrying",
+                attempt, COM_RETRY_ATTEMPTS, req.Command, req.Id);
+        }
+        return WcResponse.Fail(req.Id, "Unexpected: retry loop exited without returning");
+    }
+
+    private static bool IsCatastrophicComError(WcResponse response) =>
+        response.Error?.Contains("0x8000FFFF", StringComparison.OrdinalIgnoreCase) == true
+        || response.Error?.Contains("Catastrophic", StringComparison.OrdinalIgnoreCase) == true;
 
     internal static WcResponse ProcessRequest(IAppOperations mgr, WcRequest req, CancellationToken ct = default)
     {

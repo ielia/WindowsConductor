@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Drawing;
 using System.Runtime.InteropServices;
@@ -15,7 +16,7 @@ namespace WindowsConductor.DriverFlaUI;
 
 /// <summary>
 /// Manages launched applications and caches element references for a single client session.
-/// Not thread-safe; each connected WebSocket client owns one instance.
+/// Thread-safe: multiple requests may execute concurrently against the same instance.
 /// </summary>
 public sealed class AppManager : IAppOperations, IDisposable
 {
@@ -23,10 +24,13 @@ public sealed class AppManager : IAppOperations, IDisposable
     private const int RESOLVE_RETRIES = 10;
 
     private readonly UIA3Automation _automation = new();
-    private readonly Dictionary<string, Application> _apps = new();
-    private readonly HashSet<string> _attachedApps = new();
-    private readonly Dictionary<string, int> _appProcessIds = new();
-    private readonly Dictionary<string, AutomationElement> _elements = new();
+    private readonly ConcurrentDictionary<string, Application> _apps = new();
+    private readonly ConcurrentDictionary<string, byte> _attachedApps = new();
+    private readonly ConcurrentDictionary<string, int> _appProcessIds = new();
+    private readonly ConcurrentDictionary<string, AutomationElement> _elements = new();
+
+    private readonly SemaphoreSlim _mouseLock = new(1, 1);
+    private readonly SemaphoreSlim _keyboardLock = new(1, 1);
 
     private readonly bool _confineToApp;
     private readonly string? _ffmpegPath;
@@ -93,7 +97,7 @@ public sealed class AppManager : IAppOperations, IDisposable
         var app = Application.Attach(window.Properties.ProcessId.Value);
         var id = NewId();
         _apps[id] = app;
-        _attachedApps.Add(id);
+        _attachedApps[id] = 0;
         if (_confineToApp) _appProcessIds[id] = app.ProcessId;
         return id;
     }
@@ -102,11 +106,11 @@ public sealed class AppManager : IAppOperations, IDisposable
     public void CloseApp(string appId)
     {
         if (!_apps.TryGetValue(appId, out var app)) return;
-        if (!_attachedApps.Contains(appId))
+        if (!_attachedApps.ContainsKey(appId))
             try { app.Close(); } catch { /* already closed */ }
-        _apps.Remove(appId);
-        _attachedApps.Remove(appId);
-        _appProcessIds.Remove(appId);
+        _apps.TryRemove(appId, out _);
+        _attachedApps.TryRemove(appId, out _);
+        _appProcessIds.TryRemove(appId, out _);
     }
 
     // ── Element discovery ───────────────────────────────────────────────────
@@ -357,7 +361,7 @@ public sealed class AppManager : IAppOperations, IDisposable
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
-                _elements.Remove(elementId);
+                _elements.TryRemove(elementId, out _);
                 return;
             }
             if (Environment.TickCount64 >= deadline)
@@ -431,64 +435,94 @@ public sealed class AppManager : IAppOperations, IDisposable
 
     public void Click(string elementId, string? anchor = null, int x = 0, int y = 0)
     {
-        var el = GetElement(elementId);
-        if (anchor is null && x == 0 && y == 0) { ClickSafe(el, () => el.Click()); return; }
-        var pt = ResolveAbsolutePoint(el, anchor, x, y);
-        ClickSafe(el, () => Mouse.Click(pt));
+        _mouseLock.Wait();
+        try
+        {
+            var el = GetElement(elementId);
+            if (anchor is null && x == 0 && y == 0) { ClickSafe(el, () => el.Click()); return; }
+            var pt = ResolveAbsolutePoint(el, anchor, x, y);
+            ClickSafe(el, () => Mouse.Click(pt));
+        }
+        finally { _mouseLock.Release(); }
     }
 
     public void DoubleClick(string elementId, string? anchor = null, int x = 0, int y = 0)
     {
-        var el = GetElement(elementId);
-        if (anchor is null && x == 0 && y == 0) { ClickSafe(el, () => el.DoubleClick()); return; }
-        var pt = ResolveAbsolutePoint(el, anchor, x, y);
-        ClickSafe(el, () => Mouse.DoubleClick(pt));
+        _mouseLock.Wait();
+        try
+        {
+            var el = GetElement(elementId);
+            if (anchor is null && x == 0 && y == 0) { ClickSafe(el, () => el.DoubleClick()); return; }
+            var pt = ResolveAbsolutePoint(el, anchor, x, y);
+            ClickSafe(el, () => Mouse.DoubleClick(pt));
+        }
+        finally { _mouseLock.Release(); }
     }
 
     public void RightClick(string elementId, string? anchor = null, int x = 0, int y = 0)
     {
-        var el = GetElement(elementId);
-        if (anchor is null && x == 0 && y == 0) { ClickSafe(el, () => el.RightClick()); return; }
-        var pt = ResolveAbsolutePoint(el, anchor, x, y);
-        ClickSafe(el, () => Mouse.Click(pt, MouseButton.Right));
+        _mouseLock.Wait();
+        try
+        {
+            var el = GetElement(elementId);
+            if (anchor is null && x == 0 && y == 0) { ClickSafe(el, () => el.RightClick()); return; }
+            var pt = ResolveAbsolutePoint(el, anchor, x, y);
+            ClickSafe(el, () => Mouse.Click(pt, MouseButton.Right));
+        }
+        finally { _mouseLock.Release(); }
     }
 
     public void Hover(string elementId, string? anchor = null, int x = 0, int y = 0)
     {
-        var el = GetElement(elementId);
-        var point = anchor is null && x == 0 && y == 0 ? el.GetClickablePoint() : ResolveAbsolutePoint(el, anchor, x, y);
-        // TODO: Figure out why it is not triggering tooltips
-        ClickSafe(el, () => Mouse.Position = point);
-        // ClickSafe(el, () => Mouse.MoveTo(point));
+        _mouseLock.Wait();
+        try
+        {
+            var el = GetElement(elementId);
+            var point = anchor is null && x == 0 && y == 0 ? el.GetClickablePoint() : ResolveAbsolutePoint(el, anchor, x, y);
+            // TODO: Figure out why it is not triggering tooltips
+            ClickSafe(el, () => Mouse.Position = point);
+            // ClickSafe(el, () => Mouse.MoveTo(point));
+        }
+        finally { _mouseLock.Release(); }
     }
 
     public void DragTo(string sourceId, string? fromAnchor, int fromX, int fromY,
         string targetId, string? toAnchor, int toX, int toY)
     {
-        var source = GetElement(sourceId);
-        var target = GetElement(targetId);
-        var from = ResolveAbsolutePoint(source, fromAnchor, fromX, fromY);
-        var to = ResolveAbsolutePoint(target, toAnchor, toX, toY);
-        Mouse.Position = from;
-        Thread.Sleep(50);
-        Mouse.Down(MouseButton.Left);
-        Thread.Sleep(50);
-        Mouse.MoveTo(to);
-        Thread.Sleep(50);
-        Mouse.Up(MouseButton.Left);
+        _mouseLock.Wait();
+        try
+        {
+            var source = GetElement(sourceId);
+            var target = GetElement(targetId);
+            var from = ResolveAbsolutePoint(source, fromAnchor, fromX, fromY);
+            var to = ResolveAbsolutePoint(target, toAnchor, toX, toY);
+            Mouse.Position = from;
+            Thread.Sleep(50);
+            Mouse.Down(MouseButton.Left);
+            Thread.Sleep(50);
+            Mouse.MoveTo(to);
+            Thread.Sleep(50);
+            Mouse.Up(MouseButton.Left);
+        }
+        finally { _mouseLock.Release(); }
     }
 
     public void Scroll(string elementId, double lines, bool horizontal = false)
     {
-        var el = GetElement(elementId);
-        ClickSafe(el, () =>
+        _mouseLock.Wait();
+        try
         {
-            Mouse.Position = el.GetClickablePoint();
-            if (horizontal)
-                Mouse.HorizontalScroll(lines);
-            else
-                Mouse.Scroll(-lines);
-        });
+            var el = GetElement(elementId);
+            ClickSafe(el, () =>
+            {
+                Mouse.Position = el.GetClickablePoint();
+                if (horizontal)
+                    Mouse.HorizontalScroll(lines);
+                else
+                    Mouse.Scroll(-lines);
+            });
+        }
+        finally { _mouseLock.Release(); }
     }
 
     private static void ClickSafe(AutomationElement el, Action click)
@@ -530,20 +564,44 @@ public sealed class AppManager : IAppOperations, IDisposable
 
     public void HitKeys(string elementId, string[] keys)
     {
-        GetElement(elementId).Focus();
-        GlobalHitKeys(keys);
+        _keyboardLock.Wait();
+        try
+        {
+            GetElement(elementId).Focus();
+            GlobalHitKeysUnsafe(keys);
+        }
+        finally { _keyboardLock.Release(); }
     }
 
     public void TypeText(string elementId, string text, int modifiers = 0)
     {
-        GetElement(elementId).Focus();
-        GlobalTypeText(text, modifiers);
+        _keyboardLock.Wait();
+        try
+        {
+            GetElement(elementId).Focus();
+            GlobalTypeTextUnsafe(text, modifiers);
+        }
+        finally { _keyboardLock.Release(); }
     }
 
-    public void GlobalHitKeys(string[] keys) =>
-        Keyboard.TypeSimultaneously(KeyTranslator.GetAll(keys));
+    public void GlobalHitKeys(string[] keys)
+    {
+        _keyboardLock.Wait();
+        try { GlobalHitKeysUnsafe(keys); }
+        finally { _keyboardLock.Release(); }
+    }
 
     public void GlobalTypeText(string text, int modifiers = 0)
+    {
+        _keyboardLock.Wait();
+        try { GlobalTypeTextUnsafe(text, modifiers); }
+        finally { _keyboardLock.Release(); }
+    }
+
+    private static void GlobalHitKeysUnsafe(string[] keys) =>
+        Keyboard.TypeSimultaneously(KeyTranslator.GetAll(keys));
+
+    private static void GlobalTypeTextUnsafe(string text, int modifiers = 0)
     {
         var keys = (KeyModifiers)modifiers;
         var held = new List<VirtualKeyShort>();
@@ -600,7 +658,7 @@ public sealed class AppManager : IAppOperations, IDisposable
         if (_confineToApp)
         {
             var parentPid = parent.Properties.ProcessId.ValueOrDefault;
-            if (!_appProcessIds.ContainsValue(parentPid))
+            if (!_appProcessIds.Values.Contains(parentPid))
                 throw new AccessRestrictedException(
                     "Parent element belongs to a different process (--confine-to-app is active).");
         }
@@ -642,7 +700,7 @@ public sealed class AppManager : IAppOperations, IDisposable
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            _elements.Remove(elementId);
+            _elements.TryRemove(elementId, out _);
             return true;
         }
     }
@@ -978,14 +1036,11 @@ public sealed class AppManager : IAppOperations, IDisposable
 
     // ── Video recording ──────────────────────────────────────────────────────
 
-    private readonly Dictionary<string, VideoRecorder> _recorders = new();
-    private readonly Dictionary<string, string> _recordingPaths = new();
+    private readonly ConcurrentDictionary<string, VideoRecorder> _recorders = new();
+    private readonly ConcurrentDictionary<string, string> _recordingPaths = new();
 
     public void StartRecording(string appId)
     {
-        if (_recorders.ContainsKey(appId))
-            throw new InvalidOperationException($"Recording is already in progress for app '{appId}'.");
-
         var root = GetAppRoot(appId);
         var tempPath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.mp4");
 
@@ -1000,21 +1055,20 @@ public sealed class AppManager : IAppOperations, IDisposable
             settings.ffmpegPath = _ffmpegPath;
 
         var recorder = new VideoRecorder(settings, _ => FlaUI.Core.Capturing.Capture.Element(root));
-        _recorders[appId] = recorder;
+        if (!_recorders.TryAdd(appId, recorder))
+            throw new InvalidOperationException($"Recording is already in progress for app '{appId}'.");
         _recordingPaths[appId] = tempPath;
     }
 
     public byte[] StopRecording(string appId)
     {
-        if (!_recorders.TryGetValue(appId, out var recorder))
+        if (!_recorders.TryRemove(appId, out var recorder))
             throw new InvalidOperationException($"No recording in progress for app '{appId}'.");
 
         recorder.Stop();
-        var path = _recordingPaths[appId];
-        var bytes = File.ReadAllBytes(path);
-        try { File.Delete(path); } catch { }
-        _recorders.Remove(appId);
-        _recordingPaths.Remove(appId);
+        _recordingPaths.TryRemove(appId, out var path);
+        var bytes = File.ReadAllBytes(path!);
+        try { File.Delete(path!); } catch { }
         return bytes;
     }
 
@@ -1191,11 +1245,13 @@ public sealed class AppManager : IAppOperations, IDisposable
 
         foreach (var (id, app) in _apps)
         {
-            if (!_attachedApps.Contains(id))
+            if (!_attachedApps.ContainsKey(id))
                 try { app.Close(); } catch { }
             try { app.Dispose(); } catch { }
         }
 
         _automation.Dispose();
+        _mouseLock.Dispose();
+        _keyboardLock.Dispose();
     }
 }
