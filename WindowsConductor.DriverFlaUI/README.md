@@ -52,6 +52,8 @@ Or use the convenience scripts at the repository root: `run-driver.bat`, `run-dr
 | `--cert-password-file <file>` | File containing the certificate password. |
 | `--cert-thumbprint <hex>` | Load certificate from `CurrentUser\My` store by thumbprint. |
 | `--cert-self-signed` | Generate an ephemeral self-signed certificate at startup. |
+| `--max-concurrency <n>` | Maximum concurrent requests per session (default: 8). |
+| `--max-element-cache <n>` | Maximum cached element handles per session before LRU eviction (default: 100000). |
 
 ## Logging
 

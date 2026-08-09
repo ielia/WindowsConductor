@@ -15,7 +15,9 @@ param(
     [string]$CertPassword,
     [string]$CertPasswordFile,
     [string]$CertThumbprint,
-    [switch]$CertSelfSigned
+    [switch]$CertSelfSigned,
+    [int]$MaxConcurrency,
+    [int]$MaxElementCache
 )
 $args_ = @("$Port")
 if ($ConfineToApp)     { $args_ += "--confine-to-app" }
@@ -33,4 +35,6 @@ if ($CertPassword)     { $args_ += "--cert-password";     $args_ += $CertPasswor
 if ($CertPasswordFile) { $args_ += "--cert-password-file"; $args_ += $CertPasswordFile }
 if ($CertThumbprint)   { $args_ += "--cert-thumbprint";   $args_ += $CertThumbprint }
 if ($CertSelfSigned)   { $args_ += "--cert-self-signed" }
+if ($MaxConcurrency)   { $args_ += "--max-concurrency";   $args_ += "$MaxConcurrency" }
+if ($MaxElementCache)  { $args_ += "--max-element-cache"; $args_ += "$MaxElementCache" }
 dotnet run --project WindowsConductor.DriverFlaUI -- @args_

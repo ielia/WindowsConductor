@@ -55,6 +55,14 @@ if "%~1"=="--cert-thumbprint" (
     shift
     set EXTRA_ARGS=%EXTRA_ARGS% %1
 )
+if "%~1"=="--max-concurrency" (
+    shift
+    set EXTRA_ARGS=%EXTRA_ARGS% %1
+)
+if "%~1"=="--max-element-cache" (
+    shift
+    set EXTRA_ARGS=%EXTRA_ARGS% %1
+)
 shift
 goto parse
 
