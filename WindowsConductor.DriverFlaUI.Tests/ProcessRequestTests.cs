@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 using WindowsConductor.Client;
 using WindowsConductor.DriverFlaUI;
@@ -171,6 +172,9 @@ internal sealed class FakeAppOperations : IAppOperations
     {
         throw new NotImplementedException();
     }
+
+    public List<string> EvictedElements { get; } = new();
+    public void TryEvictElement(string elementId) => EvictedElements.Add(elementId);
 }
 
 [TestFixture]
@@ -1093,6 +1097,45 @@ public class ProcessRequestTests
         var resp = WsServer.ProcessRequest(_fake, MakeRequest("click", new() { ["elementId"] = "e1" }));
         Assert.That(resp.Success, Is.False);
         Assert.That(resp.ErrorType, Is.Null);
+    }
+
+    // ── stale element eviction ──────────────────────────────────────────────
+
+    [Test]
+    public void ElementNotAvailableException_EvictsElement()
+    {
+        _fake.ThrowOnNext = new FlaUI.Core.Exceptions.ElementNotAvailableException("Gone");
+        var resp = WsServer.ProcessRequest(_fake, MakeRequest("getText", new() { ["elementId"] = "e1" }));
+        Assert.That(resp.Success, Is.False);
+        Assert.That(_fake.EvictedElements, Is.EqualTo(new[] { "e1" }));
+    }
+
+    [Test]
+    public void NoMatchException_DoesNotEvictElement()
+    {
+        _fake.ThrowOnNext = new NoMatchException("Not found");
+        var resp = WsServer.ProcessRequest(_fake, MakeRequest("click", new() { ["elementId"] = "e1" }));
+        Assert.That(resp.Success, Is.False);
+        Assert.That(_fake.EvictedElements, Is.Empty);
+    }
+
+    [Test]
+    public void InvalidOperationException_DoesNotEvictElement()
+    {
+        _fake.ThrowOnNext = new InvalidOperationException("boom");
+        var resp = WsServer.ProcessRequest(_fake, MakeRequest("click", new() { ["elementId"] = "e1" }));
+        Assert.That(resp.Success, Is.False);
+        Assert.That(_fake.EvictedElements, Is.Empty);
+    }
+
+    [Test]
+    [SuppressMessage("Usage", "CA2201:Do not raise reserved exception types")]
+    public void COMException_DoesNotEvictElement()
+    {
+        _fake.ThrowOnNext = new System.Runtime.InteropServices.COMException("COM error");
+        var resp = WsServer.ProcessRequest(_fake, MakeRequest("click", new() { ["elementId"] = "e1" }));
+        Assert.That(resp.Success, Is.False);
+        Assert.That(_fake.EvictedElements, Is.Empty);
     }
 
     // ── unknown command ──────────────────────────────────────────────────────

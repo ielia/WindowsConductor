@@ -617,7 +617,16 @@ public sealed class WsServer
             var errorType = ex is NoMatchException or UnwantedMatchException or VisibilityException or AccessRestrictedException or LocationOutOfRangeException
                 ? ex.GetType().Name
                 : null;
+            if (ex is FlaUI.Core.Exceptions.ElementNotAvailableException)
+                TryEvictElementFromRequest(mgr, req);
             return WcResponse.Fail(req.Id, ex.Message, errorType);
         }
+    }
+
+    private static void TryEvictElementFromRequest(IAppOperations mgr, WcRequest req)
+    {
+        var elementId = req.GetString("elementId");
+        if (!string.IsNullOrEmpty(elementId))
+            mgr.TryEvictElement(elementId);
     }
 }

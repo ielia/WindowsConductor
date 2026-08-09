@@ -75,4 +75,18 @@ public class AppManagerIsStaleTests
         _mgr.WaitForElementVanish("stale-el", 1000);
         _mgr.WaitForElementVanish("stale-el", 1000);
     }
+
+    [Test]
+    public void TryEvictElement_RemovesFromCache()
+    {
+        _elements["el-1"] = null!;
+        _mgr.TryEvictElement("el-1");
+        Assert.That(_elements.ContainsKey("el-1"), Is.False);
+    }
+
+    [Test]
+    public void TryEvictElement_UnknownId_DoesNotThrow()
+    {
+        _mgr.TryEvictElement("does-not-exist");
+    }
 }

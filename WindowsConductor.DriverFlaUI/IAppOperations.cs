@@ -63,4 +63,5 @@ internal interface IAppOperations
     object DesktopScreenshot();
     void StartRecording(string appId);
     byte[] StopRecording(string appId);
+    void TryEvictElement(string elementId);
 }

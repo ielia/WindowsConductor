@@ -1216,6 +1216,8 @@ public sealed class AppManager : IAppOperations, IDisposable
         return el;
     }
 
+    public void TryEvictElement(string elementId) => _elements.TryRemove(elementId, out _);
+
     private string CacheElement(AutomationElement el)
     {
         var id = NewId();
