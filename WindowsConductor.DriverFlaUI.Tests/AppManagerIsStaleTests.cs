@@ -1,7 +1,3 @@
-using System.Collections.Concurrent;
-using System.Reflection;
-using FlaUI.Core.AutomationElements;
-
 namespace WindowsConductor.DriverFlaUI.Tests;
 
 [TestFixture]
@@ -9,17 +5,9 @@ namespace WindowsConductor.DriverFlaUI.Tests;
 public class AppManagerIsStaleTests
 {
     private AppManager _mgr = null!;
-    private ConcurrentDictionary<string, AutomationElement> _elements = null!;
 
     [SetUp]
-    public void SetUp()
-    {
-        _mgr = new AppManager();
-        _elements = (ConcurrentDictionary<string, AutomationElement>)
-            typeof(AppManager)
-                .GetField("_elements", BindingFlags.NonPublic | BindingFlags.Instance)!
-                .GetValue(_mgr)!;
-    }
+    public void SetUp() => _mgr = new AppManager();
 
     [TearDown]
     public void TearDown() => _mgr.Dispose();
@@ -33,15 +21,15 @@ public class AppManagerIsStaleTests
     [Test]
     public void IsStale_StaleElement_ReturnsTrueAndEvicts()
     {
-        _elements["stale-el"] = null!;
+        _mgr.InjectElementForTesting("stale-el", null!);
         Assert.That(_mgr.IsStale("stale-el"), Is.True);
-        Assert.That(_elements.ContainsKey("stale-el"), Is.False);
+        Assert.That(_mgr.ElementCacheContains("stale-el"), Is.False);
     }
 
     [Test]
     public void IsStale_CalledTwiceOnStaleElement_ReturnsTrueBothTimes()
     {
-        _elements["stale-el"] = null!;
+        _mgr.InjectElementForTesting("stale-el", null!);
         Assert.That(_mgr.IsStale("stale-el"), Is.True);
         Assert.That(_mgr.IsStale("stale-el"), Is.True);
     }
@@ -55,15 +43,15 @@ public class AppManagerIsStaleTests
     [Test]
     public void WaitForElementVanish_StaleElement_ReturnsAndEvicts()
     {
-        _elements["stale-el"] = null!;
+        _mgr.InjectElementForTesting("stale-el", null!);
         _mgr.WaitForElementVanish("stale-el", 1000);
-        Assert.That(_elements.ContainsKey("stale-el"), Is.False);
+        Assert.That(_mgr.ElementCacheContains("stale-el"), Is.False);
     }
 
     [Test]
     public void WaitForElementVanish_AlreadyEvicted_ReturnsImmediately()
     {
-        _elements["stale-el"] = null!;
+        _mgr.InjectElementForTesting("stale-el", null!);
         _mgr.IsStale("stale-el");
         _mgr.WaitForElementVanish("stale-el", 1000);
     }
@@ -71,7 +59,7 @@ public class AppManagerIsStaleTests
     [Test]
     public void WaitForElementVanish_CalledTwiceOnStaleElement_ReturnsBothTimes()
     {
-        _elements["stale-el"] = null!;
+        _mgr.InjectElementForTesting("stale-el", null!);
         _mgr.WaitForElementVanish("stale-el", 1000);
         _mgr.WaitForElementVanish("stale-el", 1000);
     }
@@ -79,9 +67,9 @@ public class AppManagerIsStaleTests
     [Test]
     public void TryEvictElement_RemovesFromCache()
     {
-        _elements["el-1"] = null!;
+        _mgr.InjectElementForTesting("el-1", null!);
         _mgr.TryEvictElement("el-1");
-        Assert.That(_elements.ContainsKey("el-1"), Is.False);
+        Assert.That(_mgr.ElementCacheContains("el-1"), Is.False);
     }
 
     [Test]

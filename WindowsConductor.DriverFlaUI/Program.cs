@@ -120,6 +120,17 @@ static void RunDriver(string[] args, string? logFile)
         }
     }
 
+    int maxElementCache = 100_000;
+    var maxElementCacheStr = GetFlagValue(args, "--max-element-cache");
+    if (maxElementCacheStr is not null)
+    {
+        if (!int.TryParse(maxElementCacheStr, out maxElementCache) || maxElementCache < 1)
+        {
+            Log.Fatal("--max-element-cache must be a positive integer");
+            Environment.Exit(1);
+        }
+    }
+
     int? tlsPort = null;
     var tlsPortStr = GetFlagValue(args, "--tls-port");
     if (tlsPortStr is not null)
@@ -156,7 +167,7 @@ static void RunDriver(string[] args, string? logFile)
     var valuedFlags = new HashSet<int>();
     foreach (var flag in new[]
     {
-        "--ffmpeg-path", "--log-file", "--max-concurrency",
+        "--ffmpeg-path", "--log-file", "--max-concurrency", "--max-element-cache",
         "--auth-token", "--auth-token-file", "--hash-token", "--hash-token-file",
         "--tls-port", "--cert", "--cert-key", "--cert-password", "--cert-password-file", "--cert-thumbprint"
     })
@@ -197,7 +208,7 @@ static void RunDriver(string[] args, string? logFile)
     if (logFile is not null)
         Log.Information("Logging to file: {LogFile}", logFile);
 
-    var server = new WsServer(effectiveHttpPort, tlsPort, httpsCert, confineToApp, ffmpegPath, authValidator, maxConcurrency);
+    var server = new WsServer(effectiveHttpPort, tlsPort, httpsCert, confineToApp, ffmpegPath, authValidator, maxConcurrency, maxElementCache);
     server.StartAsync(cts.Token).GetAwaiter().GetResult();
 
     Log.Information("Driver stopped");

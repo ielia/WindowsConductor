@@ -27,7 +27,10 @@ public sealed class AppManager : IAppOperations, IDisposable
     private readonly ConcurrentDictionary<string, Application> _apps = new();
     private readonly ConcurrentDictionary<string, byte> _attachedApps = new();
     private readonly ConcurrentDictionary<string, int> _appProcessIds = new();
-    private readonly ConcurrentDictionary<string, AutomationElement> _elements = new();
+    private readonly ConcurrentDictionary<string, CachedElement> _elements = new();
+    private readonly LinkedList<string> _lruOrder = new();
+    private readonly object _lruLock = new();
+    private readonly int _maxElementCacheSize;
 
     private readonly SemaphoreSlim _mouseLock = new(1, 1);
     private readonly SemaphoreSlim _keyboardLock = new(1, 1);
@@ -36,12 +39,14 @@ public sealed class AppManager : IAppOperations, IDisposable
     private readonly string? _ffmpegPath;
     private bool _disposed;
 
-    public AppManager(bool confineToApp = false, string? ffmpegPath = null)
+    public AppManager(bool confineToApp = false, string? ffmpegPath = null, int maxElementCacheSize = 100_000)
     {
         _confineToApp = confineToApp;
         _ffmpegPath = ffmpegPath;
-
+        _maxElementCacheSize = maxElementCacheSize;
     }
+
+    private sealed record CachedElement(AutomationElement Element, LinkedListNode<string> Node);
 
     // ── Application lifecycle ───────────────────────────────────────────────
 
@@ -360,7 +365,7 @@ public sealed class AppManager : IAppOperations, IDisposable
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
-                _elements.TryRemove(elementId, out _);
+                RemoveFromCache(elementId);
                 return;
             }
             if (Environment.TickCount64 >= deadline)
@@ -699,7 +704,7 @@ public sealed class AppManager : IAppOperations, IDisposable
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            _elements.TryRemove(elementId, out _);
+            RemoveFromCache(elementId);
             return true;
         }
     }
@@ -1209,20 +1214,68 @@ public sealed class AppManager : IAppOperations, IDisposable
                 $"Could not obtain a window for app session '{appId}'.");
     }
 
-    private AutomationElement GetElement(string elementId)
+    internal AutomationElement GetElement(string elementId)
     {
-        if (!_elements.TryGetValue(elementId, out var el))
+        if (!_elements.TryGetValue(elementId, out var cached))
             throw new KeyNotFoundException($"Element '{elementId}' not found in session cache.");
-        return el;
+        lock (_lruLock)
+        {
+            if (cached.Node.List is not null)
+            {
+                _lruOrder.Remove(cached.Node);
+                _lruOrder.AddFirst(cached.Node);
+            }
+        }
+        return cached.Element;
     }
 
-    public void TryEvictElement(string elementId) => _elements.TryRemove(elementId, out _);
+    public void TryEvictElement(string elementId) => RemoveFromCache(elementId);
 
     private string CacheElement(AutomationElement el)
     {
         var id = NewId();
-        _elements[id] = el;
+        lock (_lruLock)
+        {
+            var node = _lruOrder.AddFirst(id);
+            _elements[id] = new CachedElement(el, node);
+            EvictExcess();
+        }
         return id;
+    }
+
+    private void RemoveFromCache(string elementId)
+    {
+        if (_elements.TryRemove(elementId, out var cached))
+        {
+            lock (_lruLock)
+            {
+                if (cached.Node.List is not null)
+                    _lruOrder.Remove(cached.Node);
+            }
+        }
+    }
+
+    private void EvictExcess()
+    {
+        while (_lruOrder.Count > _maxElementCacheSize)
+        {
+            var last = _lruOrder.Last!;
+            _lruOrder.RemoveLast();
+            _elements.TryRemove(last.Value, out _);
+        }
+    }
+
+    internal int ElementCacheCount => _elements.Count;
+    internal bool ElementCacheContains(string id) => _elements.ContainsKey(id);
+
+    internal void InjectElementForTesting(string id, AutomationElement? el)
+    {
+        lock (_lruLock)
+        {
+            var node = _lruOrder.AddFirst(id);
+            _elements[id] = new CachedElement(el!, node);
+            EvictExcess();
+        }
     }
 
     private static string NewId() => Guid.NewGuid().ToString("N");

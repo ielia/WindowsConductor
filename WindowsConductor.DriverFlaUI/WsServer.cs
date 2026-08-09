@@ -34,6 +34,7 @@ public sealed class WsServer
     private readonly int? _httpsPort;
     private readonly X509Certificate2? _httpsCert;
     private readonly int _maxConcurrency;
+    private readonly int _maxElementCacheSize;
     private readonly JsonSerializerOptions _jsonOpts = new()
     {
         PropertyNameCaseInsensitive = true,
@@ -47,7 +48,8 @@ public sealed class WsServer
         bool confineToApp = false,
         string? ffmpegPath = null,
         AuthTokenValidator? authValidator = null,
-        int maxConcurrency = 4)
+        int maxConcurrency = 8,
+        int maxElementCacheSize = 100_000)
     {
         _httpPort = httpPort;
         _httpsPort = httpsPort;
@@ -56,6 +58,7 @@ public sealed class WsServer
         _ffmpegPath = ffmpegPath;
         _authValidator = authValidator ?? AuthTokenValidator.None();
         _maxConcurrency = maxConcurrency;
+        _maxElementCacheSize = maxElementCacheSize;
     }
 
     public async Task StartAsync(CancellationToken ct = default)
@@ -112,7 +115,7 @@ public sealed class WsServer
 
     private async Task HandleClientAsync(WebSocket ws, CancellationToken ct)
     {
-        using var appManager = new AppManager(confineToApp: _confineToApp, ffmpegPath: _ffmpegPath);
+        using var appManager = new AppManager(confineToApp: _confineToApp, ffmpegPath: _ffmpegPath, maxElementCacheSize: _maxElementCacheSize);
         using var writeLock = new SemaphoreSlim(1, 1);
         using var concurrencyLimiter = new SemaphoreSlim(_maxConcurrency, _maxConcurrency);
         var outstanding = new List<Task>();
