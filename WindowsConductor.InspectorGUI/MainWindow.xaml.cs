@@ -816,16 +816,15 @@ public partial class MainWindow : Window, ICommandOutput
 
             var unionRect = ComputeUnionRect(rootNode);
             byte[] croppedBytes;
-            if (unionRect is not null)
-                croppedBytes = CropScreenshot(desktopResult.Png, unionRect, desktopResult.OriginX, desktopResult.OriginY);
-            else
-                croppedBytes = desktopResult.Png;
-
-            var actualRect = unionRect ?? new BoundingRect(0, 0, 0, 0);
+            BoundingRect actualRect;
             if (unionRect is not null)
             {
-                using var tmp = SkiaSharp.SKBitmap.Decode(croppedBytes);
-                actualRect = new BoundingRect(unionRect.X, unionRect.Y, tmp.Width, tmp.Height);
+                (croppedBytes, actualRect) = CropScreenshot(desktopResult.Png, unionRect, desktopResult.OriginX, desktopResult.OriginY);
+            }
+            else
+            {
+                croppedBytes = desktopResult.Png;
+                actualRect = new BoundingRect(0, 0, 0, 0);
             }
 
             _snapshotCapture = new SnapshotCapture(
@@ -993,15 +992,23 @@ public partial class MainWindow : Window, ICommandOutput
             AccumulateRects(child, ref minX, ref minY, ref maxX, ref maxY, ref found);
     }
 
-    private static byte[] CropScreenshot(byte[] screenshotBytes, BoundingRect unionRect,
+    private static (byte[] ImageData, BoundingRect EffectiveRect) CropScreenshot(
+        byte[] screenshotBytes, BoundingRect unionRect,
         double screenOriginX = 0, double screenOriginY = 0)
     {
+        var fallbackRect = new BoundingRect(unionRect.X, unionRect.Y, unionRect.Width, unionRect.Height);
+
         using var bitmap = SkiaSharp.SKBitmap.Decode(screenshotBytes);
+        if (bitmap is null) return (screenshotBytes, fallbackRect);
+
         var cropX = Math.Max(0, (int)(unionRect.X - screenOriginX));
         var cropY = Math.Max(0, (int)(unionRect.Y - screenOriginY));
         var cropW = Math.Min((int)unionRect.Width, bitmap.Width - cropX);
         var cropH = Math.Min((int)unionRect.Height, bitmap.Height - cropY);
-        if (cropW <= 0 || cropH <= 0) return screenshotBytes;
+        if (cropW <= 0 || cropH <= 0) return (screenshotBytes, fallbackRect);
+
+        var effectiveRect = new BoundingRect(
+            screenOriginX + cropX, screenOriginY + cropY, cropW, cropH);
 
         var subset = new SkiaSharp.SKBitmap(cropW, cropH);
         using var canvas = new SkiaSharp.SKCanvas(subset);
@@ -1009,7 +1016,7 @@ public partial class MainWindow : Window, ICommandOutput
             new SkiaSharp.SKRect(0, 0, cropW, cropH));
         using var image = SkiaSharp.SKImage.FromBitmap(subset);
         using var data = image.Encode(SkiaSharp.SKEncodedImageFormat.Png, 100);
-        return data.ToArray();
+        return (data.ToArray(), effectiveRect);
     }
 
     private void ShowSnapshotScreenshot(byte[] imageBytes, BoundingRect? unionRect)

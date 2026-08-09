@@ -711,8 +711,8 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
         {
             var unionRect = ComputeUnionRect(allRects);
             var desktopResult = await session.DesktopScreenshotWithOriginAsync(ct);
-            var cropped = CropScreenshot(desktopResult.Png, unionRect, desktopResult.OriginX, desktopResult.OriginY);
-            return (cropped, unionRect);
+            var (cropped, effectiveRect) = CropScreenshot(desktopResult.Png, unionRect, desktopResult.OriginX, desktopResult.OriginY);
+            return (cropped, effectiveRect);
         }
         catch
         {
@@ -742,20 +742,26 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
         return new BoundingRect(minX, minY, maxX - minX, maxY - minY);
     }
 
-    internal static byte[] CropScreenshot(byte[] screenshotBytes, BoundingRect cropRect,
+    internal static (byte[] ImageData, BoundingRect EffectiveRect) CropScreenshot(
+        byte[] screenshotBytes, BoundingRect cropRect,
         double screenOriginX = 0, double screenOriginY = 0)
     {
+        var fallbackRect = new BoundingRect(cropRect.X, cropRect.Y, cropRect.Width, cropRect.Height);
+
         SKBitmap? bitmap;
         try { bitmap = SKBitmap.Decode(screenshotBytes); }
-        catch { return screenshotBytes; }
-        if (bitmap is null) return screenshotBytes;
+        catch { return (screenshotBytes, fallbackRect); }
+        if (bitmap is null) return (screenshotBytes, fallbackRect);
         using (bitmap)
         {
             var cropX = Math.Max(0, (int)(cropRect.X - screenOriginX));
             var cropY = Math.Max(0, (int)(cropRect.Y - screenOriginY));
             var cropW = Math.Min((int)cropRect.Width, bitmap.Width - cropX);
             var cropH = Math.Min((int)cropRect.Height, bitmap.Height - cropY);
-            if (cropW <= 0 || cropH <= 0) return screenshotBytes;
+            if (cropW <= 0 || cropH <= 0) return (screenshotBytes, fallbackRect);
+
+            var effectiveRect = new BoundingRect(
+                screenOriginX + cropX, screenOriginY + cropY, cropW, cropH);
 
             var subset = new SKBitmap(cropW, cropH);
             using var canvas = new SKCanvas(subset);
@@ -763,7 +769,7 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
                 new SKRect(0, 0, cropW, cropH));
             using var image = SKImage.FromBitmap(subset);
             using var data = image.Encode(SKEncodedImageFormat.Png, 100);
-            return data.ToArray();
+            return (data.ToArray(), effectiveRect);
         }
     }
 
