@@ -157,8 +157,7 @@ public sealed class AppManager : IAppOperations, IDisposable
                 type = nameof(WcAttrType.ListValue),
                 items = er.Elements.Select(e => (object)new
                 {
-                    type = nameof(WcAttrType.StringValue),
-                    value = ElementProperties.Resolve(e, "text") ?? "",
+                    type = nameof(WcAttrType.ElementValue),
                     elementId = CacheElement(e)
                 }).ToArray()
             },

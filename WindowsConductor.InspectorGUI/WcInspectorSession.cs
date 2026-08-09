@@ -261,6 +261,9 @@ internal sealed class WcInspectorSession : IInspectorSession, IAsyncDisposable
     public async Task<IReadOnlyTreeNode<WcElement>> GetDescendantsAsync(CancellationToken ct = default) =>
         await _selectedElement!.DescendantsAsync(ct);
 
+    // TODO: When the app is maximized, bounding rects seem shifted by the window shadow size
+    // (shadow is absent when maximized but still accounted for in the reported coordinates).
+    // Investigate and compensate for this offset.
     public async Task<BoundingRect[]> GetAllWindowBoundingRectsAsync(CancellationToken ct = default)
     {
         var mainRectTask = SafeBoundingRectAsync(GetWindowBoundingRectAsync(ct));
@@ -298,14 +301,11 @@ internal sealed class WcInspectorSession : IInspectorSession, IAsyncDisposable
         try
         {
             var resolved = await _app!.Locator("//Window/@boundingrectangle").GetResolvedValueAsync(ct);
-            if (resolved.GetAsList() is { } items)
+            foreach (var item in resolved.GetAsList())
             {
-                foreach (var item in items)
-                {
-                    var rect = item.GetAsRectangle();
-                    if (rect is { Width: > 0, Height: > 0 })
-                        rects.Add(new BoundingRect(rect.Value.X, rect.Value.Y, rect.Value.Width, rect.Value.Height));
-                }
+                var rect = item.GetAsRectangle();
+                if (rect is { Width: > 0, Height: > 0 })
+                    rects.Add(new BoundingRect(rect.Value.X, rect.Value.Y, rect.Value.Width, rect.Value.Height));
             }
         }
         catch { /* skip if //Window locator fails */ }

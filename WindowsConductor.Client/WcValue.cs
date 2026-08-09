@@ -53,6 +53,24 @@ public record WcValue(WcAttrType Type, object? Value)
             return value;
         }
 
+        if (type == MapValue)
+        {
+            if (value is not IReadOnlyDictionary<WcValue, WcValue>)
+                throw new ArgumentException(
+                    $"WcAttrType.MapValue expects an IReadOnlyDictionary<WcValue, WcValue> Value, but got '{value}' ({value.GetType().Name}).",
+                    nameof(value));
+            return value;
+        }
+
+        if (type == ElementValue)
+        {
+            if (value is not WcElement)
+                throw new ArgumentException(
+                    $"WcAttrType.ElementValue expects a WcElement Value, but got '{value}' ({value.GetType().Name}).",
+                    nameof(value));
+            return value;
+        }
+
         if (ExpectedValueTypes.TryGetValue(type, out var expected) && !expected.IsInstanceOfType(value))
         {
             throw new ArgumentException(
@@ -131,7 +149,25 @@ public record WcValue(WcAttrType Type, object? Value)
 
     public long? GetAsLong() => ConvertNumericValue(LongValue, s => long.Parse(s, CultureInfo.InvariantCulture));
 
-    public IReadOnlyList<WcValue>? GetAsList() => Value as IReadOnlyList<WcValue>;
+    public WcElement? GetAsElement() => Value as WcElement;
+
+    public IReadOnlyList<WcValue> GetAsList() =>
+        Value as IReadOnlyList<WcValue>
+        ?? throw new InvalidCastException($"Cannot convert WcValue({Type}) to IReadOnlyList<WcValue>.");
+
+    public IReadOnlyList<T> GetAsList<T>() =>
+        GetAsList().Select(Unwrap<T>).ToList();
+
+    public IReadOnlyDictionary<WcValue, WcValue> GetAsMap() =>
+        Value as IReadOnlyDictionary<WcValue, WcValue>
+        ?? throw new InvalidCastException($"Cannot convert WcValue({Type}) to IReadOnlyDictionary<WcValue, WcValue>.");
+
+    public IReadOnlyDictionary<TKey, TValue> GetAsMap<TKey, TValue>() where TKey : notnull =>
+        GetAsMap().ToDictionary(kv => Unwrap<TKey>(kv.Key), kv => Unwrap<TValue>(kv.Value));
+
+    private static T Unwrap<T>(WcValue v) =>
+        v.Value is T t ? t : throw new InvalidCastException(
+            $"Cannot unwrap WcValue({v.Type}, {v.Value}) as {typeof(T).Name}.");
 
     public Point? GetAsPoint() => Value as Point?;
 

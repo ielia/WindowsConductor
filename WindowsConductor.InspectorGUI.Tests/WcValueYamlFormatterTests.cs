@@ -276,9 +276,49 @@ public class WcValueYamlFormatterTests
     }
 
     [Test]
-    public void Format_NullListValue()
+    public void Format_NullListValue_Throws()
     {
         var v = new WcValue(WcAttrType.ListValue, null);
-        Assert.That(WcValueYamlFormatter.Format(v), Is.EqualTo("[]"));
+        Assert.Throws<InvalidCastException>(() => WcValueYamlFormatter.Format(v));
+    }
+
+    [Test]
+    public void Format_ElementValue()
+    {
+        var v = new WcValue(WcAttrType.ElementValue, DummyEl);
+        Assert.That(WcValueYamlFormatter.Format(v), Is.EqualTo("<element:el-1>"));
+    }
+
+    [Test]
+    public void Format_MapValue_Empty()
+    {
+        IReadOnlyDictionary<WcValue, WcValue> map = new Dictionary<WcValue, WcValue>();
+        var v = new WcValue(WcAttrType.MapValue, map);
+        Assert.That(WcValueYamlFormatter.Format(v), Is.EqualTo("{}"));
+    }
+
+    [Test]
+    public void Format_MapValue_SingleEntry()
+    {
+        IReadOnlyDictionary<WcValue, WcValue> map = new Dictionary<WcValue, WcValue>
+        {
+            [new WcValue(WcAttrType.StringValue, "name")] = new WcValue(WcAttrType.StringValue, "OK")
+        };
+        var v = new WcValue(WcAttrType.MapValue, map);
+        Assert.That(WcValueYamlFormatter.Format(v), Is.EqualTo("\"name\": \"OK\""));
+    }
+
+    [Test]
+    public void Format_MapValue_MultipleEntries()
+    {
+        var map = new Dictionary<WcValue, WcValue>
+        {
+            [new WcValue(WcAttrType.StringValue, "a")] = new WcValue(WcAttrType.IntValue, 1),
+            [new WcValue(WcAttrType.StringValue, "b")] = new WcValue(WcAttrType.IntValue, 2)
+        };
+        var v = new WcValue(WcAttrType.MapValue, map);
+        var result = WcValueYamlFormatter.Format(v);
+        Assert.That(result, Does.Contain("\"a\": 1"));
+        Assert.That(result, Does.Contain("\"b\": 2"));
     }
 }

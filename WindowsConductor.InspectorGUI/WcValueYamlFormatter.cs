@@ -21,6 +21,8 @@ internal static class WcValueYamlFormatter
         return value.Type switch
         {
             WcAttrType.ListValue => FormatList(value, depth),
+            WcAttrType.MapValue => FormatMap(value, depth),
+            WcAttrType.ElementValue => $"<element:{value.GetAsElement()!.ElementId}>",
             WcAttrType.PointValue => FormatPoint((Point)value.Value!, depth),
             WcAttrType.RectangleValue => FormatRectangle((Rectangle)value.Value!, depth),
             WcAttrType.NullValue => "null",
@@ -40,7 +42,7 @@ internal static class WcValueYamlFormatter
         if (value.Type == WcAttrType.ListValue)
         {
             var list = value.GetAsList();
-            if (list is null or { Count: 0 })
+            if (list.Count == 0)
                 return "[]";
             var sb = new StringBuilder();
             sb.Append('\n');
@@ -49,6 +51,26 @@ internal static class WcValueYamlFormatter
                 sb.Append(RepeatIndent(depth + 1));
                 sb.Append("- ");
                 sb.Append(Format(item, depth + 2));
+                sb.Append('\n');
+            }
+            return sb.ToString().TrimEnd();
+        }
+
+        if (value.Type == WcAttrType.MapValue)
+        {
+            var map = value.GetAsMap();
+            if (map.Count == 0)
+                return "{}";
+            var sb = new StringBuilder();
+            sb.Append('\n');
+            foreach (var kv in map)
+            {
+                sb.Append(RepeatIndent(depth + 1));
+                var formatted = Format(kv.Value, depth + 2);
+                var separator = formatted.StartsWith('\n') ? ":" : ": ";
+                sb.Append(Format(kv.Key, 0));
+                sb.Append(separator);
+                sb.Append(formatted);
                 sb.Append('\n');
             }
             return sb.ToString().TrimEnd();
@@ -68,7 +90,7 @@ internal static class WcValueYamlFormatter
     private static string FormatList(WcValue value, int depth)
     {
         var list = value.GetAsList();
-        if (list is null or { Count: 0 })
+        if (list.Count == 0)
             return "[]";
 
         var sb = new StringBuilder();
@@ -81,6 +103,31 @@ internal static class WcValueYamlFormatter
             }
             sb.Append("- ");
             sb.Append(Format(list[i], depth + 1));
+        }
+        return sb.ToString();
+    }
+
+    private static string FormatMap(WcValue value, int depth)
+    {
+        var map = value.GetAsMap();
+        if (map.Count == 0)
+            return "{}";
+
+        var sb = new StringBuilder();
+        var first = true;
+        foreach (var kv in map)
+        {
+            if (!first)
+            {
+                sb.Append('\n');
+                sb.Append(RepeatIndent(depth));
+            }
+            first = false;
+            var formatted = Format(kv.Value, depth + 1);
+            var separator = formatted.StartsWith('\n') ? ":" : ": ";
+            sb.Append(Format(kv.Key, 0));
+            sb.Append(separator);
+            sb.Append(formatted);
         }
         return sb.ToString();
     }

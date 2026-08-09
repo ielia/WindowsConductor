@@ -586,6 +586,24 @@ public sealed class WcLocator : IWcWidget
             return new WcValue(WcAttrType.ListValue, items);
         }
 
+        if (type == WcAttrType.MapValue)
+        {
+            var entries = new Dictionary<WcValue, WcValue>();
+            foreach (var entry in json.GetProperty("entries").EnumerateArray())
+            {
+                var key = DeserializeValue(entry.GetProperty("key"));
+                var val = DeserializeValue(entry.GetProperty("value"));
+                entries[key] = val;
+            }
+            return new WcValue(WcAttrType.MapValue, entries);
+        }
+
+        if (type == WcAttrType.ElementValue)
+        {
+            var elementId = json.GetProperty("elementId").GetString()!;
+            return new WcValue(WcAttrType.ElementValue, new WcElement(elementId, _conn, _appId));
+        }
+
         var value = DeserializePrimitive(json, type);
         return new WcValue(type, value);
     }
@@ -594,6 +612,13 @@ public sealed class WcLocator : IWcWidget
     {
         var typeName = item.GetProperty("type").GetString()!;
         var type = Enum.Parse<WcAttrType>(typeName);
+
+        if (type == WcAttrType.ElementValue)
+        {
+            var elementId = item.GetProperty("elementId").GetString()!;
+            return new WcValue(WcAttrType.ElementValue, new WcElement(elementId, _conn, _appId));
+        }
+
         var value = DeserializePrimitive(item, type);
 
         if (item.TryGetProperty("name", out var nameProp))

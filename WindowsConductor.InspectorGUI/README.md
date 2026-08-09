@@ -139,3 +139,7 @@ Anchors for `click`, `doubleclick`, `rightclick`, `hover`, and `drag`: `center`,
 - Tab-completion and command history.
 - Command chaining with `;` for scripting sequences.
 - Clickless mode for inspecting elements without clicking them.
+
+## Known Issues
+
+- **Maximized window screenshot shift**: When the target application is maximized, the enclosing bounding rectangles appear shifted by an offset that coincides with the window shadow size. The shadow is absent when maximized but still accounted for in the reported coordinates, causing a mismatch in the cropped screenshot.

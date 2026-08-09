@@ -319,7 +319,7 @@ public class WcAttrTests
         IReadOnlyList<WcValue> items = [new WcAttr(DummyElement, "a", WcAttrType.IntValue, 1)];
         var attr = new WcAttr(DummyElement, "x", WcAttrType.ListValue, items);
         Assert.That(attr.GetAsList(), Has.Count.EqualTo(1));
-        Assert.That(attr.GetAsList()![0], Is.InstanceOf<WcAttr>());
+        Assert.That(attr.GetAsList()[0], Is.InstanceOf<WcAttr>());
     }
 
     [Test]
@@ -334,23 +334,135 @@ public class WcAttrTests
         IReadOnlyList<WcValue> items = [new WcValue(WcAttrType.IntValue, 42)];
         var attr = new WcAttr(DummyElement, "x", WcAttrType.ListValue, items);
         var list = attr.GetAsList();
-        Assert.That(list, Is.Not.Null);
         Assert.That(list, Has.Count.EqualTo(1));
-        Assert.That(list![0].GetAsInt(), Is.EqualTo(42));
+        Assert.That(list[0].GetAsInt(), Is.EqualTo(42));
     }
 
     [Test]
-    public void GetAsList_NullValue_ReturnsNull()
+    public void GetAsList_NullValue_Throws()
     {
         var attr = new WcAttr(DummyElement, "x", WcAttrType.ListValue, null);
-        Assert.That(attr.GetAsList(), Is.Null);
+        Assert.Throws<InvalidCastException>(() => attr.GetAsList());
     }
 
     [Test]
-    public void GetAsList_NonListType_ReturnsNull()
+    public void GetAsList_NonListType_Throws()
     {
         var attr = new WcAttr(DummyElement, "x", WcAttrType.StringValue, "hello");
-        Assert.That(attr.GetAsList(), Is.Null);
+        Assert.Throws<InvalidCastException>(() => attr.GetAsList());
+    }
+
+    [Test]
+    public void Constructor_ElementValue_AcceptsWcElement()
+    {
+        var value = new WcValue(WcAttrType.ElementValue, DummyElement);
+        Assert.That(value.Type, Is.EqualTo(WcAttrType.ElementValue));
+        Assert.That(value.Value, Is.SameAs(DummyElement));
+    }
+
+    [Test]
+    public void Constructor_ElementValue_RejectsNonElement()
+    {
+        Assert.Throws<ArgumentException>(() => new WcValue(WcAttrType.ElementValue, "not an element"));
+    }
+
+    [Test]
+    public void GetAsElement_ReturnsElement()
+    {
+        var value = new WcValue(WcAttrType.ElementValue, DummyElement);
+        Assert.That(value.GetAsElement(), Is.SameAs(DummyElement));
+    }
+
+    [Test]
+    public void GetAsElement_NullValue_ReturnsNull()
+    {
+        var value = new WcValue(WcAttrType.ElementValue, null);
+        Assert.That(value.GetAsElement(), Is.Null);
+    }
+
+    [Test]
+    public void GetAsElement_NonElementType_ReturnsNull()
+    {
+        var value = new WcValue(WcAttrType.StringValue, "hello");
+        Assert.That(value.GetAsElement(), Is.Null);
+    }
+
+    [Test]
+    public void Constructor_MapValue_AcceptsDictionary()
+    {
+        IReadOnlyDictionary<WcValue, WcValue> map = new Dictionary<WcValue, WcValue>
+        {
+            [new WcValue(WcAttrType.StringValue, "key")] = new WcValue(WcAttrType.IntValue, 42)
+        };
+        var value = new WcValue(WcAttrType.MapValue, map);
+        Assert.That(value.Type, Is.EqualTo(WcAttrType.MapValue));
+        Assert.That(value.Value, Is.SameAs(map));
+    }
+
+    [Test]
+    public void Constructor_MapValue_RejectsNonDictionary()
+    {
+        Assert.Throws<ArgumentException>(() => new WcValue(WcAttrType.MapValue, "not a map"));
+    }
+
+    [Test]
+    public void GetAsMap_ReturnsDictionary()
+    {
+        IReadOnlyDictionary<WcValue, WcValue> map = new Dictionary<WcValue, WcValue>
+        {
+            [new WcValue(WcAttrType.StringValue, "name")] = new WcValue(WcAttrType.StringValue, "OK")
+        };
+        var value = new WcValue(WcAttrType.MapValue, map);
+        var result = value.GetAsMap();
+        Assert.That(result, Has.Count.EqualTo(1));
+    }
+
+    [Test]
+    public void GetAsMap_NonMapType_Throws()
+    {
+        var value = new WcValue(WcAttrType.StringValue, "hello");
+        Assert.Throws<InvalidCastException>(() => value.GetAsMap());
+    }
+
+    [Test]
+    public void GetAsMap_Generic_UnwrapsValues()
+    {
+        IReadOnlyDictionary<WcValue, WcValue> map = new Dictionary<WcValue, WcValue>
+        {
+            [new WcValue(WcAttrType.StringValue, "x")] = new WcValue(WcAttrType.IntValue, 42),
+            [new WcValue(WcAttrType.StringValue, "y")] = new WcValue(WcAttrType.IntValue, 7)
+        };
+        var value = new WcValue(WcAttrType.MapValue, map);
+        var typed = value.GetAsMap<string, int>();
+        Assert.That(typed["x"], Is.EqualTo(42));
+        Assert.That(typed["y"], Is.EqualTo(7));
+    }
+
+    [Test]
+    public void GetAsList_Generic_UnwrapsValues()
+    {
+        IReadOnlyList<WcValue> list =
+        [
+            new WcValue(WcAttrType.StringValue, "a"),
+            new WcValue(WcAttrType.StringValue, "b")
+        ];
+        var value = new WcValue(WcAttrType.ListValue, list);
+        var typed = value.GetAsList<string>();
+        Assert.That(typed, Is.EqualTo(new[] { "a", "b" }));
+    }
+
+    [Test]
+    public void GetAsList_Generic_NonListType_Throws()
+    {
+        var value = new WcValue(WcAttrType.StringValue, "hello");
+        Assert.Throws<InvalidCastException>(() => value.GetAsList<string>());
+    }
+
+    [Test]
+    public void GetAsMap_Generic_NonMapType_Throws()
+    {
+        var value = new WcValue(WcAttrType.StringValue, "hello");
+        Assert.Throws<InvalidCastException>(() => value.GetAsMap<string, int>());
     }
 }
 

@@ -158,7 +158,7 @@ All OCR text types inherit from `WcElementOcrText` and expose action methods:
 | `KeyModifiers` | Flags: `None`, `Shift`, `Ctrl`, `Alt`, `Meta`. |
 | `WcWindowState` | Enum: `Normal`, `Maximized`, `Minimized`, `MinimizedMaximized`, `Hidden`. |
 | `BoundingRect` | Record with `X`, `Y`, `Width`, `Height`, `Bottom`, `Right`, `Center`. |
-| `WcValue` / `WcAttr` | Typed values from `ResolveValue` / `GetAttributeAsync` with conversion methods (`GetAsInt`, `GetAsString`, etc.). |
+| `WcValue` / `WcAttr` | Typed values from `ResolveValue` / `GetAttributeAsync` with conversion methods (`GetAsInt`, `GetAsString`, `GetAsElement`, `GetAsList`, `GetAsMap`, etc.). Generic overloads `GetAsList<T>()` and `GetAsMap<TKey, TValue>()` unwrap values. |
 
 ### Exceptions
 

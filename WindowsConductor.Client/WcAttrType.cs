@@ -14,5 +14,7 @@ public enum WcAttrType
     PointValue,
     RectangleValue,
     ListValue,
+    MapValue,
+    ElementValue,
     NullValue
 }

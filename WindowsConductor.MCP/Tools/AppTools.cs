@@ -364,9 +364,26 @@ public sealed class AppTools(ConductorState state)
 
         if (value.Type == WcAttrType.ListValue)
         {
-            var items = value.GetAsList()!;
+            var items = value.GetAsList();
             return new { type = "list", items = items.Select(SerializeWcValue).ToArray() };
         }
+
+        if (value.Type == WcAttrType.MapValue)
+        {
+            var map = value.GetAsMap();
+            return new
+            {
+                type = "map",
+                entries = map.Select(kv => new
+                {
+                    key = SerializeWcValue(kv.Key),
+                    value = SerializeWcValue(kv.Value)
+                }).ToArray()
+            };
+        }
+
+        if (value.Type == WcAttrType.ElementValue)
+            return new { type = "element", elementId = value.GetAsElement()!.ElementId };
 
         var result = new Dictionary<string, object?>
         {
