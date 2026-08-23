@@ -1,6 +1,7 @@
 <Window x:Class="WindowsConductor.InspectorGUI.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:WindowsConductor.InspectorGUI"
         Title="WindowsConductor Inspector" Height="700" Width="1000"
         WindowStartupLocation="CenterScreen"
         PreviewKeyDown="Window_PreviewKeyDown"
@@ -48,16 +49,38 @@
                 BorderThickness="3" BorderBrush="#333333" Visibility="Collapsed"
                 Focusable="True">
             <DockPanel>
-                <Button x:Name="SnapshotCloseButton" DockPanel.Dock="Top"
-                        Content="X" HorizontalAlignment="Right"
-                        Margin="4" Padding="6,2"
-                        ToolTip="Close snapshot and return to normal mode"
-                        Click="SnapshotCloseButton_Click" />
+                <DockPanel DockPanel.Dock="Top" Margin="4">
+                    <Button x:Name="SnapshotCloseButton" DockPanel.Dock="Right"
+                            Content="X" Padding="6,2"
+                            ToolTip="Close snapshot and return to normal mode"
+                            Click="SnapshotCloseButton_Click" />
+                    <Rectangle DockPanel.Dock="Right" Width="2" Fill="#555555" Margin="4,0" />
+                    <Grid>
+                        <TextBox x:Name="SnapshotFilterBox"
+                                 Background="#2D2D2D" Foreground="#FFFFFF"
+                                 BorderBrush="#555555" BorderThickness="1"
+                                 FontFamily="Consolas" FontSize="11"
+                                 VerticalContentAlignment="Center"
+                                 Padding="4,2,20,2"
+                                 TextChanged="SnapshotFilterBox_TextChanged" />
+                        <Button x:Name="SnapshotFilterClearButton"
+                                Content="x" HorizontalAlignment="Right"
+                                VerticalAlignment="Center"
+                                Margin="0,0,2,0" Padding="4,0"
+                                FontSize="10" FontFamily="Consolas"
+                                Background="Transparent" Foreground="#888888"
+                                BorderThickness="0" Cursor="Hand"
+                                Visibility="Collapsed"
+                                ToolTip="Clear filter"
+                                Click="SnapshotFilterClearButton_Click" />
+                    </Grid>
+                </DockPanel>
                 <TreeView x:Name="SnapshotTree"
                           Background="Transparent" Foreground="#CCCCCC"
                           FontFamily="Consolas" FontSize="11"
                           BorderThickness="0" IsEnabled="False"
-                          SelectedItemChanged="SnapshotTree_SelectedItemChanged">
+                          SelectedItemChanged="SnapshotTree_SelectedItemChanged"
+                          PreviewKeyDown="SnapshotTree_PreviewKeyDown">
                 </TreeView>
             </DockPanel>
         </Border>
@@ -232,14 +255,22 @@
                                 <DataGridTemplateColumn Header="Name" Width="Auto" MinWidth="80">
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate>
-                                            <TextBlock Text="{Binding Name}" Padding="2,0" FontWeight="Bold" />
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="📌 " Padding="2,0,0,0" />
+                                                <TextBlock local:TextHighlight.SourceText="{Binding Name}"
+                                                           local:TextHighlight.Terms="{Binding SnapshotHighlightTokens, RelativeSource={RelativeSource AncestorType=local:MainWindow}}"
+                                                           local:TextHighlight.Role="Name"
+                                                           Padding="0,0,2,0" />
+                                            </StackPanel>
                                         </DataTemplate>
                                     </DataGridTemplateColumn.CellTemplate>
                                 </DataGridTemplateColumn>
                                 <DataGridTemplateColumn Header="Value" Width="Auto" MinWidth="120">
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate>
-                                            <TextBlock Text="{Binding Value}" Padding="2,0">
+                                            <TextBlock local:TextHighlight.SourceText="{Binding Value}"
+                                                       local:TextHighlight.Terms="{Binding SnapshotHighlightTokens, RelativeSource={RelativeSource AncestorType=local:MainWindow}}"
+                                                       Padding="2,0">
                                                 <TextBlock.Style>
                                                     <Style TargetType="TextBlock">
                                                         <Setter Property="TextWrapping" Value="NoWrap" />
@@ -291,11 +322,22 @@
                                 </Style>
                             </DataGrid.ColumnHeaderStyle>
                             <DataGrid.Columns>
-                                <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="Auto" MinWidth="80" />
+                                <DataGridTemplateColumn Header="Name" Width="Auto" MinWidth="80">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock local:TextHighlight.SourceText="{Binding Name}"
+                                                       local:TextHighlight.Terms="{Binding SnapshotHighlightTokens, RelativeSource={RelativeSource AncestorType=local:MainWindow}}"
+                                                       local:TextHighlight.Role="Name"
+                                                       Padding="2,0" />
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
                                 <DataGridTemplateColumn Header="Value" Width="Auto" MinWidth="120">
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate>
-                                            <TextBlock Text="{Binding Value}" Padding="2,0">
+                                            <TextBlock local:TextHighlight.SourceText="{Binding Value}"
+                                                       local:TextHighlight.Terms="{Binding SnapshotHighlightTokens, RelativeSource={RelativeSource AncestorType=local:MainWindow}}"
+                                                       Padding="2,0">
                                                 <TextBlock.Style>
                                                     <Style TargetType="TextBlock">
                                                         <Setter Property="TextWrapping" Value="NoWrap" />

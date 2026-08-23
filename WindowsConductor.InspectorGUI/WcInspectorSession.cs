@@ -261,9 +261,6 @@ internal sealed class WcInspectorSession : IInspectorSession, IAsyncDisposable
     public async Task<IReadOnlyTreeNode<WcElement>> GetDescendantsAsync(CancellationToken ct = default) =>
         await _selectedElement!.DescendantsAsync(ct);
 
-    // TODO: When the app is maximized, bounding rects seem shifted by the window shadow size
-    // (shadow is absent when maximized but still accounted for in the reported coordinates).
-    // Investigate and compensate for this offset.
     public async Task<BoundingRect[]> GetAllWindowBoundingRectsAsync(CancellationToken ct = default)
     {
         var mainRectTask = SafeBoundingRectAsync(GetWindowBoundingRectAsync(ct));

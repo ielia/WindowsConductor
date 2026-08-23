@@ -25,6 +25,15 @@ namespace WindowsConductor.InspectorGUI;
 public partial class MainWindow : Window, ICommandOutput
 #pragma warning restore CA1001
 {
+    public static readonly DependencyProperty SnapshotHighlightTokensProperty =
+        DependencyProperty.Register(nameof(SnapshotHighlightTokens), typeof(string[]), typeof(MainWindow));
+
+    public string[] SnapshotHighlightTokens
+    {
+        get => (string[])GetValue(SnapshotHighlightTokensProperty);
+        set => SetValue(SnapshotHighlightTokensProperty, value);
+    }
+
     private readonly CommandExecutor _executor;
     private readonly CommandHistory _history = new();
     private DispatcherTimer? _blinkTimer;
@@ -53,6 +62,8 @@ public partial class MainWindow : Window, ICommandOutput
     private bool _preSnapshotClickless;
     private List<TreeViewItem> _snapshotHitItems = [];
     private int _snapshotHitIndex;
+    private string[] _snapshotFilterTokens = [];
+    private readonly HashSet<TreeViewItem> _snapshotMatchingItems = [];
     private double _zoomLevel = 1.0;
     private bool _isPanning;
     private System.Windows.Point _panStart;
@@ -200,7 +211,7 @@ public partial class MainWindow : Window, ICommandOutput
         var session = new WcInspectorSession();
         _executor = new CommandExecutor(session, this);
         _normalPanels = [CommandInput, ScreenshotImage, AttributesGrid, OutputLog];
-        _snapshotPanels = [SnapshotTree, ScreenshotImage, AttributesGrid, OutputLog];
+        _snapshotPanels = [SnapshotFilterBox, SnapshotTree, ScreenshotImage, AttributesGrid, OutputLog];
         _panelBorders = new Dictionary<UIElement, Border>
         {
             [CommandInput] = CommandInputBorder,
@@ -208,6 +219,7 @@ public partial class MainWindow : Window, ICommandOutput
             [ScreenshotImage] = ScreenshotBorder,
             [AttributesGrid] = AttributesBorder,
             [SnapshotTree] = SnapshotPanel,
+            [SnapshotFilterBox] = SnapshotPanel,
         };
         SyncColumnWidths(PinnedAttributesGrid, AttributesGrid);
         SyncColumnWidths(AttributesGrid, PinnedAttributesGrid);
@@ -1106,6 +1118,7 @@ public partial class MainWindow : Window, ICommandOutput
 
         LocatorChainPanel.Visibility = Visibility.Collapsed;
 
+        SnapshotFilterBox.Text = "";
         SnapshotPanel.Visibility = Visibility.Visible;
         SnapshotSplitter.Visibility = Visibility.Visible;
         SnapshotColumn.Width = new GridLength(280);
@@ -1126,6 +1139,7 @@ public partial class MainWindow : Window, ICommandOutput
         _snapshotHitItems = [];
         _snapshotHitIndex = 0;
 
+        SnapshotFilterBox.Text = "";
         SnapshotTree.IsEnabled = false;
         SnapshotTree.Items.Clear();
         SnapshotPanel.Visibility = Visibility.Collapsed;
@@ -1171,6 +1185,172 @@ public partial class MainWindow : Window, ICommandOutput
         {
             ExitSnapshotMode();
             _ = RestoreAfterSnapshotAsync();
+        }
+    }
+
+    private void SnapshotFilterBox_TextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
+    {
+        _snapshotFilterTokens = ParseFilterTokens(SnapshotFilterBox.Text);
+        SnapshotHighlightTokens = _snapshotFilterTokens;
+        _snapshotMatchingItems.Clear();
+        SnapshotFilterClearButton.Visibility = _snapshotFilterTokens.Length == 0
+            ? Visibility.Collapsed : Visibility.Visible;
+
+        ApplySnapshotFilter(SnapshotTree.Items);
+    }
+
+    private void SnapshotFilterClearButton_Click(object sender, RoutedEventArgs e) =>
+        SnapshotFilterBox.Text = "";
+
+    private static string[] ParseFilterTokens(string input)
+    {
+        var tokens = new List<string>();
+        int i = 0;
+        while (i < input.Length)
+        {
+            if (input[i] == ' ') { i++; continue; }
+
+            if (input[i] is '"' or '\'')
+            {
+                char quote = input[i++];
+                var sb = new System.Text.StringBuilder();
+                while (i < input.Length && input[i] != quote)
+                {
+                    if (input[i] == '\\' && i + 1 < input.Length)
+                    {
+                        sb.Append(input[++i]);
+                        i++;
+                    }
+                    else
+                    {
+                        sb.Append(input[i++]);
+                    }
+                }
+                if (i < input.Length) i++; // skip closing quote
+                if (sb.Length > 0)
+                    tokens.Add(sb.ToString().ToLowerInvariant());
+            }
+            else
+            {
+                var sb = new System.Text.StringBuilder();
+                while (i < input.Length && input[i] != ' ' && input[i] is not ('"' or '\''))
+                {
+                    if (input[i] == '\\' && i + 1 < input.Length)
+                    {
+                        sb.Append(input[++i]);
+                        i++;
+                    }
+                    else
+                    {
+                        sb.Append(input[i++]);
+                    }
+                }
+                tokens.Add(sb.ToString().ToLowerInvariant());
+            }
+        }
+        return tokens.ToArray();
+    }
+
+    private void ApplySnapshotFilter(ItemCollection items)
+    {
+        foreach (var item in items)
+        {
+            if (item is not TreeViewItem tvi || tvi.Tag is not SnapshotNode node) continue;
+
+            if (_snapshotFilterTokens.Length == 0)
+            {
+                tvi.Style = SnapshotTreeItemStyle;
+            }
+            else
+            {
+                var matches = IsSnapshotNodeMatch(node, _snapshotFilterTokens);
+                tvi.Style = matches ? SnapshotTreeItemStyle : SnapshotTreeItemDimmedStyle;
+                if (matches) _snapshotMatchingItems.Add(tvi);
+            }
+
+            ApplySnapshotFilter(tvi.Items);
+        }
+    }
+
+    private static bool IsSnapshotNodeMatch(SnapshotNode node, string[] tokens)
+    {
+        foreach (var token in tokens)
+        {
+            if (!NodeContains(node, token))
+                return false;
+        }
+        return true;
+    }
+
+    private static bool NodeContains(SnapshotNode node, string token)
+    {
+        var eq = token.IndexOf('=');
+        if (eq > 0)
+        {
+            var keyPart = token[..eq];
+            var valPart = token[(eq + 1)..];
+            foreach (var kvp in node.Attributes)
+            {
+                if (!kvp.Key.Contains(keyPart, StringComparison.OrdinalIgnoreCase))
+                    continue;
+                var valueStr = kvp.Value?.ToString();
+                if (valueStr is not null && valueStr.Contains(valPart, StringComparison.OrdinalIgnoreCase))
+                    return true;
+            }
+            return false;
+        }
+
+        if (node.Label.Contains(token, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        foreach (var kvp in node.Attributes)
+        {
+            if (kvp.Key.Contains(token, StringComparison.OrdinalIgnoreCase))
+                return true;
+            var valueStr = kvp.Value?.ToString();
+            if (valueStr is not null && valueStr.Contains(token, StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+
+        return false;
+    }
+
+    private void SnapshotTree_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (_snapshotMatchingItems.Count == 0 || e.Key is not (Key.Up or Key.Down))
+            return;
+
+        var flatList = new List<TreeViewItem>();
+        FlattenTreeViewItems(SnapshotTree.Items, flatList);
+
+        var current = SnapshotTree.SelectedItem as TreeViewItem;
+        int currentIndex = current is not null ? flatList.IndexOf(current) : -1;
+        int direction = e.Key == Key.Down ? 1 : -1;
+        int next = currentIndex + direction;
+
+        while (next >= 0 && next < flatList.Count)
+        {
+            if (_snapshotMatchingItems.Contains(flatList[next]))
+            {
+                flatList[next].IsSelected = true;
+                flatList[next].BringIntoView();
+                e.Handled = true;
+                return;
+            }
+            next += direction;
+        }
+
+        e.Handled = true;
+    }
+
+    private static void FlattenTreeViewItems(ItemCollection items, List<TreeViewItem> result)
+    {
+        foreach (var item in items)
+        {
+            if (item is not TreeViewItem tvi) continue;
+            result.Add(tvi);
+            if (tvi.IsExpanded)
+                FlattenTreeViewItems(tvi.Items, result);
         }
     }
 
@@ -1861,12 +2041,14 @@ public partial class MainWindow : Window, ICommandOutput
     private static readonly SolidColorBrush FocusBorderBrush = Frozen(new(WpfColor.FromRgb(0x40, 0xA0, 0xF0)));
     private static readonly SolidColorBrush DefaultBorderBrush = Frozen(new(WpfColor.FromRgb(0x33, 0x33, 0x33)));
 
-    private static readonly Style SnapshotTreeItemStyle = CreateSnapshotTreeItemStyle();
+    private static readonly SolidColorBrush DimmedBrush = Frozen(new(WpfColor.FromRgb(0x55, 0x55, 0x55)));
+    private static readonly Style SnapshotTreeItemStyle = CreateSnapshotTreeItemStyle(ResponseBrush);
+    private static readonly Style SnapshotTreeItemDimmedStyle = CreateSnapshotTreeItemStyle(DimmedBrush);
 
-    private static Style CreateSnapshotTreeItemStyle()
+    private static Style CreateSnapshotTreeItemStyle(SolidColorBrush foreground)
     {
         var style = new Style(typeof(TreeViewItem));
-        style.Setters.Add(new Setter(ForegroundProperty, ResponseBrush));
+        style.Setters.Add(new Setter(ForegroundProperty, foreground));
         style.Setters.Add(new Setter(TreeViewItem.IsExpandedProperty, true));
         var selectedTrigger = new Trigger { Property = TreeViewItem.IsSelectedProperty, Value = true };
         selectedTrigger.Setters.Add(new Setter(ForegroundProperty, Brushes.Black));
