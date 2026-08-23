@@ -42,6 +42,8 @@ public partial class MainWindow : Window, ICommandOutput
     private bool _clicklessLocated;
     private bool _sleeping;
     private bool _prunedLocate = true;
+    private readonly HashSet<string> _pinnedAttributes = new(StringComparer.InvariantCultureIgnoreCase);
+    private Dictionary<string, object?>? _lastAttributes;
     private Task? _clicklessTask;
     private bool _snapshotMode;
     private SnapshotCapture? _snapshotCapture;
@@ -207,6 +209,9 @@ public partial class MainWindow : Window, ICommandOutput
             [AttributesGrid] = AttributesBorder,
             [SnapshotTree] = SnapshotPanel,
         };
+        SyncColumnWidths(PinnedAttributesGrid, AttributesGrid);
+        SyncColumnWidths(AttributesGrid, PinnedAttributesGrid);
+        PinnedAttributesGrid.MouseDoubleClick += OnColumnAutoResize;
         AppendLog(string.Join("  ", CommandHelp.AllCommandNames));
         AppendLog("");
         AppendLog(CommandHelp.KeyBindingsText);
@@ -661,10 +666,8 @@ public partial class MainWindow : Window, ICommandOutput
                 BackLocatorButton.IsEnabled = _executor.CanGoBack;
             }
 
-            AttributesGrid.ItemsSource = attributes
-                .OrderBy(kv => kv.Key, StringComparer.InvariantCultureIgnoreCase)
-                .Select(kv => new { Name = kv.Key, Value = FormatAttrValue(kv.Value), IsNull = kv.Value is null })
-                .ToList();
+            _lastAttributes = attributes;
+            RefreshAttributeGrids(attributes);
 
             SnapshotButton.IsEnabled = true;
         });
@@ -675,6 +678,10 @@ public partial class MainWindow : Window, ICommandOutput
             LocatorChainText.Text = "";
             LocatorChainPanel.Visibility = Visibility.Collapsed;
             BackLocatorButton.IsEnabled = false;
+            _lastAttributes = null;
+            PinnedAttributesGrid.ItemsSource = null;
+            PinnedAttributesGrid.Visibility = Visibility.Collapsed;
+            AttributesGrid.HeadersVisibility = DataGridHeadersVisibility.Column;
             AttributesGrid.ItemsSource = null;
             SnapshotButton.IsEnabled = false;
         });
@@ -956,6 +963,37 @@ public partial class MainWindow : Window, ICommandOutput
         }
     }
 
+    private sealed record AttributeRow(string Name, string Value, bool IsNull);
+
+    private void RefreshAttributeGrids(IEnumerable<KeyValuePair<string, object?>> attributes)
+    {
+        var sorted = attributes
+            .OrderBy(kv => kv.Key, StringComparer.InvariantCultureIgnoreCase)
+            .ToList();
+
+        var pinned = sorted
+            .Where(kv => _pinnedAttributes.Contains(kv.Key))
+            .Select(kv => new AttributeRow(kv.Key, FormatAttrValue(kv.Value), kv.Value is null))
+            .ToList();
+
+        var unpinned = sorted
+            .Where(kv => !_pinnedAttributes.Contains(kv.Key))
+            .Select(kv => new AttributeRow(kv.Key, FormatAttrValue(kv.Value), kv.Value is null))
+            .ToList();
+
+        PinnedAttributesGrid.ItemsSource = pinned;
+        var hasPinned = pinned.Count > 0;
+        PinnedAttributesGrid.Visibility = hasPinned ? Visibility.Visible : Visibility.Collapsed;
+        PinnedAttributesGrid.MaxHeight = AttributesBorder.ActualHeight > 0
+            ? AttributesBorder.ActualHeight * 0.5
+            : double.PositiveInfinity;
+        AttributesGrid.HeadersVisibility = hasPinned ? DataGridHeadersVisibility.None : DataGridHeadersVisibility.Column;
+        AttributesGrid.ItemsSource = unpinned;
+
+        if (hasPinned)
+            Dispatcher.InvokeAsync(EnsureScrollSync, System.Windows.Threading.DispatcherPriority.Loaded);
+    }
+
     private static string FormatAttrValue(object? value) => value switch
     {
         System.Drawing.Point p => $"{{x:{p.X},y:{p.Y}}}",
@@ -1118,6 +1156,9 @@ public partial class MainWindow : Window, ICommandOutput
         OutputLogBorder.Background = bg;
         OutputLog.Background = bg;
         AttributesBorder.Background = bg;
+        PinnedAttributesGrid.Background = bg;
+        PinnedAttributesGrid.RowBackground = bg;
+        PinnedAttributesGrid.AlternatingRowBackground = altBg;
         AttributesGrid.Background = bg;
         AttributesGrid.RowBackground = bg;
         AttributesGrid.AlternatingRowBackground = altBg;
@@ -1155,10 +1196,8 @@ public partial class MainWindow : Window, ICommandOutput
     {
         if (e.NewValue is not TreeViewItem { Tag: SnapshotNode node } || _snapshotCapture is null) return;
 
-        AttributesGrid.ItemsSource = node.Attributes
-            .OrderBy(kv => kv.Key, StringComparer.InvariantCultureIgnoreCase)
-            .Select(kv => new { Name = kv.Key, Value = kv.Value?.ToString() ?? "" })
-            .ToList();
+        _lastAttributes = node.Attributes;
+        RefreshAttributeGrids(node.Attributes);
 
         if (node.BoundingRect is { Width: > 0, Height: > 0 } rect)
         {
@@ -1188,9 +1227,19 @@ public partial class MainWindow : Window, ICommandOutput
 
     private void CopyButton_Click(object sender, RoutedEventArgs e)
     {
-        var items = AttributesGrid.SelectedItems.Count > 0
-            ? AttributesGrid.SelectedItems.Cast<dynamic>()
-            : AttributesGrid.ItemsSource?.Cast<dynamic>() ?? Enumerable.Empty<dynamic>();
+        var hasSelection = PinnedAttributesGrid.SelectedItems.Count > 0 || AttributesGrid.SelectedItems.Count > 0;
+        IEnumerable<AttributeRow> items;
+        if (hasSelection)
+        {
+            items = PinnedAttributesGrid.SelectedItems.Cast<AttributeRow>()
+                .Concat(AttributesGrid.SelectedItems.Cast<AttributeRow>());
+        }
+        else
+        {
+            var pinned = PinnedAttributesGrid.ItemsSource?.Cast<AttributeRow>() ?? [];
+            var unpinned = AttributesGrid.ItemsSource?.Cast<AttributeRow>() ?? [];
+            items = pinned.Concat(unpinned);
+        }
 
         var lines = items.Select(item => $"{item.Name}\t{item.Value}");
         var text = string.Join(Environment.NewLine, lines);
@@ -1570,13 +1619,173 @@ public partial class MainWindow : Window, ICommandOutput
         }
     }
 
+    private bool _syncingColumnWidths;
+    private bool _syncingScroll;
+
+    private void OnColumnAutoResize(object sender, MouseButtonEventArgs e)
+    {
+        var header = FindVisualParent<System.Windows.Controls.Primitives.DataGridColumnHeader>(
+            e.OriginalSource as DependencyObject);
+        if (header?.Column is null) return;
+
+        int colIndex = PinnedAttributesGrid.Columns.IndexOf(header.Column);
+        if (colIndex < 0 || colIndex >= AttributesGrid.Columns.Count) return;
+
+        Dispatcher.InvokeAsync(() =>
+        {
+            var pinnedWidth = PinnedAttributesGrid.Columns[colIndex].ActualWidth;
+
+            _syncingColumnWidths = true;
+            var unpinnedCol = AttributesGrid.Columns[colIndex];
+            unpinnedCol.Width = 0;
+            AttributesGrid.UpdateLayout();
+            unpinnedCol.Width = DataGridLength.Auto;
+            AttributesGrid.UpdateLayout();
+            var unpinnedWidth = unpinnedCol.ActualWidth;
+
+            var maxWidth = Math.Max(pinnedWidth, unpinnedWidth);
+            PinnedAttributesGrid.Columns[colIndex].Width = maxWidth;
+            unpinnedCol.Width = maxWidth;
+            _syncingColumnWidths = false;
+        }, System.Windows.Threading.DispatcherPriority.Background);
+    }
+
+    private static T? FindVisualParent<T>(DependencyObject? obj) where T : DependencyObject
+    {
+        while (obj is not null)
+        {
+            if (obj is T result) return result;
+            obj = VisualTreeHelper.GetParent(obj);
+        }
+        return null;
+    }
+
+    private static ScrollViewer? GetScrollViewer(DependencyObject obj)
+    {
+        for (int i = 0; i < VisualTreeHelper.GetChildrenCount(obj); i++)
+        {
+            var child = VisualTreeHelper.GetChild(obj, i);
+            if (child is ScrollViewer sv) return sv;
+            var result = GetScrollViewer(child);
+            if (result is not null) return result;
+        }
+        return null;
+    }
+
+    private ScrollViewer? _mainScrollViewer;
+    private ScrollViewer? _pinnedScrollViewer;
+    private bool _scrollSyncReady;
+
+    private void EnsureScrollSync()
+    {
+        _mainScrollViewer ??= GetScrollViewer(AttributesGrid);
+        var pinnedSv = GetScrollViewer(PinnedAttributesGrid);
+        if (pinnedSv is null || _mainScrollViewer is null) return;
+
+        if (_pinnedScrollViewer == pinnedSv) return;
+        _pinnedScrollViewer = pinnedSv;
+
+        if (_scrollSyncReady) return;
+        _scrollSyncReady = true;
+
+        _mainScrollViewer.ScrollChanged += (_, e) =>
+        {
+            if (_syncingScroll || e.HorizontalChange == 0) return;
+            _syncingScroll = true;
+            _pinnedScrollViewer?.ScrollToHorizontalOffset(_mainScrollViewer.HorizontalOffset);
+            _syncingScroll = false;
+        };
+
+        var vsbDescriptor = System.ComponentModel.DependencyPropertyDescriptor.FromProperty(
+            ScrollViewer.ComputedVerticalScrollBarVisibilityProperty, typeof(ScrollViewer));
+        vsbDescriptor?.AddValueChanged(_mainScrollViewer, (_, _) => SyncScrollBarMargins());
+        vsbDescriptor?.AddValueChanged(_pinnedScrollViewer, (_, _) => SyncScrollBarMargins());
+        SyncScrollBarMargins();
+    }
+
+    private void SyncScrollBarMargins()
+    {
+        if (_mainScrollViewer is null || _pinnedScrollViewer is null) return;
+
+        var mainHas = _mainScrollViewer.ComputedVerticalScrollBarVisibility == Visibility.Visible;
+        var pinnedHas = _pinnedScrollViewer.ComputedVerticalScrollBarVisibility == Visibility.Visible;
+
+        if (mainHas == pinnedHas)
+        {
+            PinnedAttributesGrid.Margin = new Thickness(0);
+            AttributesGrid.Margin = new Thickness(0);
+        }
+        else
+        {
+            var sbWidth = SystemParameters.VerticalScrollBarWidth;
+            PinnedAttributesGrid.Margin = mainHas && !pinnedHas ? new Thickness(0, 0, sbWidth, 0) : new Thickness(0);
+            AttributesGrid.Margin = pinnedHas && !mainHas ? new Thickness(0, 0, sbWidth, 0) : new Thickness(0);
+        }
+    }
+
+    private void SyncColumnWidths(DataGrid source, DataGrid target)
+    {
+        for (int i = 0; i < source.Columns.Count && i < target.Columns.Count; i++)
+        {
+            var col = source.Columns[i];
+            var targetCol = target.Columns[i];
+            var descriptor = System.ComponentModel.DependencyPropertyDescriptor.FromProperty(
+                DataGridColumn.ActualWidthProperty, typeof(DataGridColumn));
+            descriptor?.AddValueChanged(col, (_, _) =>
+            {
+                if (_syncingColumnWidths) return;
+                _syncingColumnWidths = true;
+                targetCol.Width = col.ActualWidth;
+                _syncingColumnWidths = false;
+            });
+        }
+    }
+
+    private void AttributesBorder_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        if (PinnedAttributesGrid.Visibility == Visibility.Visible)
+            PinnedAttributesGrid.MaxHeight = e.NewSize.Height * 0.5;
+    }
+
     private void WrapCheckBox_Changed(object sender, RoutedEventArgs e)
     {
         var wrap = WrapCheckBox.IsChecked == true;
-        var valueColumn = AttributesGrid.Columns[1];
-        valueColumn.Width = wrap ? new DataGridLength(1, DataGridLengthUnitType.Star) : DataGridLength.Auto;
-        valueColumn.MinWidth = wrap ? 0 : 120;
+        foreach (var grid in new[] { PinnedAttributesGrid, AttributesGrid })
+        {
+            var valueColumn = grid.Columns[1];
+            valueColumn.Width = wrap ? new DataGridLength(1, DataGridLengthUnitType.Star) : DataGridLength.Auto;
+            valueColumn.MinWidth = wrap ? 0 : 120;
+        }
+        PinnedAttributesGrid.HorizontalScrollBarVisibility = wrap ? ScrollBarVisibility.Disabled : ScrollBarVisibility.Hidden;
         AttributesGrid.HorizontalScrollBarVisibility = wrap ? ScrollBarVisibility.Disabled : ScrollBarVisibility.Auto;
+    }
+
+    private void AttributesGrid_ContextMenuOpening(object sender, ContextMenuEventArgs e)
+    {
+        var grid = (DataGrid)sender;
+        if (grid.SelectedItems.Count == 0)
+            e.Handled = true;
+    }
+
+    private void PinUnpinMenuItem_Click(object sender, RoutedEventArgs e)
+    {
+        var menuItem = (MenuItem)sender;
+        var contextMenu = (ContextMenu)menuItem.Parent;
+        var grid = (DataGrid)contextMenu.PlacementTarget;
+        var selected = grid.SelectedItems.Cast<AttributeRow>().ToList();
+        if (selected.Count == 0) return;
+
+        bool pinning = grid == AttributesGrid;
+        foreach (var row in selected)
+        {
+            if (pinning)
+                _pinnedAttributes.Add(row.Name);
+            else
+                _pinnedAttributes.Remove(row.Name);
+        }
+
+        if (_lastAttributes is not null)
+            RefreshAttributeGrids(_lastAttributes);
     }
 
     private void ScreenshotImage_MouseMove(object sender, MouseEventArgs e)

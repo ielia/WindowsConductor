@@ -122,7 +122,8 @@
 
                 <!-- Attributes panel -->
                 <Border x:Name="AttributesBorder" Grid.Column="2" Background="#1E1E1E" Margin="4"
-                        BorderThickness="3" BorderBrush="#333333">
+                        BorderThickness="3" BorderBrush="#333333"
+                        SizeChanged="AttributesBorder_SizeChanged">
                     <DockPanel>
                         <!-- Locator chain -->
                         <DockPanel x:Name="LocatorChainPanel" DockPanel.Dock="Top" Visibility="Collapsed">
@@ -194,6 +195,70 @@
                                       Unchecked="WrapCheckBox_Changed" />
                         </Grid>
 
+                        <DataGrid x:Name="PinnedAttributesGrid"
+                                  DockPanel.Dock="Top"
+                                  AutoGenerateColumns="False"
+                                  IsReadOnly="True"
+                                  HeadersVisibility="Column"
+                                  GridLinesVisibility="Horizontal"
+                                  HorizontalGridLinesBrush="#333333"
+                                  Background="#1E1E1E"
+                                  Foreground="#CCCCCC"
+                                  RowBackground="#1E1E1E"
+                                  AlternatingRowBackground="#252525"
+                                  BorderThickness="0"
+                                  FontFamily="Consolas" FontSize="11"
+                                  CanUserResizeRows="False"
+                                  SelectionMode="Extended"
+                                  Visibility="Collapsed"
+                                  HorizontalScrollBarVisibility="Hidden"
+                                  ContextMenuOpening="AttributesGrid_ContextMenuOpening">
+                            <DataGrid.ContextMenu>
+                                <ContextMenu>
+                                    <MenuItem Header="Unpin" Click="PinUnpinMenuItem_Click" />
+                                </ContextMenu>
+                            </DataGrid.ContextMenu>
+                            <DataGrid.ColumnHeaderStyle>
+                                <Style TargetType="DataGridColumnHeader">
+                                    <Setter Property="Background" Value="#2D2D2D" />
+                                    <Setter Property="Foreground" Value="#AAAAAA" />
+                                    <Setter Property="FontWeight" Value="Bold" />
+                                    <Setter Property="Padding" Value="6,3" />
+                                    <Setter Property="BorderBrush" Value="#333333" />
+                                    <Setter Property="BorderThickness" Value="0,0,0,1" />
+                                </Style>
+                            </DataGrid.ColumnHeaderStyle>
+                            <DataGrid.Columns>
+                                <DataGridTemplateColumn Header="Name" Width="Auto" MinWidth="80">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding Name}" Padding="2,0" FontWeight="Bold" />
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTemplateColumn Header="Value" Width="Auto" MinWidth="120">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding Value}" Padding="2,0">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="TextWrapping" Value="NoWrap" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsNull}" Value="True">
+                                                                <Setter Property="FontStyle" Value="Italic" />
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding IsChecked, ElementName=WrapCheckBox}" Value="True">
+                                                                <Setter Property="TextWrapping" Value="Wrap" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                            </DataGrid.Columns>
+                        </DataGrid>
                         <DataGrid x:Name="AttributesGrid"
                                   AutoGenerateColumns="False"
                                   IsReadOnly="True"
@@ -208,7 +273,13 @@
                                   FontFamily="Consolas" FontSize="11"
                                   CanUserResizeRows="False"
                                   SelectionMode="Extended"
-                                  HorizontalScrollBarVisibility="Auto">
+                                  HorizontalScrollBarVisibility="Auto"
+                                  ContextMenuOpening="AttributesGrid_ContextMenuOpening">
+                            <DataGrid.ContextMenu>
+                                <ContextMenu>
+                                    <MenuItem Header="Pin" Click="PinUnpinMenuItem_Click" />
+                                </ContextMenu>
+                            </DataGrid.ContextMenu>
                             <DataGrid.ColumnHeaderStyle>
                                 <Style TargetType="DataGridColumnHeader">
                                     <Setter Property="Background" Value="#2D2D2D" />
