@@ -24,7 +24,7 @@ click
 parent
 ```
 
-Type `help` for a full list of commands, or `help <command>` for detailed help on a specific command. Click on the screenshot to select the frontmost element at that point.
+Type `help` for a full list of commands, or `help <command>` for detailed help on a specific command. Click on the screenshot to select the leafmost element at that point.
 
 Multiple commands can be chained with `;`:
 

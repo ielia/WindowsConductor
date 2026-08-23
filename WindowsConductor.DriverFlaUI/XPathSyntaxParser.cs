@@ -342,7 +342,7 @@ internal static class XPathSyntaxParser
         if (pos >= tokens.Length)
             return;
 
-        // Named axis: frontmost::, ancestor::, ancestor-or-self::, descendant::, etc.
+        // Named axis: leafmost::, ancestor::, ancestor-or-self::, descendant::, etc.
         XPathAxis? namedAxis = null;
         if (pos + 1 < tokens.Length
             && tokens[pos].Kind == XPathToken.Identifier
@@ -351,7 +351,8 @@ internal static class XPathSyntaxParser
             var axisName = tokens[pos].Span.ToStringValue();
             namedAxis = axisName.ToLowerInvariant() switch
             {
-                "frontmost" => XPathAxis.Frontmost,
+                "leafmost" => XPathAxis.Leafmost,
+                "pruned-leafmost" => XPathAxis.PrunedLeafmost,
                 "ancestor" => XPathAxis.Ancestor,
                 "ancestor-or-self" => XPathAxis.AncestorOrSelf,
                 "child" => XPathAxis.Child,
@@ -464,7 +465,7 @@ internal static class XPathSyntaxParser
         // When // precedes a named axis that doesn't already traverse descendants,
         // expand // to descendant-or-self::* so the axis operates on each descendant node.
         if (isDescendant && namedAxis is not null
-            && namedAxis is not (XPathAxis.Descendant or XPathAxis.DescendantOrSelf or XPathAxis.Frontmost))
+            && namedAxis is not (XPathAxis.Descendant or XPathAxis.DescendantOrSelf or XPathAxis.Leafmost or XPathAxis.PrunedLeafmost))
             steps.Add(new XPathStep(XPathAxis.DescendantOrSelf, "*", []));
 
         steps.Add(new XPathStep(axis, type, filters));

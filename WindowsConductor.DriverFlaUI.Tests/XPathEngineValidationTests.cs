@@ -748,26 +748,26 @@ public class XPathEngineValidationTests
         Assert.That(func.Args, Has.Count.EqualTo(2));
     }
 
-    // ── frontmost:: axis ────────────────────────────────────────────────────
+    // ── leafmost:: axis ────────────────────────────────────────────────────
 
-    [TestCase("//Window//frontmost::Button[contains-point(bounds(), point(10, 50))]")]
-    [TestCase("//frontmost::Button")]
-    [TestCase("//frontmost::Button[@Name='OK']")]
-    [TestCase("/frontmost::Button")]
-    [TestCase("//Window/frontmost::Button[contains-point(bounds(), point(5, 5))]")]
-    public void ParseXPath_FrontmostAxis_DoesNotThrow(string xpath)
+    [TestCase("//Window//leafmost::Button[contains-point(bounds(), point(10, 50))]")]
+    [TestCase("//leafmost::Button")]
+    [TestCase("//leafmost::Button[@Name='OK']")]
+    [TestCase("/leafmost::Button")]
+    [TestCase("//Window/leafmost::Button[contains-point(bounds(), point(5, 5))]")]
+    public void ParseXPath_LeafmostAxis_DoesNotThrow(string xpath)
     {
         Assert.DoesNotThrow(() => XPathEngine.Validate(xpath));
     }
 
     [Test]
-    public void ParseXPath_FrontmostAxis_ParsesCorrectly()
+    public void ParseXPath_LeafmostAxis_ParsesCorrectly()
     {
-        var steps = XPathSyntaxParser.Parse("//Window//frontmost::Button[@Name='OK']");
+        var steps = XPathSyntaxParser.Parse("//Window//leafmost::Button[@Name='OK']");
         Assert.That(steps, Has.Count.EqualTo(2));
         Assert.That(steps[0].Axis, Is.EqualTo(XPathAxis.Descendant));
         Assert.That(steps[0].Type, Is.EqualTo("Window"));
-        Assert.That(steps[1].Axis, Is.EqualTo(XPathAxis.Frontmost));
+        Assert.That(steps[1].Axis, Is.EqualTo(XPathAxis.Leafmost));
         Assert.That(steps[1].Type, Is.EqualTo("Button"));
         Assert.That(steps[1].Filters, Has.Count.EqualTo(1));
         var (attr, _) = GetAttrEqLiteral(steps[1].Filters[0]);
@@ -775,11 +775,11 @@ public class XPathEngineValidationTests
     }
 
     [Test]
-    public void ParseXPath_FrontmostWithContainsPoint_ParsesCorrectly()
+    public void ParseXPath_LeafmostWithContainsPoint_ParsesCorrectly()
     {
-        var steps = XPathSyntaxParser.Parse("//frontmost::Button[contains-point(bounds(), point(10, 50))]");
+        var steps = XPathSyntaxParser.Parse("//leafmost::Button[contains-point(bounds(), point(10, 50))]");
         Assert.That(steps, Has.Count.EqualTo(1));
-        Assert.That(steps[0].Axis, Is.EqualTo(XPathAxis.Frontmost));
+        Assert.That(steps[0].Axis, Is.EqualTo(XPathAxis.Leafmost));
         Assert.That(steps[0].Type, Is.EqualTo("Button"));
         var filter = (ExpressionFilter)steps[0].Filters[0];
         Assert.That(filter.Expr, Is.InstanceOf<FunctionCallExpr>());
@@ -787,18 +787,18 @@ public class XPathEngineValidationTests
     }
 
     [Test]
-    public void ParseXPath_FrontmostWithChildAxis_ParsesCorrectly()
+    public void ParseXPath_LeafmostWithChildAxis_ParsesCorrectly()
     {
-        var steps = XPathSyntaxParser.Parse("/frontmost::Button");
+        var steps = XPathSyntaxParser.Parse("/leafmost::Button");
         Assert.That(steps, Has.Count.EqualTo(1));
-        Assert.That(steps[0].Axis, Is.EqualTo(XPathAxis.Frontmost));
+        Assert.That(steps[0].Axis, Is.EqualTo(XPathAxis.Leafmost));
         Assert.That(steps[0].Type, Is.EqualTo("Button"));
     }
 
     // ── at(x, y) shorthand ─────────────────────────────────────────────────
 
     [TestCase("//Button[at(10, 50)]")]
-    [TestCase("//frontmost::Button[at(10, 50)]")]
+    [TestCase("//leafmost::Button[at(10, 50)]")]
     [TestCase("//Button[at(0.5, 100.25)]")]
     [TestCase("//Button[at(10, 50) and @Name='OK']")]
     public void ParseXPath_AtFunction_DoesNotThrow(string xpath)
@@ -1328,11 +1328,11 @@ public class XPathEngineValidationTests
     }
 
     [Test]
-    public void ParseXPath_DoubleSlashFrontmostAxis_NoExtraStep()
+    public void ParseXPath_DoubleSlashLeafmostAxis_NoExtraStep()
     {
-        var steps = XPathSyntaxParser.Parse("//frontmost::Button");
+        var steps = XPathSyntaxParser.Parse("//leafmost::Button");
         Assert.That(steps, Has.Count.EqualTo(1));
-        Assert.That(steps[0].Axis, Is.EqualTo(XPathAxis.Frontmost));
+        Assert.That(steps[0].Axis, Is.EqualTo(XPathAxis.Leafmost));
         Assert.That(steps[0].Type, Is.EqualTo("Button"));
     }
 

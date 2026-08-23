@@ -520,5 +520,6 @@ Selectors are used by all Find/Wait tools to locate elements. Supported formats:
 | XPath (relative) | `.//Button[@Name='7']` | XPath relative to current scope |
 | XPath (absolute) | `//Button[@Name='7']` | XPath from desktop root |
 | XPath wildcard | `.//*[@AutomationId='result']` | Match any control type |
+| XPath leafmost | `./leafmost::*[at(10, 50)]` | Leaf-most (visually topmost) element at a point. Use `./` not `.//` — the axis traverses descendants internally. |
 
 See the [Driver XPath documentation](../WindowsConductor.DriverFlaUI/XPATH.md) for full XPath syntax details.

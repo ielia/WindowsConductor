@@ -9,28 +9,19 @@ internal static class ElementFilter
     /// no descendant also present in the list. Uses RuntimeId for stable identity
     /// comparison across separate FlaUI queries.
     /// </summary>
-    internal static List<AutomationElement> Frontmost(IReadOnlyList<AutomationElement> elements)
+    internal static List<AutomationElement> Leafmost(IReadOnlyList<AutomationElement> elements)
     {
         if (elements.Count <= 1) return elements.ToList();
 
-        var candidateKeys = new HashSet<string>();
-        foreach (var el in elements)
-        {
-            var key = RuntimeIdKey(el);
-            if (key is not null)
-                candidateKeys.Add(key);
-        }
-
-        // Walk up from each element; any candidate found as an ancestor is not leaf-most
-        var nonLeafKeys = new HashSet<string>();
+        var ancestorKeys = new HashSet<string>();
         foreach (var el in elements)
         {
             var parent = el.Parent;
             while (parent is not null)
             {
                 var key = RuntimeIdKey(parent);
-                if (key is not null && candidateKeys.Contains(key))
-                    nonLeafKeys.Add(key);
+                if (key is not null && !ancestorKeys.Add(key))
+                    break;
                 parent = parent.Parent;
             }
         }
@@ -39,7 +30,7 @@ internal static class ElementFilter
             .Where(el =>
             {
                 var key = RuntimeIdKey(el);
-                return key is null || !nonLeafKeys.Contains(key);
+                return key is null || !ancestorKeys.Contains(key);
             })
             .ToList();
     }

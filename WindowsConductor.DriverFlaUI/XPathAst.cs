@@ -6,7 +6,7 @@ namespace WindowsConductor.DriverFlaUI;
 
 public enum XPathAxis
 {
-    Child, Descendant, DescendantOrSelf, Parent, Self, Frontmost,
+    Child, Descendant, DescendantOrSelf, Parent, Self, Leafmost, PrunedLeafmost,
     Ancestor, AncestorOrSelf,
     Sibling, PrecedingSibling, FollowingSibling,
     Attribute,

@@ -88,7 +88,7 @@ public static class SelectorEngine
     private static readonly HashSet<string> AxisNames = new(StringComparer.OrdinalIgnoreCase)
     {
         "ancestor", "ancestor-or-self", "attribute", "child", "descendant",
-        "descendant-or-self", "following-sibling", "frontmost",
+        "descendant-or-self", "following-sibling", "leafmost", "pruned-leafmost",
         "parent", "preceding-sibling", "self", "sibling"
     };
 

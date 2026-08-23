@@ -41,6 +41,7 @@ public partial class MainWindow : Window, ICommandOutput
     private (int X, int Y) _lastClicklessCoords = (-1, -1);
     private bool _clicklessLocated;
     private bool _sleeping;
+    private bool _prunedLocate = true;
     private Task? _clicklessTask;
     private bool _snapshotMode;
     private SnapshotCapture? _snapshotCapture;
@@ -74,6 +75,7 @@ public partial class MainWindow : Window, ICommandOutput
     private const int SC_CLIENT_VERSION = 0x0FFF;
     private const int SC_STOP_ON_ERROR = 0x1000;
     private const int SC_ALLOW_SELF_SIGNED = 0x1001;
+    private const int SC_PRUNED_LOCATE = 0x1002;
     private const int SC_HIGHLIGHT_TITLE = 0x1100;
     private const int SC_HIGHLIGHT_RED = 0x1101;
     private const int SC_HIGHLIGHT_GREEN = 0x1102;
@@ -220,6 +222,7 @@ public partial class MainWindow : Window, ICommandOutput
         AppendMenu(sysMenu, MF_SEPARATOR, 0, string.Empty);
         AppendMenu(sysMenu, MF_STRING | MF_UNCHECKED, SC_STOP_ON_ERROR, "Stop on error");
         AppendMenu(sysMenu, MF_STRING | MF_CHECKED, SC_ALLOW_SELF_SIGNED, "Allow self-signed certs");
+        AppendMenu(sysMenu, MF_STRING | MF_CHECKED, SC_PRUNED_LOCATE, "Pruned locate");
         AppendMenu(sysMenu, MF_SEPARATOR, 0, string.Empty);
         AppendMenu(sysMenu, MF_OWNERDRAW | MF_GRAYED, SC_HIGHLIGHT_TITLE, string.Empty);
         foreach (var id in HighlightColors.Keys)
@@ -250,6 +253,14 @@ public partial class MainWindow : Window, ICommandOutput
                     var sysMenu = GetSystemMenu(hwnd, false);
                     _ = CheckMenuItem(sysMenu, SC_ALLOW_SELF_SIGNED,
                         session.AllowSelfSignedCerts ? MF_CHECKED : MF_UNCHECKED);
+                    handled = true;
+                }
+                else if (id == SC_PRUNED_LOCATE)
+                {
+                    _prunedLocate = !_prunedLocate;
+                    var sysMenu = GetSystemMenu(hwnd, false);
+                    _ = CheckMenuItem(sysMenu, SC_PRUNED_LOCATE,
+                        _prunedLocate ? MF_CHECKED : MF_UNCHECKED);
                     handled = true;
                 }
                 else if (HighlightColors.ContainsKey(id))
@@ -1473,9 +1484,10 @@ public partial class MainWindow : Window, ICommandOutput
         var mwOffY = _windowDimensions?.MainWindowOffsetY ?? 0;
         var atX = winRelX - mwOffX;
         var atY = winRelY - mwOffY;
+        var axis = _prunedLocate ? "pruned-leafmost" : "leafmost";
         var selector = _executor.IsAtRoot
             ? FormattableString.Invariant($"/*[at({atX:F0}, {atY:F0})]")
-            : FormattableString.Invariant($".//frontmost::*[at({atX:F0}, {atY:F0})]");
+            : FormattableString.Invariant($"./{axis}::*[at({atX:F0}, {atY:F0})]");
         AppendLog($"> {selector}", bold: true);
 
         SetBusy(true);
@@ -1591,9 +1603,10 @@ public partial class MainWindow : Window, ICommandOutput
             if (_clicklessTask is { IsCompleted: false }) return;
 
             var (winRelX, winRelY) = (rounded.Item1, rounded.Item2);
+            var axis = _prunedLocate ? "pruned-leafmost" : "leafmost";
             var selector = _executor.IsAtRoot
                 ? FormattableString.Invariant($"/*[at({winRelX}, {winRelY})]")
-                : FormattableString.Invariant($".//frontmost::*[at({winRelX}, {winRelY})]");
+                : FormattableString.Invariant($"./{axis}::*[at({winRelX}, {winRelY})]");
 
             _clicklessTask = RunClicklessLocateAsync(selector);
         };

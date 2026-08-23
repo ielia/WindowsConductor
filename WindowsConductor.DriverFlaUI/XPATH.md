@@ -22,7 +22,7 @@ AxisSpecifier  ::= AxisName '::'
 AxisName       ::= 'ancestor' | 'ancestor-or-self'
                  | 'child' | 'descendant' | 'descendant-or-self'
                  | 'following-sibling' | 'preceding-sibling' | 'sibling'
-                 | 'frontmost' | 'parent' | 'self'
+                 | 'leafmost' | 'parent' | 'self'
                  | 'attribute'
 
 NodeTest       ::= Identifier                  (* ControlType name *)
@@ -112,7 +112,7 @@ Inside filter expressions the same rules apply:
 | `following-sibling::` | following-sibling | Siblings that come after the context node. |
 | `ancestor::` | ancestor | All ancestors up to the root. |
 | `ancestor-or-self::` | ancestor-or-self | The context node plus all its ancestors. |
-| `frontmost::` | frontmost | Leaf-most descendants only (elements with no children in the result set). |
+| `leafmost::` | leafmost | Leaf-most descendants only (elements with no descendant in the result set). Traverses descendants internally, so use `./leafmost::` not `.//leafmost::`. Predicates are applied before the leaf-most filter. |
 | `@` or `attribute::` | attribute | Element properties (see **Attributes** below). |
 
 `self::Type` is particularly useful in predicates to filter by type:
@@ -462,7 +462,7 @@ instead of XPath. Multiple clauses can be combined with `&&`.
 ```xpath
 //Button[at(100, 200)]                              Button whose bounds contain point (100, 200)
 //Button[contains-point(bounds(), point(10, 50))]   Equivalent long form
-//frontmost::Button[at(10, 50)]                     Front-most (leaf) Button at point
+/leafmost::Button[at(10, 50)]                       Front-most (leaf) Button at point
 ```
 
 ### Sibling navigation
@@ -529,7 +529,7 @@ codepoint-equal((), 'abc')                                    Returns empty sequ
 ```xpath
 //Button/..                           Parents of all Buttons
 //Button/@class/ancestor::Group       Navigate from attribute back to elements
-//Window//frontmost::Button[at(10, 50)]
+//Window/leafmost::Button[at(10, 50)]
 ```
 
 ### Arithmetic

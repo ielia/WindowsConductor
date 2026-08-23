@@ -215,7 +215,7 @@ public sealed class AppManager : IAppOperations, IDisposable
         var candidates = root.FindAllDescendants()
             .Where(el => el.BoundingRectangle.Contains(point))
             .ToList();
-        var element = ElementFilter.Frontmost(candidates).FirstOrDefault()
+        var element = ElementFilter.Leafmost(candidates).FirstOrDefault()
             ?? throw new InvalidOperationException(
                 $"No element found at point ({x}, {y}).");
         return CacheElement(element);

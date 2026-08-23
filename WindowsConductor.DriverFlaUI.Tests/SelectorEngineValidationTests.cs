@@ -126,7 +126,7 @@ public class SelectorEngineValidationTests
     [TestCase("preceding-sibling::Edit")]
     [TestCase("following-sibling::Edit")]
     [TestCase("ancestor::Window")]
-    [TestCase("frontmost::Button")]
+    [TestCase("leafmost::Button")]
     [TestCase("parent::Window")]
     [TestCase("parent::*")]
     public void Validate_ValidSelector_DoesNotThrow(string selector)

@@ -30,7 +30,7 @@ internal enum XPathToken
     SingleQuotedString, // 'text' with '' escape
     DoubleQuotedString, // "text" with "" escape
     Number,             // 123 or 1.5
-    Identifier,         // Button, Name, frontmost, contains, concat, etc.
+    Identifier,         // Button, Name, leafmost, contains, concat, etc.
 }
 
 internal static class XPathTokenizer

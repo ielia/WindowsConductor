@@ -132,12 +132,15 @@ public sealed class XPathEngine
             return ApplyFiltersToResults(candidates, step, subPathCache, ct);
         }
 
-        if (step.Axis == XPathAxis.Frontmost)
+        if (step.Axis == XPathAxis.Leafmost)
         {
             var descendants = EnumerateDescendants(roots, step.Type, condition, ct);
-            var frontmost = ElementFilter.Frontmost(Materialize(descendants).ToList());
-            return ApplyFiltersToResults(frontmost, step, subPathCache, ct);
+            var filtered = ApplyFiltersToResults(descendants, step, subPathCache, ct);
+            return ElementFilter.Leafmost(Materialize(filtered).ToList());
         }
+
+        if (step.Axis == XPathAxis.PrunedLeafmost)
+            return EnumeratePrunedLeafmost(roots, step, condition, subPathCache, ct);
 
         var childCandidates = step.Axis == XPathAxis.Descendant
             ? EnumerateDescendants(roots, step.Type, condition, ct)
@@ -237,6 +240,36 @@ public sealed class XPathEngine
                 ct.ThrowIfCancellationRequested();
                 if (MatchesType(type, el))
                     yield return el;
+            }
+        }
+    }
+
+    private static IEnumerable<AutomationElement> EnumeratePrunedLeafmost(
+        IEnumerable<AutomationElement> roots, XPathStep step,
+        ConditionBase? condition,
+        Dictionary<SubPathExpr, XPathValue> subPathCache, CancellationToken ct)
+    {
+        foreach (var root in roots)
+        {
+            ct.ThrowIfCancellationRequested();
+            var children = condition is not null
+                ? root.FindAllChildren(condition)
+                : root.FindAllChildren();
+            var matching = ApplyFiltersToResults(
+                children.Where(c => MatchesType(step.Type, c)), step, subPathCache, ct);
+            foreach (var match in Materialize(matching))
+            {
+                var deeper = EnumeratePrunedLeafmost([match], step, condition, subPathCache, ct);
+                var deeperList = Materialize(deeper);
+                if (deeperList.Any())
+                {
+                    foreach (var leaf in deeperList)
+                        yield return leaf;
+                }
+                else
+                {
+                    yield return match;
+                }
             }
         }
     }
