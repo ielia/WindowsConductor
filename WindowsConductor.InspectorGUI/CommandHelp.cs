@@ -41,7 +41,7 @@ internal static class CommandHelp
 
         sb.AppendLine("Chaining commands:");
         sb.AppendLine("  ;");
-        sb.AppendLine("  Example: locate \"//button\"; click; sleep 1000; nextmatch; click");
+        sb.AppendLine("  Example: locate \".//button\"; click; sleep 1000; nextmatch; click");
         sb.AppendLine();
 
         sb.Append(KeyBindingsText);

@@ -51,7 +51,7 @@ public sealed class WcApp : IWcScope, IWcScreenshottable, IAsyncDisposable
     public WcLocator GetByXPath(string xpath)
     {
         // Ensure the expression starts with a slash so the driver recognises it.
-        string normalised = xpath.StartsWith('/') || xpath.StartsWith('.') ? xpath : $"//{xpath}";
+        string normalised = xpath.StartsWith('/') || xpath.StartsWith('.') ? xpath : $".//{xpath}";
         return Locator(normalised);
     }
 

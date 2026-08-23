@@ -29,7 +29,7 @@ Type `help` for a full list of commands, or `help <command>` for detailed help o
 Multiple commands can be chained with `;`:
 
 ```
-locate "//button"; click; sleep 1000; nextmatch; click
+locate ".//button"; click; sleep 1000; nextmatch; click
 ```
 
 ## Commands

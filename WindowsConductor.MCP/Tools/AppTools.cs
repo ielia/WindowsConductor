@@ -121,7 +121,7 @@ public sealed class AppTools(ConductorState state)
         "Returns a JSON array of element IDs. " +
         "Selector examples: " +
         "[automationid=myId], [name=OK], text=Save, type=Button, " +
-        "//Button[@Name='7'], //*[@AutomationId='result']")]
+        ".//Button[@Name='7'], .//*[@AutomationId='result']")]
     public async Task<string> FindElements(
         [Description("The appId returned by LaunchApp or AttachApp")] string appId,
         [Description("Element selector (attribute, text, type, or XPath)")] string selector)

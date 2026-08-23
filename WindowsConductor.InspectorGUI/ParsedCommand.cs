@@ -197,8 +197,8 @@ internal sealed record LocateCommand(string[] Selectors) : ParsedCommand
     internal override string Name => "locate";
     internal override string Usage => "locate <selector> [>> <selector> ...]";
     internal override string Description =>
-        "Finds elements matching the selector chain.\nSelectors are separated by >> for scoped searches.\nXPath selectors relative to the current element are supported.";
-    internal override string[] Examples => ["locate [name=OK]", "locate type=Panel >> [automationid=btn1]", "locate //Window[ends-with(text(), 'Edge')]"];
+        "Finds elements matching the selector chain.\nSelectors are separated by >> for scoped searches.\nXPath selectors starting with .// are relative to the current element; // is absolute from the desktop root.";
+    internal override string[] Examples => ["locate [name=OK]", "locate type=Panel >> [automationid=btn1]", "locate .//Window[ends-with(text(), 'Edge')]"];
 }
 
 internal sealed record NextMatchCommand(int Steps = 1) : ParsedCommand
@@ -332,7 +332,7 @@ internal sealed record ResolveCommand(string Selector) : ParsedCommand
     internal override string Name => "resolve";
     internal override string Usage => "resolve <xpath>";
     internal override string Description => "Resolves an XPath expression and prints the result in YAML format.\nAttribute selectors return named values; element selectors return text values.";
-    internal override string[] Examples => ["resolve //button/@automationid", "resolve //button", "resolve ./@name"];
+    internal override string[] Examples => ["resolve .//button/@automationid", "resolve .//button", "resolve ./@name"];
 }
 
 internal sealed record OcrCommand : ParsedCommand

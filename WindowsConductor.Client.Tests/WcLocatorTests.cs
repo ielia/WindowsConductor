@@ -74,11 +74,11 @@ public class WcLocatorTests
     }
 
     [Test]
-    public void GetByXPath_WithoutSlash_PrependDoubleSlash()
+    public void GetByXPath_WithoutSlash_PrependDotDoubleSlash()
     {
         var locator = MakeLocator("[name=root]");
         var child = locator.GetByXPath("Button[@Name='OK']");
-        Assert.That(child.ToString(), Does.Contain("//Button[@Name='OK']"));
+        Assert.That(child.ToString(), Does.Contain(".//Button[@Name='OK']"));
     }
 
     [Test]

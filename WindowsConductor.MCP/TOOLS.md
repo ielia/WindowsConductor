@@ -517,7 +517,8 @@ Selectors are used by all Find/Wait tools to locate elements. Supported formats:
 | Name | `[name=OK]` | Match by element name |
 | Text | `text=Save` | Match by visible text |
 | Control type | `type=Button` | Match by control type |
-| XPath | `//Button[@Name='7']` | XPath expression over the UI tree |
-| XPath wildcard | `//*[@AutomationId='result']` | Match any control type |
+| XPath (relative) | `.//Button[@Name='7']` | XPath relative to current scope |
+| XPath (absolute) | `//Button[@Name='7']` | XPath from desktop root |
+| XPath wildcard | `.//*[@AutomationId='result']` | Match any control type |
 
 See the [Driver XPath documentation](../WindowsConductor.DriverFlaUI/XPATH.md) for full XPath syntax details.

@@ -54,7 +54,7 @@ public sealed class WcLocator : IWcWidget
     /// <summary>Finds elements using an XPath expression within this locator's match.</summary>
     public WcLocator GetByXPath(string xpath)
     {
-        string normalised = xpath.StartsWith('/') || xpath.StartsWith('.') ? xpath : $"//{xpath}";
+        string normalised = xpath.StartsWith('/') || xpath.StartsWith('.') ? xpath : $".//{xpath}";
         return Locator(normalised);
     }
 

@@ -843,8 +843,7 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
     private static bool IsRelativeXPath(string selector)
     {
         var s = selector.TrimStart();
-        return s.StartsWith('.') || s.StartsWith("//", StringComparison.Ordinal)
-            || s.StartsWith('(') || StartsWithAxis(s);
+        return s.StartsWith('.') || s.StartsWith('(') || StartsWithAxis(s);
     }
 
     private static readonly HashSet<string> AxisNames = new(StringComparer.OrdinalIgnoreCase)

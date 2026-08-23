@@ -402,8 +402,8 @@ public class WcElementAsyncTests
     public void GetByXPath_ReturnsLocator()
     {
         var elWithApp = new WcElement("el-1", _transport, "app-1");
-        var locator = elWithApp.GetByXPath("//Button");
-        Assert.That(locator.ToString(), Does.Contain("//Button"));
+        var locator = elWithApp.GetByXPath("Button");
+        Assert.That(locator.ToString(), Does.Contain(".//Button"));
     }
 
     [Test]

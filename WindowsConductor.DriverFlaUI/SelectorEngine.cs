@@ -18,8 +18,8 @@ namespace WindowsConductor.DriverFlaUI;
 ///   [automationid=okBtn]&&type=Button
 ///
 /// XPath expressions (passed through to <see cref="XPathEngine"/>):
-///   //Button[@AutomationId='okBtn']
-///   //*[@Name='Cancel']
+///   .//Button[@AutomationId='okBtn']   (relative to context element)
+///   //Button[@Name='Cancel']            (absolute from desktop root)
 /// </summary>
 public static class SelectorEngine
 {
@@ -106,7 +106,7 @@ public static class SelectorEngine
     private static bool IsAbsoluteXPath(string selector)
     {
         var s = selector.AsSpan().TrimStart('(');
-        return s.Length > 0 && s[0] == '/' && (s.Length < 2 || s[1] != '/');
+        return s.Length > 0 && s[0] == '/';
     }
 
     private static IEnumerable<AutomationElement> ApplyProcessFilter(IEnumerable<AutomationElement> results, int? confineToProcessId)

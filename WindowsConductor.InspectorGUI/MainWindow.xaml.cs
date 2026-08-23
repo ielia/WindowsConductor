@@ -1475,7 +1475,7 @@ public partial class MainWindow : Window, ICommandOutput
         var atY = winRelY - mwOffY;
         var selector = _executor.IsAtRoot
             ? FormattableString.Invariant($"/*[at({atX:F0}, {atY:F0})]")
-            : FormattableString.Invariant($"//frontmost::*[at({atX:F0}, {atY:F0})]");
+            : FormattableString.Invariant($".//frontmost::*[at({atX:F0}, {atY:F0})]");
         AppendLog($"> {selector}", bold: true);
 
         SetBusy(true);
@@ -1593,7 +1593,7 @@ public partial class MainWindow : Window, ICommandOutput
             var (winRelX, winRelY) = (rounded.Item1, rounded.Item2);
             var selector = _executor.IsAtRoot
                 ? FormattableString.Invariant($"/*[at({winRelX}, {winRelY})]")
-                : FormattableString.Invariant($"//frontmost::*[at({winRelX}, {winRelY})]");
+                : FormattableString.Invariant($".//frontmost::*[at({winRelX}, {winRelY})]");
 
             _clicklessTask = RunClicklessLocateAsync(selector);
         };

@@ -129,7 +129,7 @@ public class LocatorChainingTests
             .GetByAutomationId("submit");
 
         Assert.That(chain.ToString(), Is.EqualTo(
-            "WcLocator(type=Window) > WcLocator(//Panel[@Name='content']) > " +
+            "WcLocator(type=Window) > WcLocator(.//Panel[@Name='content']) > " +
             "WcLocator([automationid=submit])"));
     }
 

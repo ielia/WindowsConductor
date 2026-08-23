@@ -51,11 +51,11 @@ public class WcAppTests
     }
 
     [Test]
-    public void GetByXPath_RelativePath_PrependDoubleSlash()
+    public void GetByXPath_RelativePath_PrependDotDoubleSlash()
     {
         var app = MakeApp();
         var loc = app.GetByXPath("Button[@Name='OK']");
-        Assert.That(loc.ToString(), Does.Contain("//Button[@Name='OK']"));
+        Assert.That(loc.ToString(), Does.Contain(".//Button[@Name='OK']"));
     }
 
     [Test]

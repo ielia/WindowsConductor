@@ -66,8 +66,9 @@ Identifier     ::= (Letter | '_') (Letter | Digit | '_' | '-')*
 | Form | Starting point | Example |
 |---|---|---|
 | `/`&hellip; | The **root** of the automation tree (the Desktop element). | `/Window/Button` |
-| `//`&hellip; | All **descendants** of the root. | `//Button` |
-| `.`&hellip; | The **context node** passed to the engine (e.g. the element a locator resolved to). | `./Button`, `.//Button` |
+| `//`&hellip; | All **descendants** of the root (absolute). | `//Button` |
+| `.//`&hellip; | All **descendants** of the context node (relative). | `.//Button` |
+| `.`&hellip; | The **context node** passed to the engine (e.g. the element a locator resolved to). | `./Button` |
 | `..`&hellip; | The **parent** of the context node. | `../Button` |
 
 ### Top-level paths
@@ -75,15 +76,17 @@ Identifier     ::= (Letter | '_') (Letter | Digit | '_' | '-')*
 | Form | Starting point |
 |---|---|
 | `/`&hellip; | **Absolute.** The root of the automation tree (Desktop). |
-| `//`&hellip; | **Relative.** All descendants of the context node. |
+| `//`&hellip; | **Absolute.** All descendants from the desktop root. |
+| `.//`&hellip; | **Relative.** All descendants of the context node. |
 | `.`&hellip; / `..`&hellip; | **Relative.** Context node / parent of context node. |
 
-Top-level `//` is relative so that `element.Locator("//Button")` searches
-within that element's subtree, not the entire desktop.
+Use `.//` when searching within a subtree: `element.Locator(".//Button")`
+searches within that element's descendants. Plain `//Button` always
+searches from the desktop root.
 
 ### Sub-path predicates (inside `[…]`)
 
-Inside filter expressions, `//` is treated as **absolute** (desktop root):
+Inside filter expressions the same rules apply:
 
 | Form | Starting point | Example |
 |---|---|---|
@@ -92,9 +95,6 @@ Inside filter expressions, `//` is treated as **absolute** (desktop root):
 | `./`&hellip; | Context element (relative). | `//Pane[./Button]` &mdash; direct child Button. |
 | `..`&hellip; | Parent of context element. | `//Pane[../Group]` &mdash; sibling Group. |
 | `/`&hellip; | Desktop root (absolute). | `//Pane[/Window]` &mdash; root Window. |
-
-This matches the standard XPath semantics where `//` in a predicate is
-an abbreviated absolute path.
 
 ---
 

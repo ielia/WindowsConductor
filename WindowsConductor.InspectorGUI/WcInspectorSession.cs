@@ -300,7 +300,7 @@ internal sealed class WcInspectorSession : IInspectorSession, IAsyncDisposable
         var rects = new List<BoundingRect>();
         try
         {
-            var resolved = await _app!.Locator("//Window/@boundingrectangle").GetResolvedValueAsync(ct);
+            var resolved = await _app!.Locator(".//Window/@boundingrectangle").GetResolvedValueAsync(ct);
             foreach (var item in resolved.GetAsList())
             {
                 var rect = item.GetAsRectangle();
