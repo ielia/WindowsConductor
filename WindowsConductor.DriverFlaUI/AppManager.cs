@@ -140,6 +140,35 @@ public sealed class AppManager : IAppOperations, IDisposable
             .ToArray();
     }
 
+    /// <summary>Returns the count of elements matching the selector chain.</summary>
+    public int CountElements(string appId, string[] selectors, string? rootElementId = null, CancellationToken ct = default)
+    {
+        var (root, lastSelector) = ResolveParentChain(appId, selectors, rootElementId, ct);
+        var result = SelectorEngine.FindFull(root, lastSelector, GetDesktopRoot(), GetConfineProcessId(appId), ct);
+        return result is ElementsResult er ? er.Elements.Count() : 0;
+    }
+
+    /// <summary>Returns the element ID of the element at the given index in the match list, caching all resolved elements up to and including it.</summary>
+    public string FindElementByIndex(string appId, string[] selectors, int index, string? rootElementId = null, CancellationToken ct = default)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(index);
+        var (root, lastSelector) = ResolveParentChain(appId, selectors, rootElementId, ct);
+        var result = SelectorEngine.FindFull(root, lastSelector, GetDesktopRoot(), GetConfineProcessId(appId), ct);
+        if (result is not ElementsResult er)
+            throw new InvalidOperationException($"Selector '{lastSelector}' did not return elements.");
+        string? targetId = null;
+        int i = 0;
+        foreach (var el in er.Elements)
+        {
+            var id = CacheElement(el);
+            if (i == index) targetId = id;
+            if (i >= index) break;
+            i++;
+        }
+        return targetId ?? throw new ArgumentOutOfRangeException(
+            nameof(index), index, $"Index out of range for selector '{lastSelector}' (found {i} element(s)).");
+    }
+
     public object ResolveValue(string appId, string[] selectors, string? rootElementId = null, CancellationToken ct = default)
     {
         var (root, lastSelector) = ResolveParentChain(appId, selectors, rootElementId, ct);

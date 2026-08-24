@@ -53,7 +53,7 @@ Any client that supports stdio-based MCP servers can connect by spawning the pro
 
 1. The AI calls **Connect** to establish a WebSocket connection to the Driver.
 2. It calls **LaunchApp** or **AttachApp** to get an `appId`.
-3. It uses **FindElement** / **FindElements** with selectors to locate UI elements.
+3. It uses **FindElement** / **FindElements** / **FindElementByIndex** / **CountElements** with selectors to locate UI elements.
 4. It interacts with elements via **ClickElement**, **TypeText**, **HitKeys**, etc.
 5. It can inspect elements with **GetText**, **GetAttribute**, **GetBoundingRect**, etc.
 6. It can use **WaitForElement** / **WaitForVanish** / **WaitForVisible** / **WaitForHidden** / **WaitForElementVanish** / **WaitForElementVisible** / **WaitForElementHidden** / **IsStale** to handle dynamic UI.

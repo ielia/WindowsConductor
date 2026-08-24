@@ -48,6 +48,14 @@ internal sealed class FakeAppOperations : IAppOperations
     public string[] FindElements(string appId, string[] selectors, string? rootElementId = null, CancellationToken ct = default)
     { Record("FindElements", appId, selectors, rootElementId); return FindElementsResult; }
 
+    public int CountElementsResult { get; set; } = 3;
+    public int CountElements(string appId, string[] selectors, string? rootElementId = null, CancellationToken ct = default)
+    { Record("CountElements", appId, selectors, rootElementId); return CountElementsResult; }
+
+    public string FindElementByIndexResult { get; set; } = "el-idx";
+    public string FindElementByIndex(string appId, string[] selectors, int index, string? rootElementId = null, CancellationToken ct = default)
+    { Record("FindElementByIndex", appId, selectors, index, rootElementId); return FindElementByIndexResult; }
+
     public object ResolveValueResult { get; set; } = new { type = "ListValue", items = new object[] { new { type = "StringValue", value = "btn", elementId = "el-1", name = "class" } } };
     public object ResolveValue(string appId, string[] selectors, string? rootElementId = null, CancellationToken ct = default)
     { Record("ResolveValue", appId, selectors, rootElementId); return ResolveValueResult; }
@@ -324,6 +332,72 @@ public class ProcessRequestTests
 
         Assert.That(resp.Success, Is.True);
         Assert.That(resp.Result, Is.EqualTo(new[] { "el-1", "el-2" }));
+    }
+
+    // ── countElements ────────────────────────────────────────────────────────
+
+    [Test]
+    public void CountElements_ReturnsCount()
+    {
+        var resp = WsServer.ProcessRequest(_fake, MakeRequest("countElements", new()
+        {
+            ["appId"] = "a1",
+            ["selectors"] = new[] { "type=Button" },
+            ["rootElementId"] = ""
+        }));
+
+        Assert.That(resp.Success, Is.True);
+        Assert.That(resp.Result, Is.EqualTo(3));
+        var call = _fake.Calls.Single(c => c.Method == "CountElements");
+        Assert.That(call.Args[0], Is.EqualTo("a1"));
+        Assert.That(call.Args[2], Is.Null);
+    }
+
+    [Test]
+    public void CountElements_WithRootElementId_PassesIt()
+    {
+        WsServer.ProcessRequest(_fake, MakeRequest("countElements", new()
+        {
+            ["appId"] = "a1",
+            ["selectors"] = new[] { "type=Button" },
+            ["rootElementId"] = "root-el"
+        }));
+        Assert.That(_fake.Calls[0].Args[2], Is.EqualTo("root-el"));
+    }
+
+    // ── findElementByIndex ───────────────────────────────────────────────────
+
+    [Test]
+    public void FindElementByIndex_ReturnsElement()
+    {
+        var resp = WsServer.ProcessRequest(_fake, MakeRequest("findElementByIndex", new()
+        {
+            ["appId"] = "a1",
+            ["selectors"] = new[] { "type=Button" },
+            ["index"] = 2,
+            ["rootElementId"] = ""
+        }));
+
+        Assert.That(resp.Success, Is.True);
+        Assert.That(resp.Result, Is.EqualTo("el-idx"));
+        var call = _fake.Calls.Single(c => c.Method == "FindElementByIndex");
+        Assert.That(call.Args[0], Is.EqualTo("a1"));
+        Assert.That(call.Args[2], Is.EqualTo(2));
+        Assert.That(call.Args[3], Is.Null);
+    }
+
+    [Test]
+    public void FindElementByIndex_WithRootElementId_PassesIt()
+    {
+        WsServer.ProcessRequest(_fake, MakeRequest("findElementByIndex", new()
+        {
+            ["appId"] = "a1",
+            ["selectors"] = new[] { "type=Button" },
+            ["index"] = 0,
+            ["rootElementId"] = "root-el"
+        }));
+        var call = _fake.Calls.Single(c => c.Method == "FindElementByIndex");
+        Assert.That(call.Args[3], Is.EqualTo("root-el"));
     }
 
     // ── resolveValue ─────────────────────────────────────────────────────────

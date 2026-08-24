@@ -299,6 +299,29 @@ public sealed class WsServer
                         return WcResponse.Ok(req.Id, ids);
                     }
 
+                case "countElements":
+                    {
+                        var rootElId = req.GetString("rootElementId");
+                        var count = mgr.CountElements(
+                            req.GetString("appId"),
+                            req.GetStringArray("selectors"),
+                            string.IsNullOrEmpty(rootElId) ? null : rootElId,
+                            ct);
+                        return WcResponse.Ok(req.Id, count);
+                    }
+
+                case "findElementByIndex":
+                    {
+                        var rootElId = req.GetString("rootElementId");
+                        var elementId = mgr.FindElementByIndex(
+                            req.GetString("appId"),
+                            req.GetStringArray("selectors"),
+                            req.GetInt("index"),
+                            string.IsNullOrEmpty(rootElId) ? null : rootElId,
+                            ct);
+                        return WcResponse.Ok(req.Id, elementId);
+                    }
+
                 case "resolveValue":
                     {
                         var rootElId = req.GetString("rootElementId");

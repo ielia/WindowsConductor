@@ -130,6 +130,66 @@ public class WcLocatorAsyncTests
         Assert.That(elements, Has.Count.EqualTo(2));
     }
 
+    // ── CountElementsAsync ────────────────────────────────────────────────────
+
+    [Test]
+    public async Task CountElementsAsync_ReturnsCount()
+    {
+        _transport.Enqueue(5);
+        var count = await MakeLocator("type=Button").CountElementsAsync();
+        Assert.That(count, Is.EqualTo(5));
+        Assert.That(_transport.Calls[0].Command, Is.EqualTo("countElements"));
+    }
+
+    [Test]
+    public async Task CountElementsAsync_WithParent_SendsSingleCallWithSelectors()
+    {
+        _transport.Enqueue(3);
+        var chain = MakeLocator("type=Window").GetByControlType("Button");
+        var count = await chain.CountElementsAsync();
+
+        Assert.That(_transport.Calls, Has.Count.EqualTo(1));
+        Assert.That(_transport.Calls[0].Command, Is.EqualTo("countElements"));
+        Assert.That(_transport.Calls[0].ParamsJson,
+            Does.Contain("\"selectors\":[\"type=Window\",\"type=Button\"]"));
+        Assert.That(count, Is.EqualTo(3));
+    }
+
+    // ── GetElementByIndexAsync ───────────────────────────────────────────────
+
+    [Test]
+    public async Task GetElementByIndexAsync_ReturnsElement()
+    {
+        _transport.Enqueue("el-at-2");
+        var el = await MakeLocator("type=Button").GetElementByIndexAsync(2);
+        Assert.That(el.ElementId, Is.EqualTo("el-at-2"));
+        Assert.That(_transport.Calls[0].Command, Is.EqualTo("findElementByIndex"));
+        Assert.That(_transport.Calls[0].ParamsJson, Does.Contain("\"index\":2"));
+    }
+
+    [Test]
+    public void GetElementByIndexAsync_NullResult_ThrowsWcException()
+    {
+        _transport.Enqueue(null);
+        Assert.ThrowsAsync<WcException>(async () =>
+            await MakeLocator("[name=OK]").GetElementByIndexAsync(0));
+    }
+
+    [Test]
+    public async Task GetElementByIndexAsync_WithParent_SendsSingleCallWithSelectors()
+    {
+        _transport.Enqueue("c1");
+        var chain = MakeLocator("type=Window").GetByControlType("Button");
+        var el = await chain.GetElementByIndexAsync(1);
+
+        Assert.That(_transport.Calls, Has.Count.EqualTo(1));
+        Assert.That(_transport.Calls[0].Command, Is.EqualTo("findElementByIndex"));
+        Assert.That(_transport.Calls[0].ParamsJson,
+            Does.Contain("\"selectors\":[\"type=Window\",\"type=Button\"]"));
+        Assert.That(_transport.Calls[0].ParamsJson, Does.Contain("\"index\":1"));
+        Assert.That(el.ElementId, Is.EqualTo("c1"));
+    }
+
     // ── Delegated actions ────────────────────────────────────────────────────
 
     [Test]

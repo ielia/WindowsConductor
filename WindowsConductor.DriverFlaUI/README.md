@@ -93,6 +93,8 @@ All commands are sent as JSON objects with a `command` field and a `params` obje
 |---|---|
 | `findElement` | Find a single element by selector. |
 | `findElements` | Find all elements matching a selector. |
+| `findElementByIndex` | Find the element at a specific index among all matches. |
+| `countElements` | Count elements matching a selector. |
 | `resolveValue` | Evaluate a selector and return typed values. |
 | `findElementsAtPoint` | Find elements whose bounding rect contains a screen point. |
 | `findFrontElementAtPoint` | Find the front-most (smallest) element at a screen point. |

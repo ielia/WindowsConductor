@@ -83,6 +83,25 @@ Find UI elements using a selector. Returns a JSON array of element IDs.
 | `appId` | string | Yes | The appId returned by LaunchApp or AttachApp |
 | `selector` | string | Yes | Element selector (see [Selectors](#selectors)) |
 
+### FindElementByIndex
+
+Find the UI element at a specific index among all matches for a selector. Returns its element ID.
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `appId` | string | Yes | The appId returned by LaunchApp or AttachApp |
+| `selector` | string | Yes | Element selector (see [Selectors](#selectors)) |
+| `index` | int | Yes | Zero-based index of the element to return |
+
+### CountElements
+
+Count the number of UI elements matching a selector.
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `appId` | string | Yes | The appId returned by LaunchApp or AttachApp |
+| `selector` | string | Yes | Element selector (see [Selectors](#selectors)) |
+
 ### FindElementWithin
 
 Find a single UI element scoped within a parent element.

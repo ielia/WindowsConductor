@@ -13,6 +13,8 @@ internal interface IAppOperations
     void CloseApp(string appId);
     string FindElement(string appId, string[] selectors, string? rootElementId = null, CancellationToken ct = default);
     string[] FindElements(string appId, string[] selectors, string? rootElementId = null, CancellationToken ct = default);
+    int CountElements(string appId, string[] selectors, string? rootElementId = null, CancellationToken ct = default);
+    string FindElementByIndex(string appId, string[] selectors, int index, string? rootElementId = null, CancellationToken ct = default);
     object ResolveValue(string appId, string[] selectors, string? rootElementId = null, CancellationToken ct = default);
     string[] FindElementsAtPoint(string appId, double x, double y, string? rootElementId = null, CancellationToken ct = default);
     string FindFrontElementAtPoint(string appId, double x, double y, string? rootElementId = null, CancellationToken ct = default);

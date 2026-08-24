@@ -115,6 +115,8 @@ Lazy element selector that re-queries on each call. Implements `IWcWidget`. Addi
 |---|---|
 | `Parent()` | Locator for the parent element. |
 | `GetAllElementsAsync()` | Resolve all matching elements. |
+| `GetElementByIndexAsync(index)` | Resolve the element at a specific index among all matches. |
+| `CountElementsAsync()` | Count elements matching the selector. |
 | `GetResolvedValueAsync()` / `WaitForResolvedValueAsync(timeout)` | Resolve/wait for a typed value (`WcValue`). |
 | `WaitForAllElementsAsync(timeout)` | Wait for at least one matching element to appear. |
 | `WaitForVanishAsync(timeout)` | Wait for all matching elements to disappear. |

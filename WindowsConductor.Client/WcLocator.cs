@@ -123,6 +123,33 @@ public sealed class WcLocator : IWcWidget
             .ToList();
     }
 
+    /// <summary>Returns the count of elements matching this locator.</summary>
+    public async Task<int> CountElementsAsync(CancellationToken ct = default)
+    {
+        var (selectors, rootElementId) = CollectChain();
+        var result = await _conn.SendAsync(
+            "countElements",
+            new { appId = _appId, selectors, rootElementId },
+            ct);
+        return result.GetInt32();
+    }
+
+    /// <summary>Returns the element at the given index among all matches.</summary>
+    public async Task<WcElement> GetElementByIndexAsync(int index, CancellationToken ct = default)
+    {
+        var (selectors, rootElementId) = CollectChain();
+        var result = await _conn.SendAsync(
+            "findElementByIndex",
+            new { appId = _appId, selectors, rootElementId, index },
+            ct);
+
+        string? elementId = result.GetString();
+        if (elementId is null)
+            throw new WcException($"No element found at index {index} for selector: '{_selector}'");
+
+        return new WcElement(elementId, _conn, _appId);
+    }
+
     /// <summary>
     /// Resolves the selector and returns the result as a <see cref="WcValue"/>.
     /// Element selectors return a <c>ListValue</c> of string values (element text);

@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Globalization;
 using System.Text.Json;
 using ModelContextProtocol.Server;
 using WindowsConductor.Client;
@@ -143,6 +144,31 @@ public sealed class AppTools(ConductorState state)
         var locator = app.Locator(selector);
         var element = await locator.GetElementAsync();
         return element.ElementId;
+    }
+
+    [McpServerTool, Description(
+        "Find the UI element at a specific index among all matches for a selector. Returns its element ID.")]
+    public async Task<string> FindElementByIndex(
+        [Description("The appId returned by LaunchApp or AttachApp")] string appId,
+        [Description("Element selector (attribute, text, type, or XPath)")] string selector,
+        [Description("Zero-based index of the element to return")] int index)
+    {
+        var app = state.GetApp(appId);
+        var locator = app.Locator(selector);
+        var element = await locator.GetElementByIndexAsync(index);
+        return element.ElementId;
+    }
+
+    [McpServerTool, Description(
+        "Count the number of UI elements matching a selector.")]
+    public async Task<string> CountElements(
+        [Description("The appId returned by LaunchApp or AttachApp")] string appId,
+        [Description("Element selector (attribute, text, type, or XPath)")] string selector)
+    {
+        var app = state.GetApp(appId);
+        var locator = app.Locator(selector);
+        var count = await locator.CountElementsAsync();
+        return count.ToString(CultureInfo.InvariantCulture);
     }
 
     [McpServerTool, Description(

@@ -136,6 +136,46 @@ public class AppToolsTests
     }
 
     [Test]
+    public async Task FindElementByIndex_WithTrackedApp_ReturnsElementId()
+    {
+        var transport = new FakeTransport();
+        var app = new WcApp("app-1", transport);
+        _state.TrackApp("app-1", app);
+
+        transport.Enqueue("el-at-2");
+
+        var result = await _tools.FindElementByIndex("app-1", "[name=OK]", 2);
+        Assert.That(result, Is.EqualTo("el-at-2"));
+    }
+
+    [Test]
+    public void FindElementByIndex_WhenNotConnected_Throws()
+    {
+        Assert.ThrowsAsync<InvalidOperationException>(
+            () => _tools.FindElementByIndex("app-1", "[name=OK]", 0));
+    }
+
+    [Test]
+    public async Task CountElements_WithTrackedApp_ReturnsCount()
+    {
+        var transport = new FakeTransport();
+        var app = new WcApp("app-1", transport);
+        _state.TrackApp("app-1", app);
+
+        transport.Enqueue(5);
+
+        var result = await _tools.CountElements("app-1", "[name=OK]");
+        Assert.That(result, Is.EqualTo("5"));
+    }
+
+    [Test]
+    public void CountElements_WhenNotConnected_Throws()
+    {
+        Assert.ThrowsAsync<InvalidOperationException>(
+            () => _tools.CountElements("app-1", "[name=OK]"));
+    }
+
+    [Test]
     public async Task CloseApp_WithTrackedApp_RemovesIt()
     {
         var transport = new FakeTransport();
