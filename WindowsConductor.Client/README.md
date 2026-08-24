@@ -8,13 +8,13 @@ The package is not published to nuget.org. To use it locally:
 
 ```bash
 # Pack the library into a .nupkg
-dotnet pack WindowsConductor.Client -c Release
+./publish.sh # or .ps1 if on PowerShell
 
 # Add a local NuGet source pointing to the output folder
-dotnet nuget add source ./WindowsConductor.Client/bin/Release -n WindowsConductorLocal
+dotnet nuget add source ./publish/Client/NuGet -n WindowsConductorLocal
 
 # Install in your project
-dotnet add package WindowsConductor.Client --version 0.10.0
+dotnet add package WindowsConductor.Client --version 1.0.0
 ```
 
 ## Quick start
@@ -23,10 +23,18 @@ dotnet add package WindowsConductor.Client --version 0.10.0
 using WindowsConductor.Client;
 
 await using var session = await WcSession.ConnectAsync("ws://localhost:8765/");
-await using var app = await session.LaunchAsync("notepad.exe");
+await using var app = await session.LaunchAsync("calc.exe", null, "^Calculator$", 10000);
 
-var editor = app.Locator("type=Edit");
-await editor.TypeAsync("Hello from WindowsConductor");
+var display = app.Locator(".//Text[starts-with('Display is ')]");
+var button1 = app.Locator(".//Button[@automationid='num1Button']");
+var button2 = app.Locator(".//Button[@automationid='num2Button']");
+var buttonEq = app.Locator(".//Button[@automationid='equalButton']");
+var buttonPlus = app.Locator(".//Button[@automationid='plusButton']");
+await button1.ClickAsync();
+await buttonPlus.ClickAsync();
+await button2.ClickAsync();
+await buttonEq.ClickAsync();
+Console.WriteLine(await display.GetNameAsync());
 
 using var screenshot = await app.ScreenshotAsync(); // returns SKBitmap
 ```
