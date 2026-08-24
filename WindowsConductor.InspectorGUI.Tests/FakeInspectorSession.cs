@@ -117,7 +117,12 @@ internal sealed class FakeInspectorSession : IInspectorSession
     {
         Record("LocateAll", (object)selectors);
         if (LocateAllResult > 0)
+        {
             HasSelectedElement = true;
+            MatchedElements = Enumerable.Range(0, LocateAllResult)
+                .Select(i => new WcElement($"el-{i}", null!))
+                .ToArray();
+        }
         return Task.FromResult(LocateAllResult);
     }
 
@@ -125,7 +130,12 @@ internal sealed class FakeInspectorSession : IInspectorSession
     {
         Record("LocateAllFromElement", (object)selectors);
         if (LocateAllResult > 0)
+        {
             HasSelectedElement = true;
+            MatchedElements = Enumerable.Range(0, LocateAllResult)
+                .Select(i => new WcElement($"el-{i}", null!))
+                .ToArray();
+        }
         return Task.FromResult(LocateAllResult);
     }
 
@@ -134,6 +144,15 @@ internal sealed class FakeInspectorSession : IInspectorSession
     {
         Record("SelectMatch", index);
         return Task.FromResult(SelectMatchResult);
+    }
+
+    public IReadOnlyList<WcElement>? MatchedElements { get; set; }
+
+    public void RestoreElements(IReadOnlyList<WcElement> elements, int index)
+    {
+        Record("RestoreElements", elements, index);
+        MatchedElements = elements;
+        HasSelectedElement = true;
     }
 
     public void Unselect()

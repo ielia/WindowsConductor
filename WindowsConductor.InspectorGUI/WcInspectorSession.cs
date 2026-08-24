@@ -140,6 +140,14 @@ internal sealed class WcInspectorSession : IInspectorSession, IAsyncDisposable
         return Task.FromResult(_selectedElement.ElementId);
     }
 
+    public IReadOnlyList<WcElement>? MatchedElements => _matchedElements;
+
+    public void RestoreElements(IReadOnlyList<WcElement> elements, int index)
+    {
+        _matchedElements = elements;
+        _selectedElement = elements[index];
+    }
+
     public void Unselect()
     {
         _selectedElement = null;
@@ -151,6 +159,7 @@ internal sealed class WcInspectorSession : IInspectorSession, IAsyncDisposable
         var parent = await _selectedElement!.ParentAsync(ct);
         if (parent is null) return null;
         _selectedElement = parent;
+        _matchedElements = [parent];
         return parent.ElementId;
     }
 

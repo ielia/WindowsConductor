@@ -8,8 +8,10 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
 {
     internal bool StopChainOnError { get; set; }
 
+    private readonly record struct HistoryEntry(string[] Selectors, IReadOnlyList<WcElement> MatchedElements, int MatchIndex);
+
     private string[]? _currentSelectors;
-    private readonly Stack<string[]> _selectorHistory = new();
+    private readonly Stack<HistoryEntry> _selectorHistory = new();
     private int _matchCount;
     private int _matchIndex;
     private bool _isAtRoot;
@@ -153,17 +155,26 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
                 var previousSelectors = _currentSelectors;
                 var previousMatchCount = _matchCount;
                 var previousMatchIndex = _matchIndex;
+                var previousElements = session.MatchedElements;
                 int count;
-                if (isRelative)
+                try
                 {
-                    BakeMatchIndex();
-                    count = await session.LocateAllFromElementAsync(cmd.Selectors, ct);
-                    _currentSelectors = CombineSelectors(_currentSelectors, cmd.Selectors);
+                    if (isRelative)
+                    {
+                        BakeMatchIndex();
+                        count = await session.LocateAllFromElementAsync(cmd.Selectors, ct);
+                        _currentSelectors = CombineSelectors(_currentSelectors, cmd.Selectors);
+                    }
+                    else
+                    {
+                        count = await session.LocateAllAsync(cmd.Selectors, ct);
+                        _currentSelectors = cmd.Selectors;
+                    }
                 }
-                else
+                catch
                 {
-                    count = await session.LocateAllAsync(cmd.Selectors, ct);
-                    _currentSelectors = cmd.Selectors;
+                    _currentSelectors = previousSelectors;
+                    throw;
                 }
                 if (count == 0)
                 {
@@ -174,7 +185,7 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
                         $"No element found for selector '{string.Join(" >> ", cmd.Selectors)}'.");
                 }
                 if (previousSelectors is not null)
-                    _selectorHistory.Push(previousSelectors);
+                    _selectorHistory.Push(new HistoryEntry(previousSelectors, previousElements!, previousMatchIndex));
                 _isAtRoot = await session.IsSelectedElementRootAsync(ct);
                 _matchCount = count;
                 _matchIndex = 0;
@@ -431,19 +442,33 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
 
             case ParentCommand:
                 RequireElement();
-                BakeMatchIndex();
                 var parentPreviousSelectors = _currentSelectors;
-                ResetMatchState();
-                var parentId = await session.ParentAsync(ct);
+                var parentPreviousElements = session.MatchedElements;
+                var parentPreviousMatchIndex = _matchIndex;
+                BakeMatchIndex();
+                string? parentId;
+                try
+                {
+                    parentId = await session.ParentAsync(ct);
+                }
+                catch
+                {
+                    _currentSelectors = parentPreviousSelectors;
+                    throw;
+                }
                 if (parentId is null)
                 {
+                    _currentSelectors = parentPreviousSelectors;
                     _isAtRoot = true;
                     output.WriteInfo("Already at application root.");
                     break;
                 }
                 if (parentPreviousSelectors is not null)
-                    _selectorHistory.Push(parentPreviousSelectors);
-                _currentSelectors = CombineSelectors(parentPreviousSelectors, [".."]);
+                    _selectorHistory.Push(new HistoryEntry(parentPreviousSelectors, parentPreviousElements!, parentPreviousMatchIndex));
+                _matchCount = 1;
+                _matchIndex = 0;
+                output.UpdateMatchNavigation(0, 1);
+                _currentSelectors = CombineSelectors(_currentSelectors, [".."]);
                 _isAtRoot = await session.IsSelectedElementRootAsync(ct);
                 output.WriteInfo($"Navigated to parent: {parentId}");
                 await ShowWindowScreenshotWithHighlightAsync(ct);
@@ -452,15 +477,29 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
 
             case ChildrenCommand:
                 RequireElement();
-                BakeMatchIndex();
                 var childPreviousSelectors = _currentSelectors;
+                var childPreviousElements = session.MatchedElements;
+                var childPreviousMatchIndex = _matchIndex;
+                BakeMatchIndex();
                 var childSelectors = new[] { "./*" };
-                var childCount = await session.LocateAllFromElementAsync(childSelectors, ct);
+                int childCount;
+                try
+                {
+                    childCount = await session.LocateAllFromElementAsync(childSelectors, ct);
+                }
+                catch
+                {
+                    _currentSelectors = childPreviousSelectors;
+                    throw;
+                }
                 if (childCount == 0)
+                {
+                    _currentSelectors = childPreviousSelectors;
                     throw new InvalidOperationException("No children found.");
+                }
                 if (childPreviousSelectors is not null)
-                    _selectorHistory.Push(childPreviousSelectors);
-                _currentSelectors = CombineSelectors(childPreviousSelectors, childSelectors);
+                    _selectorHistory.Push(new HistoryEntry(childPreviousSelectors, childPreviousElements!, childPreviousMatchIndex));
+                _currentSelectors = CombineSelectors(_currentSelectors, childSelectors);
                 _isAtRoot = false;
                 _matchCount = childCount;
                 _matchIndex = 0;
@@ -611,13 +650,12 @@ internal sealed class CommandExecutor(IInspectorSession session, ICommandOutput 
     internal async Task GoBackAsync(CancellationToken ct = default)
     {
         if (_selectorHistory.Count == 0) return;
-        var selectors = _selectorHistory.Pop();
-        session.Unselect();
-        var count = await session.LocateAllAsync(selectors, ct);
-        _currentSelectors = selectors;
+        var entry = _selectorHistory.Pop();
+        session.RestoreElements(entry.MatchedElements, entry.MatchIndex);
+        _currentSelectors = entry.Selectors;
         _isAtRoot = await session.IsSelectedElementRootAsync(ct);
-        _matchCount = count;
-        _matchIndex = 0;
+        _matchCount = entry.MatchedElements.Count;
+        _matchIndex = entry.MatchIndex;
         output.UpdateMatchNavigation(_matchIndex, _matchCount);
         await ShowWindowScreenshotWithHighlightAsync(ct);
         await ShowAttributesAsync(ct);

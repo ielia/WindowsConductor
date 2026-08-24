@@ -26,6 +26,8 @@ internal interface IInspectorSession
     Task<int> LocateAllAsync(string[] selectors, CancellationToken ct = default);
     Task<int> LocateAllFromElementAsync(string[] selectors, CancellationToken ct = default);
     Task<string> SelectMatchAsync(int index, CancellationToken ct = default);
+    IReadOnlyList<WcElement>? MatchedElements { get; }
+    void RestoreElements(IReadOnlyList<WcElement> elements, int index);
     void Unselect();
 
     Task<WcValue> ResolveValueAsync(string selector, CancellationToken ct = default);

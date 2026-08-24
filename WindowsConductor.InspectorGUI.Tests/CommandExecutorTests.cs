@@ -438,7 +438,186 @@ public class CommandExecutorTests
         await _executor.ExecuteAsync("locate //Button");
 
         await _executor.ExecuteAsync("parent");
-        Assert.That(_output.MatchNavigationUpdates.Last(), Is.EqualTo((0, 0)));
+        Assert.That(_output.MatchNavigationUpdates.Last(), Is.EqualTo((0, 1)));
+    }
+
+    // ── go back ────────────────────────────────────────────────────────────
+
+    [Test]
+    public async Task GoBack_RestoresElementsFromCache_DoesNotRequery()
+    {
+        _session.IsConnected = true;
+        _session.HasApp = true;
+        _session.LocateAllResult = 1;
+        await _executor.ExecuteAsync("locate type=Panel");
+        await _executor.ExecuteAsync("locate ./[name=OK]");
+        _session.Calls.Clear();
+
+        await _executor.GoBackAsync();
+
+        Assert.That(_session.Calls.Any(c => c.Method == "RestoreElements"), Is.True);
+        Assert.That(_session.Calls.All(c => c.Method != "LocateAll"), Is.True);
+        Assert.That(_session.Calls.All(c => c.Method != "Unselect"), Is.True);
+    }
+
+    [Test]
+    public async Task GoBack_RestoresMatchIndex()
+    {
+        _session.IsConnected = true;
+        _session.HasApp = true;
+        _session.LocateAllResult = 5;
+        await _executor.ExecuteAsync("locate //Button");
+        await _executor.NavigateMatchAsync(2);
+        _session.LocateAllResult = 1;
+        await _executor.ExecuteAsync("locate ./child");
+        _output.MatchNavigationUpdates.Clear();
+
+        await _executor.GoBackAsync();
+
+        Assert.That(_output.MatchNavigationUpdates.Last(), Is.EqualTo((2, 5)));
+    }
+
+    [Test]
+    public async Task GoBack_ThroughParent_PreservesFullHistory()
+    {
+        _session.IsConnected = true;
+        _session.HasApp = true;
+        _session.HasSelectedElement = true;
+        _session.LocateAllResult = 1;
+        await _executor.ExecuteAsync("locate type=Panel");
+        await _executor.ExecuteAsync("locate ./[name=OK]");
+        await _executor.ExecuteAsync("parent");
+
+        Assert.That(_executor.CanGoBack, Is.True);
+        await _executor.GoBackAsync();
+        Assert.That(_executor.CanGoBack, Is.True);
+        await _executor.GoBackAsync();
+        Assert.That(_executor.CanGoBack, Is.False);
+    }
+
+    [Test]
+    public async Task GoBack_WhenStackEmpty_DoesNothing()
+    {
+        _session.IsConnected = true;
+        _session.HasApp = true;
+        _session.Calls.Clear();
+
+        await _executor.GoBackAsync();
+
+        Assert.That(_session.Calls, Has.Count.EqualTo(0));
+    }
+
+    // ── selector restoration on failure ──────────────────────────────────
+
+    [Test]
+    public async Task Locate_Failure_RestoresSelectorsAfterBake()
+    {
+        _session.IsConnected = true;
+        _session.HasApp = true;
+        _session.LocateAllResult = 3;
+        await _executor.ExecuteAsync("locate //Button");
+        await _executor.NavigateMatchAsync(2);
+        _output.AttributesSets.Clear();
+
+        _session.LocateAllResult = 0;
+        await _executor.ExecuteAsync("locate ./child");
+        _output.AttributesSets.Clear();
+
+        await _executor.NavigateMatchAsync(-1);
+        Assert.That(_output.AttributesSets[0].LocatorChain, Is.EqualTo("(//Button)[2]"));
+    }
+
+    [Test]
+    public async Task Locate_Exception_RestoresSelectorsAfterBake()
+    {
+        _session.IsConnected = true;
+        _session.HasApp = true;
+        _session.LocateAllResult = 3;
+        await _executor.ExecuteAsync("locate //Button");
+        await _executor.NavigateMatchAsync(2);
+        _output.AttributesSets.Clear();
+
+        _session.ThrowOnNext = new InvalidOperationException("connection lost");
+        await _executor.ExecuteAsync("locate ./child");
+        _output.AttributesSets.Clear();
+
+        await _executor.NavigateMatchAsync(-1);
+        Assert.That(_output.AttributesSets[0].LocatorChain, Is.EqualTo("(//Button)[2]"));
+    }
+
+    [Test]
+    public async Task Children_Failure_RestoresSelectorsAfterBake()
+    {
+        _session.IsConnected = true;
+        _session.HasApp = true;
+        _session.LocateAllResult = 3;
+        await _executor.ExecuteAsync("locate //Button");
+        await _executor.NavigateMatchAsync(2);
+        _output.AttributesSets.Clear();
+
+        _session.LocateAllResult = 0;
+        await _executor.ExecuteAsync("children");
+        _output.AttributesSets.Clear();
+
+        _session.LocateAllResult = 3;
+        await _executor.NavigateMatchAsync(-1);
+        Assert.That(_output.AttributesSets[0].LocatorChain, Is.EqualTo("(//Button)[2]"));
+    }
+
+    [Test]
+    public async Task Children_Exception_RestoresSelectorsAfterBake()
+    {
+        _session.IsConnected = true;
+        _session.HasApp = true;
+        _session.LocateAllResult = 3;
+        await _executor.ExecuteAsync("locate //Button");
+        await _executor.NavigateMatchAsync(2);
+        _output.AttributesSets.Clear();
+
+        _session.ThrowOnNext = new InvalidOperationException("connection lost");
+        await _executor.ExecuteAsync("children");
+        _output.AttributesSets.Clear();
+
+        await _executor.NavigateMatchAsync(-1);
+        Assert.That(_output.AttributesSets[0].LocatorChain, Is.EqualTo("(//Button)[2]"));
+    }
+
+    [Test]
+    public async Task Parent_NullResult_RestoresSelectorsAfterBake()
+    {
+        _session.IsConnected = true;
+        _session.HasApp = true;
+        _session.HasSelectedElement = true;
+        _session.LocateAllResult = 3;
+        await _executor.ExecuteAsync("locate //Button");
+        await _executor.NavigateMatchAsync(2);
+        _output.AttributesSets.Clear();
+
+        _session.ParentResult = null;
+        await _executor.ExecuteAsync("parent");
+        _output.AttributesSets.Clear();
+
+        await _executor.NavigateMatchAsync(-1);
+        Assert.That(_output.AttributesSets[0].LocatorChain, Is.EqualTo("(//Button)[2]"));
+    }
+
+    [Test]
+    public async Task Parent_Exception_RestoresSelectorsAfterBake()
+    {
+        _session.IsConnected = true;
+        _session.HasApp = true;
+        _session.HasSelectedElement = true;
+        _session.LocateAllResult = 3;
+        await _executor.ExecuteAsync("locate //Button");
+        await _executor.NavigateMatchAsync(2);
+        _output.AttributesSets.Clear();
+
+        _session.ThrowOnNext = new InvalidOperationException("connection lost");
+        await _executor.ExecuteAsync("parent");
+        _output.AttributesSets.Clear();
+
+        await _executor.NavigateMatchAsync(-1);
+        Assert.That(_output.AttributesSets[0].LocatorChain, Is.EqualTo("(//Button)[2]"));
     }
 
     // ── parent ─────────────────────────────────────────────────────────────
