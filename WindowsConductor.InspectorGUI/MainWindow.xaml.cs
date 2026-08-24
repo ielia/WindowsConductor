@@ -12,7 +12,6 @@ using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
-using System.Threading.Channels;
 using System.Windows.Threading;
 using Brush = System.Windows.Media.Brush;
 using Brushes = System.Windows.Media.Brushes;
@@ -72,6 +71,7 @@ public partial class MainWindow : Window, ICommandOutput
     private double _panOriginY;
     private const double NativePixelZoomMax = 10.0;
     private const double ZoomStep = 1.2;
+    private const int SnapshotMaxConcurrency = 8;
 
     private const int WM_SYSCOMMAND = 0x0112;
     private const int WM_MEASUREITEM = 0x002C;
@@ -209,6 +209,7 @@ public partial class MainWindow : Window, ICommandOutput
     {
         InitializeComponent();
         SourceInitialized += OnSourceInitialized;
+        Closed += OnWindowClosed;
         var session = new WcInspectorSession();
         _executor = new CommandExecutor(session, this);
         _normalPanels = [CommandInput, ScreenshotImage, AttributesGrid, OutputLog];
@@ -230,6 +231,9 @@ public partial class MainWindow : Window, ICommandOutput
         AppendLog(CommandHelp.KeyBindingsText);
         CommandInput.Focus();
     }
+
+    private async void OnWindowClosed(object? sender, EventArgs e) =>
+        await _executor.Session.DisconnectAsync();
 
     private void OnSourceInitialized(object? sender, EventArgs e)
     {
@@ -915,89 +919,6 @@ public partial class MainWindow : Window, ICommandOutput
         return node;
     }
 
-    private record struct SnapshotWorkItem(WcElement Element, TreeViewItem TreeItem);
-
-    private async Task BuildChildrenConcurrentlyAsync(
-        IReadOnlyList<WcElement> initialChildren, TreeViewItem rootItem,
-        Dictionary<string, WcElement> elementsById, Action<int, int> reportProgress, CancellationToken ct)
-    {
-        var channel = Channel.CreateUnbounded<SnapshotWorkItem>();
-        var remaining = initialChildren.Count;
-        var total = initialChildren.Count;
-        var completed = 0;
-
-        // Pre-create placeholders in order on the UI thread
-        foreach (var child in initialChildren)
-        {
-            elementsById[child.ElementId] = child;
-            var placeholder = new SnapshotNode("…", null, new Dictionary<string, object?>(), []);
-            var treeItem = new TreeViewItem { Header = "…", Tag = placeholder };
-            rootItem.Items.Add(treeItem);
-            ((SnapshotNode)rootItem.Tag).Children.Add(placeholder);
-            channel.Writer.TryWrite(new SnapshotWorkItem(child, treeItem));
-        }
-
-        rootItem.IsExpanded = true;
-        reportProgress(0, total);
-
-        if (remaining == 0)
-            return;
-
-        const int maxConcurrency = 8;
-        var consumers = Enumerable.Range(0, maxConcurrency).Select(async _ =>
-        {
-            await foreach (var item in channel.Reader.ReadAllAsync(ct))
-            {
-                var attrs = await item.Element.GetAttributesAsync(ct);
-                var childElements = await item.Element.ChildrenAsync(ct);
-
-                await Dispatcher.InvokeAsync(() =>
-                {
-                    var rect = ExtractBoundingRect(attrs);
-                    var label = ComputeSnapshotLabel(attrs);
-                    var oldPlaceholder = (SnapshotNode)item.TreeItem.Tag;
-                    var node = new SnapshotNode(label, rect, attrs, oldPlaceholder.Children);
-
-                    item.TreeItem.Header = label;
-                    item.TreeItem.Tag = node;
-                    item.TreeItem.Style = SnapshotTreeItemStyle;
-
-                    // Replace placeholder in parent's children list
-                    if (item.TreeItem.Parent is TreeViewItem pi)
-                    {
-                        var parentNode = (SnapshotNode)pi.Tag;
-                        var idx = parentNode.Children.IndexOf(oldPlaceholder);
-                        if (idx >= 0) parentNode.Children[idx] = node;
-                    }
-
-                    // Pre-create child placeholders in order
-                    foreach (var childEl in childElements)
-                    {
-                        elementsById[childEl.ElementId] = childEl;
-                        var childPlaceholder = new SnapshotNode("…", null, new Dictionary<string, object?>(), []);
-                        var childTreeItem = new TreeViewItem { Header = "…", Tag = childPlaceholder };
-                        item.TreeItem.Items.Add(childTreeItem);
-                        node.Children.Add(childPlaceholder);
-
-                        Interlocked.Increment(ref remaining);
-                        Interlocked.Increment(ref total);
-                        channel.Writer.TryWrite(new SnapshotWorkItem(childEl, childTreeItem));
-                    }
-
-                    if (childElements.Count > 0)
-                        item.TreeItem.IsExpanded = true;
-
-                    var c = Interlocked.Increment(ref completed);
-                    reportProgress(c, Volatile.Read(ref total));
-
-                    if (Interlocked.Decrement(ref remaining) == 0)
-                        channel.Writer.Complete();
-                });
-            }
-        }).ToArray();
-
-        await Task.WhenAll(consumers);
-    }
 
     private static void PreCreateTreeItems(
         IReadOnlyTreeNode<WcElement> tree, TreeViewItem parentItem,
@@ -1030,7 +951,7 @@ public partial class MainWindow : Window, ICommandOutput
         var completed = 0;
         reportProgress(0, total);
 
-        var semaphore = new SemaphoreSlim(8);
+        var semaphore = new SemaphoreSlim(SnapshotMaxConcurrency);
         var tasks = flatNodes.Select(async entry =>
         {
             await semaphore.WaitAsync(ct);

@@ -253,8 +253,6 @@ internal sealed class WcInspectorSession : IInspectorSession, IAsyncDisposable
     public async Task<WcElementOcrResult> GetOcrTextAsync(CancellationToken ct = default) =>
         await _selectedElement!.GetOcrTextAsync(ct);
 
-    internal const bool SnapshotGetDescendantsInBulk = false;
-
     public async Task<IReadOnlyList<WcElement>> GetChildrenAsync(CancellationToken ct = default) =>
         await _selectedElement!.ChildrenAsync(ct);
 
