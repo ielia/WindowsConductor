@@ -56,12 +56,18 @@
                             Click="SnapshotCloseButton_Click" />
                     <Rectangle DockPanel.Dock="Right" Width="2" Fill="#555555" Margin="4,0" />
                     <Grid>
+                        <ProgressBar x:Name="SnapshotProgressBar"
+                                     Height="20"
+                                     Background="#2D2D2D" Foreground="#007ACC"
+                                     BorderBrush="#555555" BorderThickness="1"
+                                     Minimum="0" Maximum="1" Value="0" />
                         <TextBox x:Name="SnapshotFilterBox"
                                  Background="#2D2D2D" Foreground="#FFFFFF"
                                  BorderBrush="#555555" BorderThickness="1"
                                  FontFamily="Consolas" FontSize="11"
                                  VerticalContentAlignment="Center"
                                  Padding="4,2,20,2"
+                                 Visibility="Collapsed"
                                  TextChanged="SnapshotFilterBox_TextChanged" />
                         <Button x:Name="SnapshotFilterClearButton"
                                 Content="x" HorizontalAlignment="Right"

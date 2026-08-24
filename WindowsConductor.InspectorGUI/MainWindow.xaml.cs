@@ -12,6 +12,7 @@ using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using System.Threading.Channels;
 using System.Windows.Threading;
 using Brush = System.Windows.Media.Brush;
 using Brushes = System.Windows.Media.Brushes;
@@ -864,6 +865,8 @@ public partial class MainWindow : Window, ICommandOutput
                 elementsById);
 
             ShowSnapshotScreenshot(croppedBytes, actualRect);
+            SnapshotProgressBar.Visibility = Visibility.Collapsed;
+            SnapshotFilterBox.Visibility = Visibility.Visible;
             SnapshotTree.IsEnabled = true;
             if (SnapshotTree.Items[0] is TreeViewItem rootItem)
                 rootItem.IsSelected = true;
@@ -887,8 +890,7 @@ public partial class MainWindow : Window, ICommandOutput
         IInspectorSession session, Dictionary<string, WcElement> elementsById, CancellationToken ct)
     {
         var attrs = await session.GetAttributesAsync(ct);
-        BoundingRect? rect = null;
-        try { rect = await session.GetElementBoundingRectAsync(ct); } catch { }
+        var rect = ExtractBoundingRect(attrs);
 
         var label = ComputeSnapshotLabel(attrs);
         var children = new List<SnapshotNode>();
@@ -897,83 +899,179 @@ public partial class MainWindow : Window, ICommandOutput
         var treeItem = new TreeViewItem { Header = label, Tag = node, Style = SnapshotTreeItemStyle };
         SnapshotTree.Items.Add(treeItem);
 
-#pragma warning disable CS0162 // Unreachable code — SnapshotGetDescendantsInBulk is a compile-time toggle
-        if (WcInspectorSession.SnapshotGetDescendantsInBulk)
-        {
-            var tree = await session.GetDescendantsAsync(ct);
-            await PopulateFromTreeNodeAsync(tree, treeItem, elementsById, ct);
-        }
-        else
-        {
-            var childElements = await session.GetChildrenAsync(ct);
-            foreach (var childEl in childElements)
+        void ReportProgress(int completed, int total) =>
+            Dispatcher.InvokeAsync(() =>
             {
-                ct.ThrowIfCancellationRequested();
-                elementsById[childEl.ElementId] = childEl;
-                await BuildChildSnapshotAsync(childEl, treeItem, elementsById, ct);
-            }
-        }
-#pragma warning restore CS0162
+                var value = total > 0 ? (double)completed / total : 0;
+                if (value > SnapshotProgressBar.Value)
+                    SnapshotProgressBar.Value = value;
+            });
+
+        var tree = await session.GetDescendantsAsync(ct);
+        var flatNodes = new List<(WcElement Element, TreeViewItem TreeItem)>();
+        PreCreateTreeItems(tree, treeItem, elementsById, flatNodes);
+        await FetchAttributesConcurrentlyAsync(flatNodes, ReportProgress, ct);
 
         return node;
     }
 
-    private static async Task BuildChildSnapshotAsync(
-        WcElement element, TreeViewItem parentItem,
-        Dictionary<string, WcElement> elementsById, CancellationToken ct)
+    private record struct SnapshotWorkItem(WcElement Element, TreeViewItem TreeItem);
+
+    private async Task BuildChildrenConcurrentlyAsync(
+        IReadOnlyList<WcElement> initialChildren, TreeViewItem rootItem,
+        Dictionary<string, WcElement> elementsById, Action<int, int> reportProgress, CancellationToken ct)
     {
-        var attrs = await element.GetAttributesAsync(ct);
-        BoundingRect? rect = null;
-        try { rect = await element.GetBoundingRectAsync(ct); } catch { }
+        var channel = Channel.CreateUnbounded<SnapshotWorkItem>();
+        var remaining = initialChildren.Count;
+        var total = initialChildren.Count;
+        var completed = 0;
 
-        var label = ComputeSnapshotLabel(attrs);
-        var children = new List<SnapshotNode>();
-        var node = new SnapshotNode(label, rect, attrs, children);
-
-        var treeItem = new TreeViewItem { Header = label, Tag = node, Style = SnapshotTreeItemStyle };
-        parentItem.Items.Add(treeItem);
-        parentItem.IsExpanded = true;
-
-        var parentNode = (SnapshotNode)parentItem.Tag;
-        parentNode.Children.Add(node);
-
-        var childElements = await element.ChildrenAsync(ct);
-        foreach (var childEl in childElements)
+        // Pre-create placeholders in order on the UI thread
+        foreach (var child in initialChildren)
         {
-            ct.ThrowIfCancellationRequested();
-            elementsById[childEl.ElementId] = childEl;
-            await BuildChildSnapshotAsync(childEl, treeItem, elementsById, ct);
+            elementsById[child.ElementId] = child;
+            var placeholder = new SnapshotNode("…", null, new Dictionary<string, object?>(), []);
+            var treeItem = new TreeViewItem { Header = "…", Tag = placeholder };
+            rootItem.Items.Add(treeItem);
+            ((SnapshotNode)rootItem.Tag).Children.Add(placeholder);
+            channel.Writer.TryWrite(new SnapshotWorkItem(child, treeItem));
         }
+
+        rootItem.IsExpanded = true;
+        reportProgress(0, total);
+
+        if (remaining == 0)
+            return;
+
+        const int maxConcurrency = 8;
+        var consumers = Enumerable.Range(0, maxConcurrency).Select(async _ =>
+        {
+            await foreach (var item in channel.Reader.ReadAllAsync(ct))
+            {
+                var attrs = await item.Element.GetAttributesAsync(ct);
+                var childElements = await item.Element.ChildrenAsync(ct);
+
+                await Dispatcher.InvokeAsync(() =>
+                {
+                    var rect = ExtractBoundingRect(attrs);
+                    var label = ComputeSnapshotLabel(attrs);
+                    var oldPlaceholder = (SnapshotNode)item.TreeItem.Tag;
+                    var node = new SnapshotNode(label, rect, attrs, oldPlaceholder.Children);
+
+                    item.TreeItem.Header = label;
+                    item.TreeItem.Tag = node;
+                    item.TreeItem.Style = SnapshotTreeItemStyle;
+
+                    // Replace placeholder in parent's children list
+                    if (item.TreeItem.Parent is TreeViewItem pi)
+                    {
+                        var parentNode = (SnapshotNode)pi.Tag;
+                        var idx = parentNode.Children.IndexOf(oldPlaceholder);
+                        if (idx >= 0) parentNode.Children[idx] = node;
+                    }
+
+                    // Pre-create child placeholders in order
+                    foreach (var childEl in childElements)
+                    {
+                        elementsById[childEl.ElementId] = childEl;
+                        var childPlaceholder = new SnapshotNode("…", null, new Dictionary<string, object?>(), []);
+                        var childTreeItem = new TreeViewItem { Header = "…", Tag = childPlaceholder };
+                        item.TreeItem.Items.Add(childTreeItem);
+                        node.Children.Add(childPlaceholder);
+
+                        Interlocked.Increment(ref remaining);
+                        Interlocked.Increment(ref total);
+                        channel.Writer.TryWrite(new SnapshotWorkItem(childEl, childTreeItem));
+                    }
+
+                    if (childElements.Count > 0)
+                        item.TreeItem.IsExpanded = true;
+
+                    var c = Interlocked.Increment(ref completed);
+                    reportProgress(c, Volatile.Read(ref total));
+
+                    if (Interlocked.Decrement(ref remaining) == 0)
+                        channel.Writer.Complete();
+                });
+            }
+        }).ToArray();
+
+        await Task.WhenAll(consumers);
     }
 
-    private static async Task PopulateFromTreeNodeAsync(
+    private static void PreCreateTreeItems(
         IReadOnlyTreeNode<WcElement> tree, TreeViewItem parentItem,
-        Dictionary<string, WcElement> elementsById, CancellationToken ct)
+        Dictionary<string, WcElement> elementsById,
+        List<(WcElement Element, TreeViewItem ParentItem)> flatNodes)
     {
         foreach (var childTree in tree.Children)
         {
-            ct.ThrowIfCancellationRequested();
             var el = childTree.Value;
             elementsById[el.ElementId] = el;
 
-            var attrs = await el.GetAttributesAsync(ct);
-            BoundingRect? rect = null;
-            try { rect = await el.GetBoundingRectAsync(ct); } catch { }
-
-            var label = ComputeSnapshotLabel(attrs);
-            var children = new List<SnapshotNode>();
-            var node = new SnapshotNode(label, rect, attrs, children);
-
-            var treeItem = new TreeViewItem { Header = label, Tag = node, Style = SnapshotTreeItemStyle };
+            var placeholder = new SnapshotNode("…", null, new Dictionary<string, object?>(), []);
+            var treeItem = new TreeViewItem { Header = "…", Tag = placeholder };
             parentItem.Items.Add(treeItem);
             parentItem.IsExpanded = true;
 
             var parentNode = (SnapshotNode)parentItem.Tag;
-            parentNode.Children.Add(node);
+            parentNode.Children.Add(placeholder);
 
-            await PopulateFromTreeNodeAsync(childTree, treeItem, elementsById, ct);
+            flatNodes.Add((el, treeItem));
+            PreCreateTreeItems(childTree, treeItem, elementsById, flatNodes);
         }
     }
+
+    private async Task FetchAttributesConcurrentlyAsync(
+        List<(WcElement Element, TreeViewItem TreeItem)> flatNodes,
+        Action<int, int> reportProgress, CancellationToken ct)
+    {
+        var total = flatNodes.Count;
+        var completed = 0;
+        reportProgress(0, total);
+
+        var semaphore = new SemaphoreSlim(8);
+        var tasks = flatNodes.Select(async entry =>
+        {
+            await semaphore.WaitAsync(ct);
+            try
+            {
+                var attrs = await entry.Element.GetAttributesAsync(ct);
+                await Dispatcher.InvokeAsync(() =>
+                {
+                    var rect = ExtractBoundingRect(attrs);
+                    var label = ComputeSnapshotLabel(attrs);
+
+                    var parentNode = entry.TreeItem.Parent is TreeViewItem pi
+                        ? (SnapshotNode)pi.Tag : null;
+                    var oldPlaceholder = (SnapshotNode)entry.TreeItem.Tag;
+                    var node = new SnapshotNode(label, rect, attrs, oldPlaceholder.Children);
+
+                    entry.TreeItem.Header = label;
+                    entry.TreeItem.Tag = node;
+                    entry.TreeItem.Style = SnapshotTreeItemStyle;
+
+                    if (parentNode != null)
+                    {
+                        var idx = parentNode.Children.IndexOf(oldPlaceholder);
+                        if (idx >= 0) parentNode.Children[idx] = node;
+                    }
+                });
+            }
+            finally
+            {
+                semaphore.Release();
+                reportProgress(Interlocked.Increment(ref completed), total);
+            }
+        }).ToArray();
+
+        await Task.WhenAll(tasks);
+    }
+
+    private static BoundingRect? ExtractBoundingRect(Dictionary<string, object?> attrs) =>
+        attrs.TryGetValue("boundingrectangle", out var val) && val is System.Drawing.Rectangle r
+            ? new BoundingRect(r.X, r.Y, r.Width, r.Height)
+            : null;
 
     private sealed record AttributeRow(string Name, string Value, bool IsNull);
 
@@ -1119,6 +1217,9 @@ public partial class MainWindow : Window, ICommandOutput
         LocatorChainPanel.Visibility = Visibility.Collapsed;
 
         SnapshotFilterBox.Text = "";
+        SnapshotFilterBox.Visibility = Visibility.Collapsed;
+        SnapshotProgressBar.Value = 0;
+        SnapshotProgressBar.Visibility = Visibility.Visible;
         SnapshotPanel.Visibility = Visibility.Visible;
         SnapshotSplitter.Visibility = Visibility.Visible;
         SnapshotColumn.Width = new GridLength(280);
@@ -1140,6 +1241,8 @@ public partial class MainWindow : Window, ICommandOutput
         _snapshotHitIndex = 0;
 
         SnapshotFilterBox.Text = "";
+        SnapshotFilterBox.Visibility = Visibility.Collapsed;
+        SnapshotProgressBar.Visibility = Visibility.Visible;
         SnapshotTree.IsEnabled = false;
         SnapshotTree.Items.Clear();
         SnapshotPanel.Visibility = Visibility.Collapsed;
