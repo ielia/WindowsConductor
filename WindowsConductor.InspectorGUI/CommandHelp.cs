@@ -53,6 +53,7 @@ internal static class CommandHelp
         Key bindings:
           Shift+PgUp / Shift+PgDown   Scroll log
           Up Arrow / Down Arrow       Previous / next command in history
+          Ctrl+R / Ctrl+Shift+R       Search history backward / forward
           Tab                         Autocomplete command
           Ctrl+Tab / Shift+Ctrl+Tab   Cycle panels
           Alt+Left / Alt+Right        Previous / next match

@@ -34,6 +34,7 @@ public partial class MainWindow : Window, ICommandOutput
         set => SetValue(SnapshotHighlightTokensProperty, value);
     }
 
+    private readonly string _dataDirPath = InspectorSettings.GetDataDirPath();
     private readonly CommandExecutor _executor;
     private readonly CommandHistory _history = new();
     private DispatcherTimer? _blinkTimer;
@@ -45,6 +46,7 @@ public partial class MainWindow : Window, ICommandOutput
     private Border? _lastFocusedBorder;
     private bool _busy;
     private Brush _highlightBrush = Brushes.Red;
+    private int _activeHighlightId = SC_HIGHLIGHT_RED;
     private bool _clicklessMode;
     private DispatcherTimer? _clicklessDebounce;
     private (int X, int Y) _lastClicklessCoords = (-1, -1);
@@ -54,6 +56,7 @@ public partial class MainWindow : Window, ICommandOutput
     private readonly HashSet<string> _pinnedAttributes = new(StringComparer.InvariantCultureIgnoreCase);
     private Dictionary<string, object?>? _lastAttributes;
     private Task? _clicklessTask;
+    private double _snapshotPanelWidth = InspectorSettings.DefaultSnapshotPanelWidth;
     private bool _snapshotMode;
     private SnapshotCapture? _snapshotCapture;
     private CancellationTokenSource? _snapshotCts;
@@ -72,6 +75,10 @@ public partial class MainWindow : Window, ICommandOutput
     private const double NativePixelZoomMax = 10.0;
     private const double ZoomStep = 1.2;
     private const int SnapshotMaxConcurrency = 8;
+
+    private bool _inRecallMode;
+    private string _recallQuery = "";
+    private int _recallMatchIndex = -1;
 
     private const int WM_SYSCOMMAND = 0x0112;
     private const int WM_MEASUREITEM = 0x002C;
@@ -97,6 +104,7 @@ public partial class MainWindow : Window, ICommandOutput
     private const int SC_HIGHLIGHT_YELLOW = 0x1104;
     private const int SC_HIGHLIGHT_BLACK = 0x1105;
     private const int SC_HIGHLIGHT_WHITE = 0x1106;
+    private const int SC_RESET_GUI = 0x1200;
 
     private static readonly Dictionary<int, (string Label, GdiColor Color, Brush WpfBrush)> HighlightColors = new()
     {
@@ -207,11 +215,37 @@ public partial class MainWindow : Window, ICommandOutput
 
     public MainWindow()
     {
+        var state = InspectorSettings.LoadState(_dataDirPath);
+        var historyEntries = InspectorSettings.LoadHistory(_dataDirPath);
+
         InitializeComponent();
+
+        ApplyWindowGeometry(state);
+
         SourceInitialized += OnSourceInitialized;
         Closed += OnWindowClosed;
-        var session = new WcInspectorSession();
-        _executor = new CommandExecutor(session, this);
+        var session = new WcInspectorSession { AllowSelfSignedCerts = state.AllowSelfSignedCerts };
+        _executor = new CommandExecutor(session, this) { StopChainOnError = state.StopOnError };
+        _prunedLocate = state.PrunedLocate;
+        _clicklessMode = state.ClicklessMode;
+        ClicklessCheckBox.IsChecked = state.ClicklessMode;
+        WrapCheckBox.IsChecked = state.WrapAttributes;
+        _snapshotPanelWidth = state.SnapshotPanelWidth;
+        if (HighlightColors.TryGetValue(state.HighlightColor, out var hlColor))
+        {
+            _activeHighlightId = state.HighlightColor;
+            _highlightBrush = hlColor.WpfBrush;
+        }
+        foreach (var attr in state.PinnedAttributes)
+            _pinnedAttributes.Add(attr);
+
+        _history.Load(historyEntries);
+
+        var maxPanelWidth = Math.Max(Width / 2, 100);
+        OutputLogRow.Height = new GridLength(Math.Clamp(state.OutputLogHeight, 50, Math.Max(Height / 2, 50)));
+        AttributesPanelColumn.Width = new GridLength(Math.Clamp(state.AttributesPanelWidth, 100, maxPanelWidth));
+        _snapshotPanelWidth = Math.Clamp(_snapshotPanelWidth, 100, maxPanelWidth);
+
         _normalPanels = [CommandInput, ScreenshotImage, AttributesGrid, OutputLog];
         _snapshotPanels = [SnapshotFilterBox, SnapshotTree, ScreenshotImage, AttributesGrid, OutputLog];
         _panelBorders = new Dictionary<UIElement, Border>
@@ -232,8 +266,73 @@ public partial class MainWindow : Window, ICommandOutput
         CommandInput.Focus();
     }
 
-    private async void OnWindowClosed(object? sender, EventArgs e) =>
+    private void ApplyWindowGeometry(StateData state)
+    {
+        if (state.WindowLeft is { } left && state.WindowTop is { } top)
+        {
+            var w = InspectorSettings.FitsInScreen(state.WindowWidth, state.WindowHeight)
+                ? state.WindowWidth : InspectorSettings.DefaultWindowWidth;
+            var h = InspectorSettings.FitsInScreen(state.WindowWidth, state.WindowHeight)
+                ? state.WindowHeight : InspectorSettings.DefaultWindowHeight;
+
+            if (InspectorSettings.IsTitleBarVisible(left, top, w))
+            {
+                WindowStartupLocation = WindowStartupLocation.Manual;
+                Left = left;
+                Top = top;
+                Width = w;
+                Height = h;
+            }
+            else
+            {
+                Width = w;
+                Height = h;
+            }
+        }
+        else if (InspectorSettings.FitsInScreen(state.WindowWidth, state.WindowHeight))
+        {
+            Width = state.WindowWidth;
+            Height = state.WindowHeight;
+        }
+
+        if (Enum.TryParse<System.Windows.WindowState>(state.WindowState, out var ws))
+            WindowState = ws;
+    }
+
+    private async void OnWindowClosed(object? sender, EventArgs e)
+    {
+        SaveState();
         await _executor.Session.DisconnectAsync();
+    }
+
+    private void SaveState()
+    {
+        var bounds = WindowState == System.Windows.WindowState.Normal
+            ? new Rect(Left, Top, Width, Height)
+            : RestoreBounds;
+
+        var state = new StateData
+        {
+            StopOnError = _executor.StopChainOnError,
+            AllowSelfSignedCerts = _executor.Session.AllowSelfSignedCerts,
+            PrunedLocate = _prunedLocate,
+            HighlightColor = _activeHighlightId,
+            PinnedAttributes = [.. _pinnedAttributes],
+            ClicklessMode = _clicklessMode,
+            WrapAttributes = WrapCheckBox.IsChecked == true,
+            WindowLeft = bounds.Left,
+            WindowTop = bounds.Top,
+            WindowWidth = bounds.Width,
+            WindowHeight = bounds.Height,
+            WindowState = WindowState.ToString(),
+            OutputLogHeight = OutputLogRow.ActualHeight,
+            AttributesPanelWidth = AttributesPanelColumn.ActualWidth,
+            SnapshotPanelWidth = _snapshotPanelWidth,
+        };
+
+        InspectorSettings.SaveState(_dataDirPath, state);
+        InspectorSettings.SaveHistory(_dataDirPath, _history.Entries);
+    }
 
     private void OnSourceInitialized(object? sender, EventArgs e)
     {
@@ -242,14 +341,16 @@ public partial class MainWindow : Window, ICommandOutput
         AppendMenu(sysMenu, MF_SEPARATOR, 0, string.Empty);
         AppendMenu(sysMenu, MF_STRING | MF_GRAYED, SC_CLIENT_VERSION, $"Client version: {Client.WcDefaults.Version}");
         AppendMenu(sysMenu, MF_SEPARATOR, 0, string.Empty);
-        AppendMenu(sysMenu, MF_STRING | MF_UNCHECKED, SC_STOP_ON_ERROR, "Stop on error");
-        AppendMenu(sysMenu, MF_STRING | MF_CHECKED, SC_ALLOW_SELF_SIGNED, "Allow self-signed certs");
-        AppendMenu(sysMenu, MF_STRING | MF_CHECKED, SC_PRUNED_LOCATE, "Pruned locate");
+        AppendMenu(sysMenu, MF_STRING | (_executor.StopChainOnError ? MF_CHECKED : MF_UNCHECKED), SC_STOP_ON_ERROR, "Stop on error");
+        AppendMenu(sysMenu, MF_STRING | (_executor.Session.AllowSelfSignedCerts ? MF_CHECKED : MF_UNCHECKED), SC_ALLOW_SELF_SIGNED, "Allow self-signed certs");
+        AppendMenu(sysMenu, MF_STRING | (_prunedLocate ? MF_CHECKED : MF_UNCHECKED), SC_PRUNED_LOCATE, "Pruned locate");
         AppendMenu(sysMenu, MF_SEPARATOR, 0, string.Empty);
         AppendMenu(sysMenu, MF_OWNERDRAW | MF_GRAYED, SC_HIGHLIGHT_TITLE, string.Empty);
         foreach (var id in HighlightColors.Keys)
             AppendMenu(sysMenu, MF_OWNERDRAW, id, string.Empty);
-        CheckMenuRadioItem(sysMenu, SC_HIGHLIGHT_RED, SC_HIGHLIGHT_WHITE, SC_HIGHLIGHT_RED, MF_BYCOMMAND);
+        CheckMenuRadioItem(sysMenu, SC_HIGHLIGHT_RED, SC_HIGHLIGHT_WHITE, _activeHighlightId, MF_BYCOMMAND);
+        AppendMenu(sysMenu, MF_SEPARATOR, 0, string.Empty);
+        AppendMenu(sysMenu, MF_STRING, SC_RESET_GUI, "Reset GUI");
         var source = HwndSource.FromHwnd(hwnd);
         source?.AddHook(WndProc);
     }
@@ -290,6 +391,11 @@ public partial class MainWindow : Window, ICommandOutput
                     SetHighlightColor(hwnd, id);
                     handled = true;
                 }
+                else if (id == SC_RESET_GUI)
+                {
+                    ResetGui(hwnd);
+                    handled = true;
+                }
                 break;
 
             case WM_MEASUREITEM:
@@ -304,8 +410,45 @@ public partial class MainWindow : Window, ICommandOutput
         return IntPtr.Zero;
     }
 
+    private void ResetGui(IntPtr hwnd)
+    {
+        InspectorSettings.ResetAll(_dataDirPath);
+        var defaults = new StateData();
+
+        _executor.StopChainOnError = defaults.StopOnError;
+        _executor.Session.AllowSelfSignedCerts = defaults.AllowSelfSignedCerts;
+        _prunedLocate = defaults.PrunedLocate;
+        _clicklessMode = defaults.ClicklessMode;
+        ClicklessCheckBox.IsChecked = defaults.ClicklessMode;
+        WrapCheckBox.IsChecked = defaults.WrapAttributes;
+        _pinnedAttributes.Clear();
+        _snapshotPanelWidth = defaults.SnapshotPanelWidth;
+        _history.Load([]);
+
+        var defaultHighlight = HighlightColors.ContainsKey(defaults.HighlightColor)
+            ? defaults.HighlightColor : SC_HIGHLIGHT_RED;
+        SetHighlightColor(hwnd, defaultHighlight);
+        var sysMenu = GetSystemMenu(hwnd, false);
+        _ = CheckMenuItem(sysMenu, SC_STOP_ON_ERROR, defaults.StopOnError ? MF_CHECKED : MF_UNCHECKED);
+        _ = CheckMenuItem(sysMenu, SC_ALLOW_SELF_SIGNED, defaults.AllowSelfSignedCerts ? MF_CHECKED : MF_UNCHECKED);
+        _ = CheckMenuItem(sysMenu, SC_PRUNED_LOCATE, defaults.PrunedLocate ? MF_CHECKED : MF_UNCHECKED);
+
+        OutputLogRow.Height = new GridLength(defaults.OutputLogHeight);
+        AttributesPanelColumn.Width = new GridLength(defaults.AttributesPanelWidth);
+
+        Width = defaults.WindowWidth;
+        Height = defaults.WindowHeight;
+        WindowState = System.Windows.WindowState.Normal;
+
+        if (_lastAttributes is not null)
+            RefreshAttributeGrids(_lastAttributes);
+
+        AppendLog("GUI settings reset to defaults.");
+    }
+
     private void SetHighlightColor(IntPtr hwnd, int menuId)
     {
+        _activeHighlightId = menuId;
         _highlightBrush = HighlightColors[menuId].WpfBrush;
         var sysMenu = GetSystemMenu(hwnd, false);
         CheckMenuRadioItem(sysMenu, SC_HIGHLIGHT_RED, SC_HIGHLIGHT_WHITE, menuId, MF_BYCOMMAND);
@@ -524,6 +667,74 @@ public partial class MainWindow : Window, ICommandOutput
 
     private async void CommandInput_PreviewKeyDown(object sender, KeyEventArgs e)
     {
+        if (_inRecallMode)
+        {
+            if (e.Key == Key.R && Keyboard.Modifiers.HasFlag(ModifierKeys.Control))
+            {
+                e.Handled = true;
+                if (Keyboard.Modifiers.HasFlag(ModifierKeys.Shift))
+                {
+                    var idx = _history.FindForward(_recallQuery, _recallMatchIndex);
+                    if (idx >= 0) _recallMatchIndex = idx;
+                }
+                else
+                {
+                    var idx = _history.FindBackward(_recallQuery, _recallMatchIndex);
+                    if (idx >= 0) _recallMatchIndex = idx;
+                }
+                UpdateRecallDisplay();
+                return;
+            }
+
+            if (e.Key == Key.Escape)
+            {
+                e.Handled = true;
+                ExitRecallMode(RecallExitAction.Cancel);
+                return;
+            }
+
+            if (e.Key == Key.Left || e.Key == Key.Right)
+            {
+                e.Handled = true;
+                ExitRecallMode(RecallExitAction.Accept);
+                return;
+            }
+
+            if (e.Key == Key.Up)
+            {
+                e.Handled = true;
+                ExitRecallMode(RecallExitAction.HistoryUp);
+                return;
+            }
+
+            if (e.Key == Key.Down)
+            {
+                e.Handled = true;
+                ExitRecallMode(RecallExitAction.HistoryDown);
+                return;
+            }
+
+            if (e.Key == Key.Enter)
+            {
+                e.Handled = true;
+                var matched = _recallMatchIndex >= 0 ? _history.GetEntry(_recallMatchIndex) : null;
+                ExitRecallMode(RecallExitAction.Accept);
+                if (matched is not null)
+                    await SubmitCommand(matched);
+                return;
+            }
+
+            // Any other key: let TextBox handle it, then react via TextChanged
+            return;
+        }
+
+        if (e.Key == Key.R && Keyboard.Modifiers == ModifierKeys.Control)
+        {
+            e.Handled = true;
+            EnterRecallMode();
+            return;
+        }
+
         if (e.Key == Key.Tab)
         {
             if (Keyboard.Modifiers.HasFlag(ModifierKeys.Control))
@@ -562,6 +773,11 @@ public partial class MainWindow : Window, ICommandOutput
         var input = CommandInput.Text.Trim();
         if (string.IsNullOrEmpty(input)) return;
 
+        await SubmitCommand(input);
+    }
+
+    private async Task SubmitCommand(string input)
+    {
         _history.Add(input);
         _history.ResetCursor();
         CommandInput.Text = "";
@@ -576,6 +792,135 @@ public partial class MainWindow : Window, ICommandOutput
         finally
         {
             SetBusy(false);
+        }
+    }
+
+    private enum RecallExitAction { Accept, Cancel, HistoryUp, HistoryDown }
+
+    private void EnterRecallMode()
+    {
+        _inRecallMode = true;
+        _recallQuery = CommandInput.Text;
+        _recallMatchIndex = _history.Count; // start searching from end
+        CommandInput.TextChanged += OnRecallTextChanged;
+        var idx = _history.FindBackward(_recallQuery, _recallMatchIndex);
+        if (idx >= 0) _recallMatchIndex = idx;
+        else _recallMatchIndex = -1;
+        UpdateRecallDisplay();
+    }
+
+    private void ExitRecallMode(RecallExitAction action)
+    {
+        _inRecallMode = false;
+        CommandInput.TextChanged -= OnRecallTextChanged;
+        CommandInput.Foreground = InputBrush;
+        RecallOverlay.Visibility = Visibility.Collapsed;
+        PromptText.Text = "> ";
+        PromptText.Foreground = ResponseBrush;
+
+        switch (action)
+        {
+            case RecallExitAction.Accept:
+                var matched = _recallMatchIndex >= 0 ? _history.GetEntry(_recallMatchIndex) : null;
+                if (matched is not null)
+                {
+                    CommandInput.Text = matched;
+                    CommandInput.CaretIndex = matched.Length;
+                }
+                else
+                {
+                    CommandInput.Text = _recallQuery;
+                    CommandInput.CaretIndex = _recallQuery.Length;
+                }
+                break;
+            case RecallExitAction.Cancel:
+                CommandInput.Text = _recallQuery;
+                CommandInput.CaretIndex = _recallQuery.Length;
+                break;
+            case RecallExitAction.HistoryUp:
+                if (_recallMatchIndex >= 0)
+                {
+                    _history.SetCursor(_recallMatchIndex);
+                    var up = _history.NavigateUp(CommandInput.Text);
+                    if (up is not null)
+                    {
+                        CommandInput.Text = up;
+                        CommandInput.CaretIndex = up.Length;
+                    }
+                    else
+                    {
+                        var entry = _history.GetEntry(_recallMatchIndex)!;
+                        CommandInput.Text = entry;
+                        CommandInput.CaretIndex = entry.Length;
+                    }
+                }
+                break;
+            case RecallExitAction.HistoryDown:
+                if (_recallMatchIndex >= 0)
+                {
+                    _history.SetCursor(_recallMatchIndex + 1);
+                    var down = _history.NavigateDown();
+                    if (down is not null)
+                    {
+                        CommandInput.Text = down;
+                        CommandInput.CaretIndex = down.Length;
+                    }
+                    else
+                    {
+                        var entry = _history.GetEntry(_recallMatchIndex)!;
+                        CommandInput.Text = entry;
+                        CommandInput.CaretIndex = entry.Length;
+                    }
+                }
+                break;
+        }
+    }
+
+    private void OnRecallTextChanged(object sender, TextChangedEventArgs e)
+    {
+        _recallQuery = CommandInput.Text;
+        _recallMatchIndex = _history.Count;
+        var idx = _history.FindBackward(_recallQuery, _recallMatchIndex);
+        _recallMatchIndex = idx >= 0 ? idx : -1;
+        UpdateRecallDisplay();
+    }
+
+    private static readonly SolidColorBrush TransparentBrush = Frozen(new(WpfColor.FromArgb(0, 0, 0, 0)));
+
+    private void UpdateRecallDisplay()
+    {
+        PromptText.Text = "< ";
+        RecallOverlay.Inlines.Clear();
+
+        if (_recallMatchIndex >= 0)
+        {
+            var entry = _history.GetEntry(_recallMatchIndex)!;
+            var matchPos = entry.IndexOf(_recallQuery, StringComparison.OrdinalIgnoreCase);
+
+            PromptText.Foreground = ResponseBrush;
+
+            if (matchPos >= 0 && _recallQuery.Length > 0)
+            {
+                if (matchPos > 0)
+                    RecallOverlay.Inlines.Add(new Run(entry[..matchPos]) { Foreground = DimmedBrush });
+                RecallOverlay.Inlines.Add(new Run(entry[matchPos..(matchPos + _recallQuery.Length)]) { Foreground = InputBrush });
+                if (matchPos + _recallQuery.Length < entry.Length)
+                    RecallOverlay.Inlines.Add(new Run(entry[(matchPos + _recallQuery.Length)..]) { Foreground = DimmedBrush });
+            }
+            else
+            {
+                RecallOverlay.Inlines.Add(new Run(entry) { Foreground = DimmedBrush });
+            }
+
+            CommandInput.Foreground = TransparentBrush;
+            RecallOverlay.Visibility = Visibility.Visible;
+        }
+        else
+        {
+            PromptText.Foreground = ErrorBrush;
+            RecallOverlay.Inlines.Add(new Run(_recallQuery) { Foreground = ErrorBrush });
+            CommandInput.Foreground = TransparentBrush;
+            RecallOverlay.Visibility = Visibility.Visible;
         }
     }
 
@@ -1143,7 +1488,8 @@ public partial class MainWindow : Window, ICommandOutput
         SnapshotProgressBar.Visibility = Visibility.Visible;
         SnapshotPanel.Visibility = Visibility.Visible;
         SnapshotSplitter.Visibility = Visibility.Visible;
-        SnapshotColumn.Width = new GridLength(280);
+        var maxSnapshotWidth = ActualWidth / 2;
+        SnapshotColumn.Width = new GridLength(Math.Min(_snapshotPanelWidth, maxSnapshotWidth));
         SnapshotSplitterColumn.Width = GridLength.Auto;
         SnapshotPanel.Focus();
 
@@ -1168,6 +1514,7 @@ public partial class MainWindow : Window, ICommandOutput
         SnapshotTree.Items.Clear();
         SnapshotPanel.Visibility = Visibility.Collapsed;
         SnapshotSplitter.Visibility = Visibility.Collapsed;
+        _snapshotPanelWidth = SnapshotColumn.Width.Value > 0 ? SnapshotColumn.Width.Value : _snapshotPanelWidth;
         SnapshotColumn.Width = new GridLength(0);
         SnapshotSplitterColumn.Width = new GridLength(0);
 

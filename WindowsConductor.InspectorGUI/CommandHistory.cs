@@ -10,6 +10,14 @@ internal sealed class CommandHistory
     private string? _savedInput;
 
     internal int Count => _entries.Count;
+    internal IReadOnlyList<string> Entries => _entries;
+
+    internal void Load(IEnumerable<string> entries)
+    {
+        _entries.Clear();
+        _entries.AddRange(entries);
+        ResetCursor();
+    }
 
     internal void Add(string command)
     {
@@ -55,9 +63,34 @@ internal sealed class CommandHistory
         return _entries[_cursor];
     }
 
+    internal void SetCursor(int index)
+    {
+        _cursor = Math.Clamp(index, 0, _entries.Count);
+        _savedInput = null;
+    }
+
     internal void ResetCursor()
     {
         _cursor = _entries.Count;
         _savedInput = null;
+    }
+
+    internal string? GetEntry(int index) =>
+        index >= 0 && index < _entries.Count ? _entries[index] : null;
+
+    internal int FindBackward(string substring, int fromIndex)
+    {
+        for (var i = Math.Min(fromIndex - 1, _entries.Count - 1); i >= 0; i--)
+            if (_entries[i].Contains(substring, StringComparison.OrdinalIgnoreCase))
+                return i;
+        return -1;
+    }
+
+    internal int FindForward(string substring, int fromIndex)
+    {
+        for (var i = Math.Max(fromIndex + 1, 0); i < _entries.Count; i++)
+            if (_entries[i].Contains(substring, StringComparison.OrdinalIgnoreCase))
+                return i;
+        return -1;
     }
 }

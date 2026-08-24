@@ -118,6 +118,7 @@ Anchors for `click`, `doubleclick`, `rightclick`, `hover`, and `drag`: `center`,
 |---|---|
 | `Shift+PgUp` / `Shift+PgDown` | Scroll log |
 | `Up` / `Down Arrow` | Command history |
+| `Ctrl+R` / `Ctrl+Shift+R` | Search history backward / forward |
 | `Tab` | Autocomplete command |
 | `Ctrl+Tab` / `Shift+Ctrl+Tab` | Cycle panels |
 | `Alt+Left` / `Alt+Right` | Previous / next match |

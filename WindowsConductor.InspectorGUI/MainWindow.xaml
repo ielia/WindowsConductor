@@ -3,7 +3,6 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:local="clr-namespace:WindowsConductor.InspectorGUI"
         Title="WindowsConductor Inspector" Height="700" Width="1000"
-        WindowStartupLocation="CenterScreen"
         PreviewKeyDown="Window_PreviewKeyDown"
         PreviewGotKeyboardFocus="Window_PreviewGotKeyboardFocus">
     <Window.Resources>
@@ -100,7 +99,7 @@
             <Grid.RowDefinitions>
                 <RowDefinition Height="*" />
                 <RowDefinition Height="Auto" />
-                <RowDefinition Height="120" />
+                <RowDefinition x:Name="OutputLogRow" Height="120" />
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
@@ -109,7 +108,7 @@
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="320" />
+                    <ColumnDefinition x:Name="AttributesPanelColumn" Width="320" />
                 </Grid.ColumnDefinitions>
 
                 <!-- Screenshot display with highlight overlay -->
@@ -396,7 +395,7 @@
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
-                    <TextBlock Grid.Column="0" Text="&gt; " Foreground="#CCCCCC"
+                    <TextBlock x:Name="PromptText" Grid.Column="0" Text="&gt; " Foreground="#CCCCCC"
                                FontFamily="Consolas" FontSize="14"
                                VerticalAlignment="Center" Margin="4,0" />
                     <TextBox Grid.Column="1" x:Name="CommandInput"
@@ -405,6 +404,11 @@
                              CaretBrush="White" BorderThickness="0"
                              Padding="4"
                              PreviewKeyDown="CommandInput_PreviewKeyDown" />
+                    <TextBlock x:Name="RecallOverlay" Grid.Column="1"
+                               FontFamily="Consolas" FontSize="14"
+                               Background="#2D2D2D"
+                               VerticalAlignment="Center" Padding="4"
+                               Visibility="Collapsed" IsHitTestVisible="False" />
                     <Button Grid.Column="2" x:Name="SleepStopButton"
                             Content="Stop" Padding="12,3"
                             Visibility="Collapsed"
