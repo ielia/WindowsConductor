@@ -1,5 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
+using System.ComponentModel;
 using WindowsConductor.Client;
 using System.Runtime.InteropServices;
 using Key = System.Windows.Input.Key;
@@ -223,7 +224,7 @@ public partial class MainWindow : Window, ICommandOutput
         ApplyWindowGeometry(state);
 
         SourceInitialized += OnSourceInitialized;
-        Closed += OnWindowClosed;
+        Closing += OnWindowClosing;
         var session = new WcInspectorSession { AllowSelfSignedCerts = state.AllowSelfSignedCerts };
         _executor = new CommandExecutor(session, this) { StopChainOnError = state.StopOnError };
         _prunedLocate = state.PrunedLocate;
@@ -295,11 +296,11 @@ public partial class MainWindow : Window, ICommandOutput
             Height = state.WindowHeight;
         }
 
-        if (Enum.TryParse<System.Windows.WindowState>(state.WindowState, out var ws))
+        if (Enum.TryParse<WindowState>(state.WindowState, out var ws))
             WindowState = ws;
     }
 
-    private async void OnWindowClosed(object? sender, EventArgs e)
+    private async void OnWindowClosing(object? sender, CancelEventArgs e)
     {
         SaveState();
         await _executor.Session.DisconnectAsync();
@@ -307,7 +308,7 @@ public partial class MainWindow : Window, ICommandOutput
 
     private void SaveState()
     {
-        var bounds = WindowState == System.Windows.WindowState.Normal
+        var bounds = WindowState == WindowState.Normal
             ? new Rect(Left, Top, Width, Height)
             : RestoreBounds;
 
